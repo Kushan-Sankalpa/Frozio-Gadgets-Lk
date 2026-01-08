@@ -11,29 +11,15 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/Backend/components/ui/sidebar';
-import { dashboard, } from '@/routes';
 import { NavItemWithSubmenu, type NavItem } from '@/Backend/types';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import {
     LayoutDashboard,
-    MapPinned,
-    CalendarDays,
-    ClipboardList,
-    BadgePercent,
-    Users,
-    Images,
-    Settings,
-    ShieldCheck,
-    UserRoundCog,
     BookOpen,
-    MessageSquare,
-    BarChart3,
-    Medal,
-    BookIcon
+    Layers, // ✅ for Categories icon
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
-
-import { route } from 'ziggy-js'
+import { route } from 'ziggy-js';
 
 const mainNavItems: NavItemWithSubmenu[] = [
     {
@@ -41,10 +27,14 @@ const mainNavItems: NavItemWithSubmenu[] = [
         href: route('dashboard'),
         icon: LayoutDashboard,
     },
+    {
+        title: 'Categories',
+        href: route('categories.index'),
+        icon: Layers,
+    },
 ];
 
 const footerNavItems: NavItem[] = [
-
     {
         title: 'Privacy Policy',
         href: route('privacypolicy'),

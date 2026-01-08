@@ -1,1 +1,0 @@
-import{d as a,A as r,m as o,o as t}from"./app-B9RVXggh.js";const m=a({inheritAttrs:!1,__name:"AppLogoIcon",props:{className:{}},setup(s){return(e,n)=>(t(),r("img",o({class:s.className},e.$attrs,{src:"/assets/images/drift-barber-logo.png",alt:""}),null,16))}});export{m as _};

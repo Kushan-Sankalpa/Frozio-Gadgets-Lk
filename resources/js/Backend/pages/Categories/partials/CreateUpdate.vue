@@ -174,16 +174,10 @@ function submit() {
     return
   }
 
-  // Laravel update with method spoofing
-  form.post(route('categories.update', props.category!.id), {
+  // Laravel update
+  form.put(route('categories.update', props.category!.id), {
     forceFormData: true,
     preserveScroll: true,
-    data: {
-      _method: 'PUT',
-      name: form.name,
-      status: form.status,
-      image: form.image,
-    } as any,
     onSuccess: () => emit('saved'),
   })
 }

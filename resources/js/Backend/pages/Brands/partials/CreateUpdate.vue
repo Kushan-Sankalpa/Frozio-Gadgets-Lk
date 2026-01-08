@@ -63,16 +63,9 @@ function submit() {
     return
   }
 
-  form.post(route('brands.update', props.brand!.id), {
+  form.put(route('brands.update', props.brand!.id), {
     forceFormData: true,
     preserveScroll: true,
-    data: {
-      _method: 'PUT',
-      name: form.name,
-      status: form.status,
-      category_ids: form.category_ids,
-      logo: form.logo,
-    } as any,
   })
 }
 </script>

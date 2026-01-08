@@ -7,6 +7,8 @@ use App\Http\Controllers\StorageOptionController;
 use App\Http\Controllers\RamOptionController;
 use App\Http\Controllers\WarrantyOptionController;
 use App\Http\Controllers\ColorOptionController;
+use App\Http\Controllers\ProductController;
+
 
 
 
@@ -77,6 +79,16 @@ Route::post('/color-options', [ColorOptionController::class, 'store'])->name('co
 Route::get('/color-options/{colorOption}/edit', [ColorOptionController::class, 'edit'])->name('colors.edit');
 Route::put('/color-options/{colorOption}', [ColorOptionController::class, 'update'])->name('colors.update');
 Route::delete('/color-options/{colorOption}', [ColorOptionController::class, 'destroy'])->name('colors.destroy');
+
+// ✅ Products
+Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+Route::get('/products/data', [ProductController::class, 'data'])->name('products.data');
+Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
 
 
 

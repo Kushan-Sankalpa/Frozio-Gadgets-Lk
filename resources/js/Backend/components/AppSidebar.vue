@@ -23,6 +23,8 @@ import AppLogo from './AppLogo.vue';
 import { HardDrive } from 'lucide-vue-next'
 import { MemoryStick } from 'lucide-vue-next'
 import { ShieldCheck, Palette } from 'lucide-vue-next'
+import { Package } from 'lucide-vue-next'
+
 
 
 
@@ -67,6 +69,12 @@ const mainNavItems: NavItemWithSubmenu[] = [
   href: route('warranty.index'),
   icon: ShieldCheck,
 },
+{
+  title: 'Products',
+  href: route('products.index'),
+  icon: Package,
+},
+
 
 
 

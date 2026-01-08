@@ -1,1 +1,0 @@
-import{z as a,e as r,J as o,o as t}from"./app-CkgTaj06.js";const l=a({inheritAttrs:!1,__name:"AppLogoIcon",props:{className:{}},setup(e){return(s,n)=>(t(),r("img",o({class:e.className},s.$attrs,{src:"/assets/images/drift-barber-logo.png",alt:""}),null,16))}});export{l as _};

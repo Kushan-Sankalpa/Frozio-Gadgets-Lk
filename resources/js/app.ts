@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import { route, ZiggyVue } from 'ziggy-js';
-import { initializeTheme } from './composables/useAppearance';
+import { initializeTheme } from './Backend/composables/useAppearance';
 import './echo';
 
 
@@ -25,8 +25,8 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) =>
         resolvePageComponent(
-            `./pages/${name}.vue`,
-            import.meta.glob<DefineComponent>('./pages/**/*.vue'),
+            `./Backend/pages/${name}.vue`,
+            import.meta.glob<DefineComponent>('./Backend/pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
         const vueApp = createApp({ render: () => h(App, props) });

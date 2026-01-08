@@ -17,10 +17,8 @@ class DatabaseSeeder extends Seeder
             \App\Models\User::factory(1)->create();
         }
          $this->call([
-            RolesPermissionSeeder::class,
-            LoyaltyTierSeeder::class,
 
         ]);
-        $this->call(CountrySeeder::class);
+        // $this->call(CountrySeeder::class);
     }
 }

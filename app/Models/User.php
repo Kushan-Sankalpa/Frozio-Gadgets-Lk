@@ -16,7 +16,7 @@ class User extends Authenticatable implements HasMedia
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable, HasRoles, InteractsWithMedia;
 
-    protected $with = ['roles', 'services', 'branches', 'media'];
+    protected $with = ['roles', 'media'];
 
     /**
      * The attributes that are mass assignable.
@@ -55,12 +55,4 @@ class User extends Authenticatable implements HasMedia
         ];
     }
 
-    public function services()
-    {
-        return $this->belongsToMany(Service::class, 'service_user');
-    }
-    public function branches()
-    {
-        return $this->belongsToMany(Branch::class, 'user_branch');
-    }
 }

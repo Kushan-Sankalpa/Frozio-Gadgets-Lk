@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, defineComponent } from 'vue'
 import DataTable from '@/Backend/components/DataTable.vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'

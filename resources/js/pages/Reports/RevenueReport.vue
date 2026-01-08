@@ -1,0 +1,717 @@
+<template>
+    <div>
+
+        <Head title="Revenue report" />
+
+        <AppLayout :breadcrumbs="breadcrumbs">
+
+            <div v-if="exportToast.visible" class="fixed top-4 inset-x-0 z-50 flex justify-center pointer-events-none">
+                <div
+                    class="pointer-events-auto flex items-center gap-3 rounded-full bg-black px-4 py-2 text-sm text-white shadow-lg">
+                    <span>{{ exportToast.message }}</span>
+
+                    <!-- spinner -->
+                    <span v-if="exportToast.isLoading"
+                        class="h-4 w-4 rounded-full border border-white/40 border-t-white animate-spin"></span>
+
+                    <!-- close button -->
+                    <button type="button"
+                        class="ml-1 flex items-center justify-center rounded-full p-1 text-xs opacity-70 hover:opacity-100"
+                        @click="exportToast.visible = false">
+                        <i class="bx bx-x text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="container mx-auto flex h-full flex-1 flex-col gap-4  rounded-xl p-4">
+                <div class="relative rounded-xl border border-zinc-200 bg-white shadow-sm
+                           dark:border-zinc-700/60 dark:bg-zinc-900">
+                    <!-- HEADER -->
+                    <div class="flex items-center justify-between gap-3 flex-wrap
+                               border-b border-zinc-200 px-4 py-3
+                               dark:border-zinc-700/60">
+                        <div>
+                            <h5 class="text-xl font-semibold text-zinc-900
+                                       dark:text-zinc-100">
+                                Revenue report
+                            </h5>
+                            <p class="text-sm text-zinc-500
+                                       dark:text-zinc-400">
+                                Analyse revenue by date range, room type, and channel.
+                            </p>
+                        </div>
+
+                        <!-- Back to list -->
+                        <Link class="btn-secondary mt-3 sm:mt-0" :href="route('reports.index')">
+                        <i class="bx bx-left-arrow-alt mr-1" />
+                        Back to reports
+                        </Link>
+                    </div>
+
+                    <!-- BODY -->
+                    <div class="p-5 space-y-4">
+                        <!-- Filters row -->
+
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+
+                            <!-- LEFT: filters + Apply -->
+                            <div class="flex flex-wrap gap-3 items-end">
+                                <!-- Date range (single pill button) -->
+                                <div class="flex flex-col relative">
+                                    <label class="mb-1 text-sm font-medium text-zinc-700 dark:text-zinc-200 ">
+                                        Date range
+                                    </label>
+
+                                    <VueDatePicker v-model="dateRange" :enable-time-picker="false"
+                                        :range="{ partialRange: false }" :multi-calendars="{ count: 2 }"
+                                        :clearable="true" :close-on-auto-apply="true" :auto-apply="true"
+                                        class="inline-block">
+                                        <!-- pill-style trigger -->
+                                        <template #trigger>
+                                            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-zinc-300
+                               bg-white px-4 py-2 text-sm text-zinc-700 shadow-sm
+                               hover:border-orange-500 
+                               focus:outline-none focus:ring-2 focus:ring-indigo-500/50
+                               dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 cursor-pointer">
+                                                <span>{{ dateRangeLabel }}</span>
+                                                <i class="bx bx-calendar text-lg"></i>
+                                            </button>
+                                        </template>
+                                    </VueDatePicker>
+                                </div>
+
+                               
+                                <!-- Branch -->
+                                <div class="flex flex-col relative z-30">
+                                    <label class="mb-1 text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                                        Branch
+                                    </label>
+
+                                    <!-- Trigger button (keeps your current colours) -->
+                                    <button type="button" class="inline-flex h-10 items-center justify-between rounded-full border border-zinc-300 px-4
+               text-sm text-zinc-800 bg-white
+               focus:border-orange-500 focus:ring focus:ring-orange-200
+               dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 cursor-pointer min-w-[9rem]"
+                                        @click.stop="toggleBranchDropdown">
+                                        <span class="truncate">
+                                            {{ selectedBranchLabel }}
+                                        </span>
+                                        <i class="bx bx-chevron-down ml-2 text-base"></i>
+                                    </button>
+
+                                    <!-- Dropdown menu -->
+                                    <div v-if="branchDropdownOpen" class="absolute left-0 top-full mt-2 w-full rounded-xl border border-zinc-200 bg-white py-1 shadow-lg
+           z-50 dark:border-zinc-700 dark:bg-zinc-900" @click.stop>
+
+                                        <!-- All branches -->
+                                        <button type="button" class="flex w-full items-center px-3 py-2 text-left text-sm
+                   text-zinc-700 hover:bg-zinc-100
+                   dark:text-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg" @click="selectBranch('')">
+                                            All branches
+                                        </button>
+
+                                        <!-- Branch list -->
+                                        <button v-for="branch in branches" :key="branch.id" type="button" class="flex w-full items-center justify-between px-3 py-2 text-left text-sm
+                   text-zinc-700 hover:bg-zinc-100
+                   dark:text-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg" @click="selectBranch(branch.id)">
+                                            <span class="truncate">{{ branch.name }}</span>
+
+                                            <!-- small dot to indicate current selection -->
+                                            <span v-if="String(filtersLocal.branch_id) === String(branch.id)"
+                                                class="ml-2 h-2 w-2 rounded-full bg-orange-500"></span>
+                                        </button>
+                                    </div>
+                                </div>
+
+
+                                <!-- Apply button (stays with filters) -->
+                                                  <button
+  type="button"
+  class="btn-primary h-10 min-w-[9rem] !rounded-full px-4 inline-flex items-center justify-center"
+  @click="applyFilters"
+>
+  Apply filters
+</button>
+                            </div>
+
+                            <!-- RIGHT: ONLY Options dropdown -->
+
+                            <div class="flex w-full sm:w-auto items-center justify-end sm:justify-start">
+                                <div class="relative w-full sm:w-auto">
+                                    <button type="button" class="inline-flex w-full sm:w-auto items-center justify-center gap-1 h-10
+                   rounded-full border border-zinc-300 px-4 cursor-pointer
+                   text-sm text-zinc-800
+                   focus:border-orange-500 focus:ring focus:ring-orange-200
+                   dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" @click.stop="toggleOptions">
+                                        <i class="bx bx-dots-vertical-rounded text-lg"></i>
+                                        <span>Options</span>
+                                        <i class="bx bx-chevron-down text-xs"></i>
+                                    </button>
+
+                                    <!-- Dropdown menu -->
+                                    <div v-if="optionsOpen" class="absolute right-0 z-20 mt-2 w-full sm:w-40 max-w-[90vw]
+                   rounded-lg border border-zinc-200 bg-white py-2 text-sm shadow-lg
+                   dark:border-zinc-700 dark:bg-zinc-800" @click.stop>
+                                        <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wide
+                       text-zinc-500 dark:text-zinc-400 ">
+                                            Export
+                                        </p>
+
+                                        <button type="button" class="flex w-full items-center gap-2 px-3 py-1.5 text-left
+                       text-zinc-700 hover:bg-zinc-100
+                       dark:text-zinc-100 dark:hover:bg-zinc-700/80 cursor-pointer" @click="exportExcel">
+                                            <i class="bx bx-spreadsheet text-base" />
+                                            <span>Excel</span>
+                                        </button>
+
+                                        <button type="button" class="flex w-full items-center gap-2 px-3 py-1.5 text-left
+                       text-zinc-700 hover:bg-zinc-100
+                       dark:text-zinc-100 dark:hover:bg-zinc-700/80 cursor-pointer" @click="exportPdf">
+                                            <i class="bx bxs-file-pdf text-base" />
+                                            <span>PDF</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+
+                        <hr />
+
+                        <!-- Summary cards -->
+                        <div class="grid gap-4 md:grid-cols-3">
+                            <!-- Total revenue -->
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white py-4 pl-6 pr-4 shadow-sm
+           dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <!-- left accent bar -->
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <p class="text-[11px] font-semibold uppercase tracking-wide
+             text-zinc-500 dark:text-zinc-400">
+                                    Total revenue
+                                </p>
+                                <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {{ currencySymbol }} {{ formatNumber(summary.totalRevenue) }}
+                                </p>
+                            </div>
+
+                            <!-- Average daily revenue -->
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white py-4 pl-6 pr-4 shadow-sm
+           dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <p
+                                    class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Average daily revenue
+                                </p>
+                                <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {{ currencySymbol }} {{ formatNumber(summary.adr) }}
+                                </p>
+                            </div>
+
+                            <!-- Completed bookings -->
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white py-4 pl-6 pr-4 shadow-sm
+           dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <p
+                                    class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Completed bookings
+                                </p>
+                                <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {{ summary.completedCount }}
+                                </p>
+                            </div>
+
+                            <!-- Total discount -->
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white py-4 pl-6 pr-4 shadow-sm
+           dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <p
+                                    class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Total discount
+                                </p>
+                                <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                                    <!-- adjust when you have real discount value -->
+                                    {{ currencySymbol }} {{ formatNumber(summary.totalDiscount || 0) }}
+                                </p>
+                            </div>
+
+                            <!-- Scheduled payments -->
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white py-4 pl-6 pr-4 shadow-sm
+           dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <p
+                                    class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Scheduled payments
+                                </p>
+                                <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {{ currencySymbol }} {{ formatNumber(summary.scheduledTotal) }}
+                                </p>
+                            </div>
+
+                            <!-- Pending payments -->
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white py-4 pl-6 pr-4 shadow-sm
+           dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <p
+                                    class="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Pending payments
+                                </p>
+                                <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {{ currencySymbol }} {{ formatNumber(summary.pendingPaymentsTotal) }}
+                                </p>
+                            </div>
+                        </div>
+
+
+                        <!-- Completed bookings table -->
+                        <div class="mt-8">
+                            <div class="relative overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm
+               dark:border-zinc-700/60 dark:bg-zinc-900/60">
+                                <!-- left orange bar -->
+                                <span class="absolute inset-y-0 left-0 w-1.5 bg-orange-500"></span>
+
+                                <!-- Header row -->
+                                <div class="flex items-center justify-between border-b border-zinc-100 px-4 py-3
+                   dark:border-zinc-700/60">
+                                    <h6 class="text-xs font-semibold uppercase tracking-wide
+                       text-zinc-600 dark:text-zinc-300">
+                                        Completed bookings
+                                    </h6>
+
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {{ summary.completedCount }} total
+                                    </p>
+                                </div>
+
+                                <!-- Table -->
+                                <div v-if="bookings.length" class="overflow-x-auto">
+                                    <table class="min-w-full text-sm border-separate border-spacing-y-2">
+
+                                        <thead>
+                                            <tr class="bg-zinc-50 text-xs font-semibold uppercase tracking-wide
+                               text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                                                <th class="py-2 pl-4 pr-4 text-left">Date</th>
+                                                <th class="py-2 pr-4 text-left">Booking ID</th>
+                                                <th class="py-2 pr-4 text-left">Client</th>
+                                                <th class="py-2 pr-4 text-left">Staff</th>
+                                                <th class="py-2 pr-4 text-left">Service label</th>
+                                                <th class="py-2 pr-4 text-right">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="b in bookings" :key="b.id" class="bg-white dark:bg-zinc-900 rounded-lg shadow-sm
+         hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60">
+
+                                                <!-- Date -->
+                                                <td
+                                                    class="py-2 pl-4 pr-4 whitespace-nowrap text-zinc-700 dark:text-zinc-100">
+                                                    {{ formatBookingDate(b.date) }}
+                                                </td>
+
+                                                <!-- Booking ID -->
+                                                <td class="py-2 pr-4 text-zinc-700 dark:text-zinc-100">
+                                                    #{{ b.id }}
+                                                </td>
+
+                                                <!-- Client name (bold) -->
+                                                <td class="py-2 pr-4 font-semibold text-zinc-900 dark:text-zinc-50">
+                                                    {{ formatClientName(b.client) }}
+                                                </td>
+
+                                                <!-- Staff name -->
+                                                <td class="py-2 pr-4 text-zinc-700 dark:text-zinc-100">
+                                                    {{ b.staff?.name || '—' }}
+                                                </td>
+
+                                                <!-- Service labels -->
+                                                <td class="py-2 pr-4 text-zinc-700 dark:text-zinc-100">
+                                                    {{ serviceLabels(b) }}
+                                                </td>
+
+                                                <!-- Total price (bold, right) -->
+                                                <td class="py-2 pr-4 text-right font-semibold
+                                ">
+                                                    {{ currencySymbol }} {{ formatNumber(b.total_price) }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Empty state -->
+                                <p v-else class="px-4 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                                    No completed bookings found for this period.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </AppLayout>
+    </div>
+</template>
+
+<script lang="ts">
+import AppLayout from '@/layouts/AppLayout.vue'
+import { Head, Link } from '@inertiajs/vue3'
+import { route } from 'ziggy-js'
+import type { BreadcrumbItem } from '@/types'
+import { VueDatePicker } from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
+
+export default {
+    name: 'RevenueReportPage',
+    components: { AppLayout, Head, Link, VueDatePicker },
+
+    props: {
+        bookings: {
+            type: Array,
+            default: () => [],
+        },
+        summary: {
+            type: Object,
+            default: () => ({
+                totalRevenue: 0,
+                adr: 0,
+                nights: 0,
+                completedCount: 0,
+                scheduledTotal: 0,
+                pendingPaymentsTotal: 0,
+            }),
+        },
+        filters: {
+            type: Object,
+            default: () => ({
+                from: '',
+                to: '',
+                branch_id: '',
+            }),
+        },
+        branches: {
+            type: Array,
+            default: () => [],
+        },
+    },
+
+    data() {
+        const from = this.filters?.from ? new Date(this.filters.from) : null
+        const to = this.filters?.to ? new Date(this.filters.to) : null
+
+        return {
+            breadcrumbs: [
+                { title: 'Reports', href: route('reports.index') },
+                { title: 'Revenue', href: route('reports.revenue') },
+            ] as BreadcrumbItem[],
+
+            filtersLocal: {
+                from: this.filters.from || '',
+                to: this.filters.to || '',
+                branch_id: this.filters.branch_id || '',
+            },
+
+            dateRange: (from && to ? [from, to] : null) as any,
+
+            currencySymbol: 'Rs',
+            optionsOpen: false,
+            branchDropdownOpen: false,
+
+
+            exportToast: {
+                visible: false,
+                message: '',
+                isLoading: false,
+            },
+        }
+    },
+
+    computed: {
+        dateRangeLabel(): string {
+            const range = this.dateRange as any
+
+            if (!range || !Array.isArray(range) || !range[0] || !range[1]) {
+                return 'All dates'
+            }
+
+            const [start, end] = range as [Date, Date]
+            const sameYear = start.getFullYear() === end.getFullYear()
+
+            const left = this.formatDisplayDate(start, !sameYear)
+            const right = this.formatDisplayDate(end, true)
+
+            return `${left} - ${right}`
+        },
+
+        selectedBranchLabel(): string {
+            if (!this.filtersLocal.branch_id) {
+                return 'All branches'
+            }
+
+            const current = this.branches.find(
+                (b: any) => String(b.id) === String(this.filtersLocal.branch_id),
+            )
+
+            return current?.name || 'All branches'
+        },
+
+    },
+
+    watch: {
+        dateRange: {
+            handler(newVal: any) {
+                if (Array.isArray(newVal) && newVal[0] && newVal[1]) {
+                    const [start, end] = newVal as [Date, Date]
+                    this.filtersLocal.from = this.formatForBackend(start)
+                    this.filtersLocal.to = this.formatForBackend(end)
+                } else {
+                    this.filtersLocal.from = ''
+                    this.filtersLocal.to = ''
+                }
+            },
+            deep: true,
+        },
+
+        filters: {
+            handler(newFilters: any) {
+                const from = newFilters.from ? new Date(newFilters.from) : null
+                const to = newFilters.to ? new Date(newFilters.to) : null
+
+                this.filtersLocal = {
+                    from: newFilters.from || '',
+                    to: newFilters.to || '',
+                    branch_id: newFilters.branch_id || '',
+                }
+
+                this.dateRange = (from && to ? [from, to] : null) as any
+            },
+            deep: true,
+        },
+    },
+
+    methods: {
+        applyFilters() {
+            if (this.dateRange && Array.isArray(this.dateRange) && this.dateRange[0] && this.dateRange[1]) {
+                const [start, end] = this.dateRange as [Date, Date]
+                this.filtersLocal.from = this.formatForBackend(start)
+                this.filtersLocal.to = this.formatForBackend(end)
+            }
+
+            ; (this as any).$inertia.get(route('reports.revenue'), this.filtersLocal, {
+                preserveState: true,
+                preserveScroll: true,
+            })
+        },
+
+        formatNumber(value: number | string) {
+            const num = Number(value) || 0
+            return num.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            })
+        },
+
+        formatForBackend(date: Date): string {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+        },
+
+        formatDisplayDate(date: Date, includeYear = true): string {
+            const options: Intl.DateTimeFormatOptions = {
+                day: 'numeric',
+                month: 'short',
+            }
+            if (includeYear) {
+                options.year = 'numeric'
+            }
+            return date.toLocaleDateString(undefined, options)
+        },
+
+        formatClientName(client: any) {
+            if (!client) return '—'
+            const first = client.first_name || ''
+            const last = client.last_name || ''
+            const full = `${first} ${last}`.trim()
+            return full || '—'
+        },
+
+        serviceLabels(booking: any) {
+            if (!booking || !Array.isArray(booking.services) || !booking.services.length) {
+                return '—'
+            }
+            return booking.services
+                .map((s: any) => s.label)
+                .filter((label: string) => !!label)
+                .join(', ')
+        },
+
+        formatBookingDate(dateInput: any): string {
+            if (!dateInput) return '—'
+            const d = new Date(dateInput)
+            if (Number.isNaN(d.getTime())) {
+                return String(dateInput)
+            }
+
+            return d.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+            })
+        },
+
+        toggleOptions() {
+            this.optionsOpen = !this.optionsOpen
+        },
+
+        exportCsv() {
+            this.optionsOpen = false
+        },
+
+        async exportExcel() {
+            this.optionsOpen = false
+
+            const query: Record<string, string> = {}
+
+            if (this.filtersLocal.from) query.from = this.filtersLocal.from
+            if (this.filtersLocal.to) query.to = this.filtersLocal.to
+            if (this.filtersLocal.branch_id) query.branch_id = this.filtersLocal.branch_id
+
+            const url = route('reports.revenue.excel', query)
+
+            this.showExportToast('Export in progress')
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept':
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel',
+                    },
+                    credentials: 'same-origin',
+                })
+
+                if (!response.ok) {
+                    console.error('Failed to download Excel', response.status, response.statusText)
+                    this.showExportResult('Export failed', 2500)
+                    return
+                }
+
+                const blob = await response.blob()
+
+                const disposition = response.headers.get('Content-Disposition') || ''
+                let filename = 'revenue-report.xlsx'
+                const match = disposition.match(/filename="?([^"]+)"?/i)
+                if (match && match[1]) {
+                    filename = decodeURIComponent(match[1])
+                }
+
+                const blobUrl = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = blobUrl
+                link.download = filename
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                window.URL.revokeObjectURL(blobUrl)
+
+                this.showExportResult('Export complete', 1500)
+            } catch (error) {
+                console.error('Error downloading Excel', error)
+                this.showExportResult('Export failed', 2500)
+            }
+        },
+
+        async exportPdf() {
+            this.optionsOpen = false
+
+            const query: Record<string, string> = {}
+
+            if (this.filtersLocal.from) query.from = this.filtersLocal.from
+            if (this.filtersLocal.to) query.to = this.filtersLocal.to
+            if (this.filtersLocal.branch_id) query.branch_id = this.filtersLocal.branch_id
+
+            const url = route('reports.revenue.pdf', query)
+
+            this.showExportToast('Export in progress')
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/pdf',
+                    },
+                    credentials: 'same-origin',
+                })
+
+                if (!response.ok) {
+                    console.error('Failed to download PDF', response.status, response.statusText)
+                    this.showExportResult('Export failed', 2500)
+                    return
+                }
+
+                const blob = await response.blob()
+
+                const disposition = response.headers.get('Content-Disposition') || ''
+                let filename = 'revenue-report.pdf'
+                const match = disposition.match(/filename="?([^"]+)"?/i)
+                if (match && match[1]) {
+                    filename = decodeURIComponent(match[1])
+                }
+
+                const blobUrl = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = blobUrl
+                link.download = filename
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                window.URL.revokeObjectURL(blobUrl)
+
+                this.showExportResult('Export complete', 1500)
+            } catch (error) {
+                console.error('Error downloading PDF', error)
+                this.showExportResult('Export failed', 2500)
+            }
+        },
+
+        showExportToast(message = 'Export in progress') {
+            this.exportToast.message = message
+            this.exportToast.isLoading = true
+            this.exportToast.visible = true
+        },
+
+        showExportResult(message: string, autoHideMs = 1800) {
+            this.exportToast.message = message
+            this.exportToast.isLoading = false
+            this.exportToast.visible = true
+
+            if (autoHideMs > 0) {
+                setTimeout(() => {
+                    this.exportToast.visible = false
+                }, autoHideMs)
+            }
+        },
+
+        toggleBranchDropdown() {
+            this.branchDropdownOpen = !this.branchDropdownOpen
+        },
+
+        selectBranch(branchId: string | number) {
+            this.filtersLocal.branch_id = branchId ? String(branchId) : ''
+            this.branchDropdownOpen = false
+        },
+
+    },
+}
+</script>
+
+
+<style scoped></style>

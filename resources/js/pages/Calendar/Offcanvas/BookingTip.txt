@@ -1,0 +1,1973 @@
+<template>
+    <transition name="fade">
+        <div v-if="show" class="pointer-events-none fixed inset-0 z-[120] flex">
+            <!-- dim background on desktop -->
+            <div class="hidden flex-1 bg-neutral-900/30 md:block" @click="close"></div>
+
+            <!-- main right panel -->
+            <div
+                class="pointer-events-auto relative flex h-full w-full max-w-7xl flex-col bg-white shadow-2xl md:ml-auto md:rounded-l-2xl"
+            >
+                <!-- HEADER -->
+                <header class="flex items-center justify-between border-b px-8 py-5">
+                    <div class="space-y-3">
+                        <!-- breadcrumbs -->
+                        <nav
+                            class="flex items-center gap-1 text-[12px] font-medium text-neutral-500"
+                        >
+                            <button
+                                type="button"
+                                class="hover:text-neutral-900"
+                            >
+                                Cart
+                            </button>
+                            <span class="text-neutral-400">›</span>
+
+                            <button
+                                type="button"
+                                :class="isTipStep ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'"
+                                @click="step = 'tip'"
+                            >
+                                Tip
+                            </button>
+                            <span class="text-neutral-400">›</span>
+                            <button
+                                type="button"
+                                :class="isPaymentStep ? 'text-neutral-900' : 'text-neutral-500 hover:text-neutral-900'"
+                                @click="step = 'payment'"
+                            >
+                                Payment
+                            </button>
+                        </nav>
+
+                        <div>
+                            <h1
+                                class="mt-1 text-3xl font-semibold text-neutral-900 sm:text-4xl"
+                            >
+                                {{ headerTitle }}
+                            </h1>
+
+                            <!-- subtitle: different for each step -->
+                            <p
+                                v-if="step === 'tip' && (staffName || businessLabel)"
+                                class="mt-1 text-base text-neutral-500"
+                            >
+                                Select an amount
+                                <template v-if="staffName">
+                                    for
+                                    <span class="font-semibold">{{ staffName }}</span>
+                                </template>
+                                <template v-if="businessLabel">
+                                    <span class="mx-1">|</span>
+                                    <span class="font-semibold">{{ businessLabel }}</span>
+                                </template>
+                            </p>
+
+                            <p
+                                v-else-if="step === 'payment'"
+                                class="mt-1 text-base text-neutral-500"
+                            >
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="flex size-10 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                        @click="close"
+                    >
+                        ✕
+                    </button>
+                </header>
+
+                <!-- BODY -->
+                <main class="flex min-h-0 flex-1 flex-col md:flex-row">
+                    <!-- LEFT SIDE: steps (only this changes between Tip / Payment) -->
+                    <section
+                        class="flex-1 overflow-y-auto border-b px-8 py-7 md:border-b-0 md:border-r"
+                    >
+                        <transition name="step-slide" mode="out-in">
+                            <!-- STEP 1: TIP -->
+                            <div v-if="step === 'tip'" key="tip">
+                                <p class="mb-5 text-base text-neutral-500">
+                                    Base amount:
+                                    <span class="font-semibold text-neutral-900">
+                                        {{ currencySymbol }} {{ baseAmountFormatted }}
+                                    </span>
+                                </p>
+
+                                <!-- TIP CARDS -->
+                                <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                    <!-- No tip -->
+                                    <button
+                                        type="button"
+                                        class="flex min-h-[140px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                        :class="cardClass('none')"
+                                        @click="selectNone"
+                                    >
+                                        <div class="text-lg sm:text-xl font-semibold">No tip</div>
+                                        <div class="mt-3 text-sm text-neutral-500">
+                                            No extra amount will be added
+                                        </div>
+                                    </button>
+
+                                    <!-- percentage options -->
+                                    <button
+                                        v-for="opt in percentOptions"
+                                        :key="opt"
+                                        type="button"
+                                        class="flex min-h-[140px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                        :class="cardClass('percent', opt)"
+                                        @click="selectPercent(opt)"
+                                    >
+                                        <div class="text-xl sm:text-2xl font-semibold">
+                                            {{ opt }}%
+                                        </div>
+                                        <div class="mt-3 text-sm text-neutral-500 sm:text-base">
+                                            {{ currencySymbol }} {{ percentAmount(opt) }}
+                                        </div>
+                                    </button>
+
+                                    <!-- custom tip -->
+                                    <button
+                                        type="button"
+                                        class="sm:col-span-2 lg:col-span-3 flex min-h-[130px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                        :class="cardClass('custom')"
+                                        @click="openCustomModal"
+                                    >
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-2xl leading-none">＋</span>
+                                            <span class="text-lg sm:text-xl font-semibold">
+                                                Custom tip
+                                            </span>
+                                        </div>
+                                        <div class="mt-3 text-sm text-neutral-500 sm:text-base">
+                                            {{ customSummaryLabel }}
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- STEP 2: PAYMENT -->
+                            <div v-else key="payment">
+                                <div class="flex h-full flex-col">
+                                    <!-- <p class="mb-5 text-base text-neutral-500">
+                                        How would you like to take the payment?
+                                    </p> -->
+
+                                    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                                        <!-- Cash -->
+                                        <button
+                                            type="button"
+                                            class="flex min-h-[130px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                            :class="paymentCardClass('cash')"
+                                            @click="onCashCardClick"
+                                        >
+                                            <div class="flex items-center gap-3">
+                                                <i class="bx bx-money text-2xl"></i>
+                                                <span class="text-lg sm:text-xl font-semibold">
+                                                    Cash
+                                                </span>
+                                            </div>
+                                            <div class="mt-3 text-sm text-neutral-600">
+                                                Take cash and record the payment.
+                                            </div>
+                                        </button>
+
+                                        <!-- Card -->
+                                        <button
+                                            type="button"
+                                            class="flex min-h-[130px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                            :class="paymentCardClass('card')"
+                                            @click="onCardCardClick"
+                                        >
+                                            <div class="flex items-center gap-3">
+                                                <i class="bx bx-credit-card text-2xl"></i>
+                                                <span class="text-lg sm:text-xl font-semibold">
+                                                    Card
+                                                </span>
+                                            </div>
+                                            <div class="mt-3 text-sm text-neutral-500">
+                                                Record a card / POS payment.
+                                            </div>
+                                        </button>
+
+                                        <!-- Gift card -->
+                                        <button
+                                            type="button"
+                                            class="flex min-h-[130px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                            :class="paymentCardClass('gift-card')"
+                                            @click="onGiftCardCardClick"
+                                        >
+                                            <div class="flex items-center gap-3">
+                                                <i class="bx bx-gift text-2xl"></i>
+                                                <span class="text-lg sm:text-xl font-semibold">
+                                                    Gift card
+                                                </span>
+                                            </div>
+                                            <div class="mt-3 text-sm text-neutral-500">
+                                                Redeem an existing gift card.
+                                            </div>
+                                        </button>
+
+                                        <!-- Split payment -->
+                                        <button
+                                            type="button"
+                                            class="flex min-h-[130px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                            :class="paymentCardClass('split')"
+                                            @click="onSplitCardClick"
+                                        >
+                                            <div class="flex items-center gap-3">
+                                                 <i class="bx bx-transfer text-2xl"></i>
+                                                <span class="text-lg sm:text-xl font-semibold">
+                                                    Split payment
+                                                </span>
+                                            </div>
+                                            <div class="mt-3 text-sm text-neutral-500">
+                                                Split across cash, card or other methods.
+                                            </div>
+                                        </button>
+
+                                        <!-- Other -->
+                                        <button
+                                            type="button"
+                                            class="sm:col-span-2 lg:col-span-3 flex min-h-[130px] flex-col items-start rounded-3xl border px-6 py-5 text-left text-base sm:text-lg"
+                                            :class="paymentCardClass('other')"
+                                            @click="selectPayment('other')"
+                                        >
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-2xl">💠</span>
+                                                <span class="text-lg sm:text-xl font-semibold">
+                                                    Other
+                                                </span>
+                                            </div>
+                                            <div class="mt-3 text-sm text-neutral-500">
+                                                Mark as paid using any other method.
+                                            </div>
+                                        </button>
+                                    </div>
+
+                                    <div
+                                        v-if="paymentMethod"
+                                        class="mt-8 text-sm text-neutral-500 space-y-1"
+                                    >
+                                        <p>
+                                            Selected:
+                                            <span class="font-medium text-neutral-900">
+                                                {{ selectedPaymentLabel }}
+                                            </span>
+                                        </p>
+                                        <p class="text-[12px] text-neutral-400">
+                                            When you save, this method will be used for the payment
+                                            record.
+                                        </p>
+
+                                        <div v-if="payments.length" class="mt-4 space-y-2">
+                                            <div
+                                                class="text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+                                            >
+                                                Payments added
+                                            </div>
+                                            <div class="space-y-1.5 text-[13px]">
+                                                <div
+                                                    v-for="(p, idx) in payments"
+                                                    :key="idx"
+                                                    class="flex items-center justify-between text-neutral-700"
+                                                >
+                                                    <div class="flex items-center gap-2">
+                                                        <span>{{ paymentLabelFor(p.method) }}</span>
+                                                        <button
+                                                            type="button"
+                                                            class="text-neutral-400 hover:text-red-500"
+                                                            @click="removePaymentAt(idx)"
+                                                            aria-label="Remove payment"
+                                                        >
+                                                            🗑
+                                                        </button>
+                                                    </div>
+                                                    <span class="tabular-nums font-medium">
+                                                        {{ currencySymbol }}
+                                                        {{ formatNumber(p.amount) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </transition>
+                    </section>
+
+                    <!-- RIGHT SIDE: summary (stays the same for both steps) -->
+                    <aside class="flex w-full max-w-md lg:max-w-lg flex-col bg-neutral-50">
+                        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                            <!-- client / add client -->
+                            <div
+                                v-if="clientName"
+                                class="rounded-2xl bg-white p-4 shadow-sm"
+                            >
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="grid size-10 place-items-center rounded-full bg-neutral-800 text-sm font-semibold text-white"
+                                        >
+                                            {{ initials(clientName) }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div
+                                                class="truncate text-base font-semibold text-neutral-900"
+                                            >
+                                                {{ clientName }}
+                                            </div>
+                                            <div
+                                                v-if="clientEmail"
+                                                class="truncate text-[12px] text-neutral-500"
+                                            >
+                                                {{ clientEmail }}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="rounded-full border border-neutral-200 px-3 py-1.5 text-[12px] font-medium text-neutral-600 hover:bg-neutral-50"
+                                    >
+                                        Actions
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button
+                                v-else
+                                type="button"
+                                class="flex w-full flex-col items-start justify-between rounded-2xl border-2 border-dashed border-neutral-300 bg-white px-4 py-4 text-left text-base shadow-sm hover:border-neutral-500 hover:bg-neutral-50"
+                                @click="onAddClient"
+                            >
+                                <span class="text-base font-semibold text-[#111827]">
+                                    Add client
+                                </span>
+                                <span class="mt-1 text-[12px] text-neutral-500">
+                                    Leave empty for walk-ins
+                                </span>
+                            </button>
+
+                            <!-- services + totals -->
+                            <div class="rounded-2xl bg-white p-4 shadow-sm">
+                                <h2
+                                    class="text-base font-semibold uppercase tracking-wide text-neutral-500"
+                                >
+                                    Services
+                                </h2>
+
+                                <div class="mt-3 space-y-2 text-sm">
+                                    <button
+                                        v-for="(item, i) in items"
+                                        :key="item.instanceUid || i"
+                                        type="button"
+                                        class="group flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm sm:text-base hover:border-neutral-400 hover:bg-neutral-50"
+                                        :style="{
+                                            borderLeft: '4px solid ' + (item.color || defaultServiceColor),
+                                        }"
+                                        @click="openEditItem(item, i)"
+                                    >
+                                        <div class="flex flex-col items-start">
+                                            <span
+                                                class="truncate font-medium text-neutral-900"
+                                            >
+                                                {{ item.label }}
+                                            </span>
+                                            <span
+                                                v-if="item.staff_name || item.staffName"
+                                                class="mt-0.5 text-[12px] text-neutral-500"
+                                            >
+                                                {{ item.staff_name || item.staffName }}
+                                            </span>
+                                        </div>
+                                        <div class="text-right">
+                                            <span
+                                                class="tabular-nums text-sm sm:text-base font-semibold"
+                                            >
+                                                {{ currencySymbol }}
+                                                {{
+                                                    formatNumber(
+                                                        (item.price ?? item.final_price ?? 0) *
+                                                            (item.quantity ?? 1),
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <div class="mt-4 border-t pt-3 space-y-1.5 text-sm">
+                                    <div class="flex justify-between text-neutral-500">
+                                        <span>Subtotal</span>
+                                        <span class="tabular-nums">
+                                            {{ currencySymbol }} {{ baseAmountFormatted }}
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        v-if="taxAmount > 0"
+                                        class="flex justify-between text-neutral-500"
+                                    >
+                                        <span>Tax</span>
+                                        <span class="tabular-nums">
+                                            {{ currencySymbol }} {{ taxAmountFormatted }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex justify-between text-neutral-500">
+                                        <span>Tip</span>
+                                        <span class="tabular-nums">
+                                            {{ currencySymbol }} {{ tipAmountFormatted }}
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        class="mt-2 flex justify-between text-lg font-semibold text-neutral-900"
+                                    >
+                                        <span>Total</span>
+                                        <span class="tabular-nums">
+                                            {{ currencySymbol }} {{ grandTotalFormatted }}
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        v-if="payments.length"
+                                        class="pt-3 mt-2 border-t space-y-2 text-[13px]"
+                                    >
+                                        <div class="space-y-1">
+                                            <div
+                                                class="text-[11px] font-semibold uppercase tracking-wide text-neutral-500"
+                                            >
+                                                Payments
+                                            </div>
+                                            <div class="space-y-1.5">
+                                                <div
+                                                    v-for="(p, idx) in payments"
+                                                    :key="'summary-' + idx"
+                                                    class="flex items-center justify-between text-neutral-700"
+                                                >
+                                                    <div class="flex items-center gap-2">
+                                                        <span>{{ paymentLabelFor(p.method) }}</span>
+                                                        <button
+                                                            type="button"
+                                                            class="text-neutral-400 hover:text-red-500"
+                                                            @click="removePaymentAt(idx)"
+                                                            aria-label="Remove payment"
+                                                        >
+                                                            🗑
+                                                        </button>
+                                                    </div>
+                                                    <span class="tabular-nums">
+                                                        {{ currencySymbol }}
+                                                        {{ formatNumber(p.amount) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex justify-between text-neutral-500 pt-1">
+                                            <span>Total paid</span>
+                                            <span class="tabular-nums">
+                                                {{ currencySymbol }} {{ totalPaidFormatted }}
+                                            </span>
+                                        </div>
+
+                                        <div
+                                            class="flex justify-between pt-0.5"
+                                            :class="
+                                                changeAmount > 0
+                                                    ? 'text-emerald-700 font-semibold'
+                                                    : 'text-neutral-900 font-medium'
+                                            "
+                                        >
+                                            <span v-if="changeAmount > 0">Change</span>
+                                            <span v-else>Left to pay</span>
+                                            <span class="tabular-nums">
+                                                {{ currencySymbol }}
+                                                {{
+                                                    changeAmount > 0
+                                                        ? changeAmountFormatted
+                                                        : leftToPayFormatted
+                                                }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- footer bar: To pay / Change + primary action -->
+                        <footer class="border-t bg-white px-6 py-4">
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <div
+                                        class="text-[11px] font-medium uppercase tracking-wide text-neutral-500"
+                                    >
+                                        {{ footerLabel }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-3xl font-semibold text-neutral-900 tabular-nums"
+                                    >
+                                        {{ currencySymbol }} {{ footerAmountFormatted }}
+                                    </div>
+                                    <div
+                                        v-if="payments.length"
+                                        class="mt-0.5 text-[12px] text-neutral-500"
+                                    >
+                                        <template v-if="changeAmount > 0">
+                                            Paid {{ currencySymbol }} {{ totalPaidFormatted }} ·
+                                            Total {{ currencySymbol }} {{ totalWithTipFormatted }}
+                                        </template>
+                                        <template v-else>
+                                            Paid {{ currencySymbol }} {{ totalPaidFormatted }} ·
+                                            Left {{ currencySymbol }} {{ leftToPayFormatted }}
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    <!-- three-dot menu like screenshot (on payment step only) -->
+                                    <button
+                                        v-if="step === 'payment'"
+                                        type="button"
+                                        class="flex size-9 items-center justify-center rounded-full border border-neutral-300 text-xl leading-none text-neutral-700 hover:bg-neutral-100"
+                                    >
+                                        ⋯
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="rounded-full bg-black px-7 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 disabled:opacity-40"
+                                        :disabled="step === 'payment' && !paymentMethod"
+                                        @click="handlePrimaryAction"
+                                    >
+                                        <span v-if="step === 'tip'">
+                                            Continue to payment
+                                        </span>
+                                        <span v-else>
+                                            Save 
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </footer>
+                    </aside>
+                </main>
+
+                <!-- CUSTOM TIP MODAL (keypad) -->
+                <transition name="tip-modal">
+                    <div
+                        v-if="customModalOpen"
+                        class="pointer-events-auto fixed inset-0 z-[130] flex items-center justify-center bg-neutral-900/40"
+                    >
+                        <div
+                            class="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl md:max-w-md"
+                            @click.stop
+                        >
+                            <!-- modal header -->
+                            <div class="mb-5 flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-neutral-900">
+                                    Add a tip
+                                </h2>
+                                <button
+                                    type="button"
+                                    class="flex size-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                    @click="closeCustomModal"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <!-- big value + toggle -->
+                            <div class="text-center">
+                                <div
+                                    class="text-xs font-medium uppercase tracking-[0.14em] text-neutral-400"
+                                >
+                                    {{ customIsPercent ? 'TIP PERCENT' : currencySymbol }}
+                                </div>
+                                <div
+                                    class="mt-2 text-5xl font-semibold tracking-tight text-neutral-900 tabular-nums"
+                                >
+                                    {{ customMainDisplay }}
+                                </div>
+
+                                <div class="mt-4 inline-flex rounded-xl border bg-neutral-50 p-1">
+                                    <button
+                                        type="button"
+                                        class="flex items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium"
+                                        :class="
+                                            !customIsPercent
+                                                ? 'bg-white text-neutral-900 shadow-sm'
+                                                : 'text-neutral-500'
+                                        "
+                                        @click="setCustomKind('amount')"
+                                    >
+                                        <span>{{ currencySymbol }}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="flex items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium"
+                                        :class="
+                                            customIsPercent
+                                                ? 'bg-white text-neutral-900 shadow-sm'
+                                                : 'text-neutral-500'
+                                        "
+                                        @click="setCustomKind('percent')"
+                                    >
+                                        <span>%</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- keypad -->
+                            <div class="mt-7 grid grid-cols-3 gap-3">
+                                <button
+                                    v-for="key in keypadKeys"
+                                    :key="key"
+                                    type="button"
+                                    class="flex h-14 items-center justify-center rounded-full border border-neutral-300 bg-white text-xl font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+                                    @click="onKeypadPress(key)"
+                                >
+                                    <span v-if="key !== 'back'">{{ key }}</span>
+                                    <span v-else>⌫</span>
+                                </button>
+                            </div>
+
+                            <!-- bottom row -->
+                            <div class="mt-6 flex items-center justify-between">
+                                <div class="text-sm text-neutral-500">
+                                    {{ currentTipPercentLabel }}
+                                </div>
+                                <button
+                                    type="button"
+                                    class="rounded-full bg-black px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600"
+                                    @click="confirmCustomTip"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- CASH AMOUNT MODAL (POS keypad) -->
+                <transition name="cash-modal">
+                    <div
+                        v-if="cashModalOpen"
+                        class="pointer-events-auto fixed inset-0 z-[132] flex items-center justify-center bg-neutral-900/40"
+                    >
+                        <div
+                            class="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+                            @click.stop
+                        >
+                            <div class="mb-5 flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-neutral-900">
+                                    Add cash amount
+                                </h2>
+                                <button
+                                    type="button"
+                                    class="flex size-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                    @click="closeCashModal"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <!-- main amount -->
+                            <div class="text-center">
+                                <div
+                                    class="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400"
+                                >
+                                    {{ currencySymbol }}
+                                </div>
+                                <div
+                                    class="mt-2 text-5xl font-semibold tracking-tight text-neutral-900 tabular-nums"
+                                >
+                                    {{ cashInputDisplay }}
+                                </div>
+
+                                <!-- quick amounts -->
+                                <div class="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
+                                    <button
+                                        v-for="amt in cashQuickAmounts"
+                                        :key="amt"
+                                        type="button"
+                                        class="whitespace-nowrap rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-100"
+                                        @click="setCashFromQuick(amt)"
+                                    >
+                                        {{ currencySymbol }} {{ formatNumberNoCents(amt) }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- keypad -->
+                            <div class="mt-6 grid grid-cols-3 gap-3">
+                                <button
+                                    v-for="key in keypadKeys"
+                                    :key="'cash-' + key"
+                                    type="button"
+                                    class="flex h-14 items-center justify-center rounded-full border border-neutral-300 bg-white text-xl font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+                                    @click="onCashKeypadPress(key)"
+                                >
+                                    <span v-if="key !== 'back'">{{ key }}</span>
+                                    <span v-else>⌫</span>
+                                </button>
+                            </div>
+
+                            <!-- footer info -->
+                            <div class="mt-6 flex items-center justify-between text-[13px]">
+                                <div class="space-y-1">
+                                    <div class="text-neutral-500">
+                                        Cash received by ·
+                                        <span class="font-medium text-neutral-900">
+                                            {{ staffName || businessLabel || 'Front desk' }}
+                                        </span>
+                                    </div>
+                                    <div class="text-neutral-500">
+                                        Left to pay ·
+                                        <span class="font-semibold text-neutral-900 tabular-nums">
+                                            {{ currencySymbol }} {{ cashLeftAfterFormatted }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="rounded-full bg-black px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 disabled:opacity-40"
+                                    :disabled="cashAmountNum <= 0"
+                                    @click="confirmCashAmount"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- CARD AMOUNT MODAL -->
+                <transition name="card-modal">
+                    <div
+                        v-if="cardModalOpen"
+                        class="pointer-events-auto fixed inset-0 z-[132] flex items-center justify-center bg-neutral-900/40"
+                    >
+                        <div
+                            class="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+                            @click.stop
+                        >
+                            <div class="mb-5 flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-neutral-900">
+                                    Add card amount
+                                </h2>
+                                <button
+                                    type="button"
+                                    class="flex size-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                    @click="closeCardModal"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <!-- main amount -->
+                            <div class="text-center">
+                                <div
+                                    class="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400"
+                                >
+                                    {{ currencySymbol }}
+                                </div>
+                                <div
+                                    class="mt-2 text-5xl font-semibold tracking-tight text-neutral-900 tabular-nums"
+                                >
+                                    {{ cardInputDisplay }}
+                                </div>
+
+                                <!-- quick amounts -->
+                                <div class="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
+                                    <button
+                                        v-for="amt in cardQuickAmounts"
+                                        :key="amt"
+                                        type="button"
+                                        class="whitespace-nowrap rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-100"
+                                        @click="setCardFromQuick(amt)"
+                                    >
+                                        {{ currencySymbol }} {{ formatNumberNoCents(amt) }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- keypad -->
+                            <div class="mt-6 grid grid-cols-3 gap-3">
+                                <button
+                                    v-for="key in keypadKeys"
+                                    :key="'card-' + key"
+                                    type="button"
+                                    class="flex h-14 items-center justify-center rounded-full border border-neutral-300 bg-white text-xl font-semibold text-neutral-900 shadow-sm hover:bg-neutral-50"
+                                    @click="onCardKeypadPress(key)"
+                                >
+                                    <span v-if="key !== 'back'">{{ key }}</span>
+                                    <span v-else>⌫</span>
+                                </button>
+                            </div>
+
+                            <!-- footer info -->
+                            <div class="mt-6 flex items-center justify-between text-[13px]">
+                                <div class="space-y-1">
+                                    <div class="text-neutral-500">
+                                        Card processed by ·
+                                        <span class="font-medium text-neutral-900">
+                                            {{ staffName || businessLabel || 'Front desk' }}
+                                        </span>
+                                    </div>
+                                    <div class="text-neutral-500">
+                                        Left to pay ·
+                                        <span class="font-semibold text-neutral-900 tabular-nums">
+                                            {{ currencySymbol }} {{ cardLeftAfterFormatted }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="rounded-full bg-black px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 disabled:opacity-40"
+                                    :disabled="cardAmountNum <= 0"
+                                    @click="confirmCardAmount"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- GIFT CARD MODAL -->
+                <transition name="gift-modal">
+                    <div
+                        v-if="giftCardModalOpen"
+                        class="pointer-events-auto fixed inset-0 z-[133] flex items-center justify-center bg-neutral-900/40"
+                    >
+                        <div
+                            class="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+                            @click.stop
+                        >
+                            <div class="mb-5 flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-neutral-900">
+                                    Redeem gift card
+                                </h2>
+                                <button
+                                    type="button"
+                                    class="flex size-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                    @click="closeGiftCardModal"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-medium text-neutral-600">
+                                        Find gift card
+                                    </label>
+                                    <input
+                                        v-model="giftCardCode"
+                                        type="text"
+                                        class="w-full rounded-full border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 focus:outline-none"
+                                        placeholder="Enter gift card code"
+                                        @keyup.enter="confirmGiftCard"
+                                    />
+                                </div>
+
+                                <p class="text-xs text-neutral-500">
+                                    For now this will simply apply the remaining balance as a payment
+                                    towards this bill. Hook this up to your real gift-card lookup when
+                                    ready.
+                                </p>
+                            </div>
+
+                            <div class="mt-6 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    class="rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                                    @click="closeGiftCardModal"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    class="rounded-full bg-black px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 disabled:opacity-40"
+                                    :disabled="!giftCardCode"
+                                    @click="confirmGiftCard"
+                                >
+                                    Find
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- SPLIT PAYMENT: SELECT PAYMENT MODAL -->
+                <transition name="split-modal">
+                    <div
+                        v-if="splitSelectModalOpen"
+                        class="pointer-events-auto fixed inset-0 z-[134] flex items-center justify-center bg-neutral-900/40"
+                    >
+                        <div
+                            class="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+                            @click.stop
+                        >
+                            <div class="mb-4 flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-neutral-900">
+                                    Select payment
+                                </h2>
+                                <button
+                                    type="button"
+                                    class="flex size-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                    @click="closeSplitSelectModal"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div class="grid gap-3 mb-5 sm:grid-cols-2 md:grid-cols-4">
+                                <button
+                                    type="button"
+                                    class="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 px-3 py-4 text-sm hover:border-neutral-400 hover:bg-neutral-50"
+                                    @click="splitSelect('cash')"
+                                >
+                                    <i class="bx bx-money text-2xl"></i>
+                                    <span class="font-medium">Cash</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 px-3 py-4 text-sm hover:border-neutral-400 hover:bg-neutral-50"
+                                    @click="splitSelect('card')"
+                                >
+                                    <i class="bx bx-credit-card text-2xl"></i>
+                                    <span class="font-medium">Card</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 px-3 py-4 text-sm hover:border-neutral-400 hover:bg-neutral-50"
+                                    @click="splitSelect('gift-card')"
+                                >
+                                     <i class="bx bx-gift text-2xl"></i>
+                                    <span class="font-medium">Gift card</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="flex flex-col items-center justify-center rounded-2xl border border-neutral-200 px-3 py-4 text-sm hover:border-neutral-400 hover:bg-neutral-50"
+                                    @click="splitSelect('other')"
+                                >
+                                    <span class="text-2xl mb-1">💠</span>
+                                    <span class="font-medium">Other</span>
+                                </button>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button
+                                    type="button"
+                                    class="rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                                    @click="closeSplitSelectModal"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- EDIT SERVICE MODAL -->
+                <transition name="edit-modal">
+                    <div
+                        v-if="editModalOpen"
+                        class="pointer-events-auto fixed inset-0 z-[135] flex items-center justify-center bg-neutral-900/35"
+                    >
+                        <div
+                            class="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl"
+                            @click.stop
+                        >
+                            <!-- header -->
+                            <div class="mb-6 flex items-center justify-between">
+                                <h2 class="text-xl font-semibold text-neutral-900">
+                                    Edit {{ editItemDraft?.label || 'service' }}
+                                </h2>
+                                <button
+                                    type="button"
+                                    class="flex size-9 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+                                    @click="closeEditModal"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <!-- body -->
+                            <div class="space-y-6">
+                                <!-- Price and quantity -->
+                                <div class="grid gap-5 md:grid-cols-[2fr,1fr]">
+                                    <div class="space-y-1.5">
+                                        <label class="text-xs font-medium text-neutral-600">
+                                            Price
+                                        </label>
+                                        <div
+                                            class="flex items-center rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2.5"
+                                        >
+                                            <span
+                                                class="mr-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
+                                            >
+                                                {{ currencySymbol }}
+                                            </span>
+                                            <input
+                                                v-model="editPriceInput"
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                class="w-full bg-transparent text-base font-medium text-neutral-900 outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-1.5">
+                                        <label class="text-xs font-medium text-neutral-600">
+                                            Quantity
+                                        </label>
+                                        <div
+                                            class="flex items-center rounded-xl border border-neutral-300 bg-neutral-50 px-2 py-1.5"
+                                        >
+                                            <button
+                                                type="button"
+                                                class="flex h-8 w-8 items-center justify-center rounded-full text-lg hover:bg-neutral-100"
+                                                @click="adjustEditQty(-1)"
+                                            >
+                                                −
+                                            </button>
+                                            <input
+                                                v-model.number="editQty"
+                                                type="number"
+                                                min="1"
+                                                class="mx-2 w-14 bg-transparent text-center text-base font-medium text-neutral-900 outline-none"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="flex h-8 w-8 items-center justify-center rounded-full text-lg hover:bg-neutral-100"
+                                                @click="adjustEditQty(1)"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Discounts (stub) -->
+                                <div class="space-y-1.5">
+                                    <label class="text-xs font-medium text-neutral-600">
+                                        Discounts
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-left text-sm hover:bg-neutral-100"
+                                    >
+                                        <span class="text-neutral-700">
+                                            {{ editDiscountLabel }}
+                                        </span>
+                                        <span class="text-neutral-400">▾</span>
+                                    </button>
+                                </div>
+
+                                <!-- Team member (display only for now) -->
+                                <div class="space-y-1.5">
+                                    <label class="text-xs font-medium text-neutral-600">
+                                        Team member
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-left text-sm hover:bg-neutral-100"
+                                    >
+                                        <span class="text-neutral-700 truncate">
+                                            {{ editStaffLabel }}
+                                        </span>
+                                        <span class="text-neutral-400">▾</span>
+                                    </button>
+                                </div>
+
+                                <!-- item total -->
+                                <div class="pt-2 text-base">
+                                    <div class="text-xs text-neutral-500">Item total</div>
+                                    <div class="mt-1 text-xl font-semibold text-neutral-900">
+                                        {{ currencySymbol }}
+                                        {{ formatNumber(editItemTotal) }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- footer -->
+                            <div class="mt-6 flex justify-end">
+                                <button
+                                    type="button"
+                                    class="rounded-full bg-black px-7 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600"
+                                    @click="applyEdit"
+                                >
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+            </div>
+        </div>
+    </transition>
+</template>
+
+<script lang="ts">
+import { defineComponent } from 'vue';
+import { router } from '@inertiajs/vue3';
+
+type PaymentMethod = 'cash' | 'card' | 'gift-card' | 'split' | 'other';
+type PaymentLineMethod = 'cash' | 'card' | 'gift-card' | 'other';
+
+export default defineComponent({
+    name: 'BookingTip',
+
+    data() {
+        return {
+            // step handling for one offcanvas
+            step: 'tip' as 'tip' | 'payment',
+            paymentMethod: null as PaymentMethod | null,
+
+            // tip state
+            mode: 'none' as 'none' | 'percent' | 'custom',
+            selectedPercent: 0,
+
+            customInput: '0',
+            customIsPercent: false,
+            customModalOpen: false,
+
+            // cart items (local copy)
+            localItems: [] as any[],
+
+            // payments
+            payments: [] as { method: PaymentLineMethod; amount: number; meta?: any }[],
+            cashModalOpen: false,
+            cashInput: '0',
+            cashFromSplit: false,
+            cardModalOpen: false,
+            cardInput: '0',
+            cardFromSplit: false,
+            giftCardModalOpen: false,
+            giftCardCode: '',
+            splitSelectModalOpen: false,
+
+            // edit service modal
+            editModalOpen: false,
+            editIndex: -1,
+            editItemDraft: null as any | null,
+            editPriceInput: '',
+            editQty: 1,
+            editDiscountLabel: 'None selected',
+            editStaffLabel: '',
+
+            percentOptions: [10, 18, 25, 35, 45],
+            keypadKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'] as string[],
+        };
+    },
+
+    computed: {
+        show(): boolean {
+            return this.$store.getters.tipShow;
+        },
+        meta(): any {
+            return this.$store.getters.tipMeta || {};
+        },
+
+        defaultServiceColor(): string {
+            return 'var(--brand, var(--brand-fallback))';
+        },
+
+        isTipStep(): boolean {
+            return this.step === 'tip';
+        },
+        isPaymentStep(): boolean {
+            return this.step === 'payment';
+        },
+
+        headerTitle(): string {
+            return this.step === 'tip' ? 'Select tip' : 'Select payment';
+        },
+
+        items(): any[] {
+            const items =
+                Array.isArray(this.localItems) && this.localItems.length
+                    ? this.localItems
+                    : Array.isArray(this.meta.services)
+                    ? this.meta.services
+                    : [];
+            return items;
+        },
+
+        baseAmount(): number {
+            return this.items.reduce((total: number, item: any) => {
+                const price = Number(item.price ?? item.final_price ?? 0);
+                const qty = Number(item.quantity ?? 1);
+                const safePrice = isNaN(price) ? 0 : price;
+                const safeQty = isNaN(qty) || qty <= 0 ? 1 : qty;
+                return total + safePrice * safeQty;
+            }, 0);
+        },
+
+        taxAmount(): number {
+            const v = Number(this.meta.taxAmount ?? 0);
+            return isNaN(v) ? 0 : v;
+        },
+
+        clientName(): string | null {
+            return this.meta.client?.name || null;
+        },
+        clientEmail(): string | null {
+            return this.meta.client?.email || null;
+        },
+        staffName(): string | null {
+            return this.meta.staff?.name || null;
+        },
+        businessLabel(): string | null {
+            return (
+                this.meta.propertyName ||
+                this.meta.property?.name ||
+                this.meta.businessName ||
+                null
+            );
+        },
+        bookingId(): number | null {
+            return this.meta.booking?.id ?? this.meta.bookingId ?? null;
+        },
+        currencySymbol(): string {
+            return this.meta.currencySymbol || 'LKR';
+        },
+
+        // tip computations
+        tipAmount(): number {
+            if (this.mode === 'none') return 0;
+
+            if (this.mode === 'percent') {
+                const amount = (this.baseAmount * this.selectedPercent) / 100;
+                return Math.max(0, amount);
+            }
+
+            // custom mode
+            const raw = parseFloat(this.customInput || '0');
+            const v = isNaN(raw) ? 0 : Math.max(0, raw);
+
+            if (this.customIsPercent) {
+                const amount = (this.baseAmount * v) / 100;
+                return Math.max(0, amount);
+            }
+
+            return v;
+        },
+
+        grandTotal(): number {
+            return this.baseAmount + this.taxAmount + this.tipAmount;
+        },
+
+        totalWithTip(): number {
+            return this.grandTotal;
+        },
+
+        // payments
+        totalPaid(): number {
+            return this.payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+        },
+        leftToPay(): number {
+            const remaining = this.totalWithTip - this.totalPaid;
+            return remaining > 0 ? remaining : 0;
+        },
+        changeAmount(): number {
+            const diff = this.totalPaid - this.totalWithTip;
+            return diff > 0 ? diff : 0;
+        },
+
+        baseAmountFormatted(): string {
+            return this.formatNumber(this.baseAmount);
+        },
+        taxAmountFormatted(): string {
+            return this.formatNumber(this.taxAmount);
+        },
+        tipAmountFormatted(): string {
+            return this.formatNumber(this.tipAmount);
+        },
+        grandTotalFormatted(): string {
+            return this.formatNumber(this.grandTotal);
+        },
+        totalWithTipFormatted(): string {
+            return this.formatNumber(this.totalWithTip);
+        },
+        totalPaidFormatted(): string {
+            return this.formatNumber(this.totalPaid);
+        },
+        leftToPayFormatted(): string {
+            return this.formatNumber(this.leftToPay);
+        },
+        changeAmountFormatted(): string {
+            return this.formatNumber(this.changeAmount);
+        },
+
+        customSummaryLabel(): string {
+            if (this.mode !== 'custom' || this.tipAmount <= 0) {
+                return 'Enter a custom amount or percentage';
+            }
+
+            const pct = this.baseAmount > 0 ? (this.tipAmount / this.baseAmount) * 100 : 0;
+            const pctStr = `${pct.toFixed(0)}%`;
+            const amtStr = this.formatNumber(this.tipAmount);
+
+            return this.customIsPercent
+                ? `${pctStr} · ${this.currencySymbol} ${amtStr}`
+                : `${this.currencySymbol} ${amtStr} · ${pctStr}`;
+        },
+
+        customMainDisplay(): string {
+            const v = this.customInput || '0';
+            return this.customIsPercent ? `${v}%` : `${v}`;
+        },
+
+        currentTipPercentLabel(): string {
+            const pct = this.baseAmount > 0 ? (this.tipAmount / this.baseAmount) * 100 : 0;
+            return `${pct.toFixed(0)}% tip`;
+        },
+
+        // payment label
+        selectedPaymentLabel(): string {
+            return this.paymentMethod ? this.paymentLabelFor(this.paymentMethod) : '';
+        },
+
+        // cash modal helpers
+        cashAmountNum(): number {
+            const n = parseFloat(this.cashInput || '0');
+            return isNaN(n) ? 0 : Math.max(0, n);
+        },
+        cashInputDisplay(): string {
+            return this.formatNumber(this.cashAmountNum);
+        },
+        cashQuickAmounts(): number[] {
+            const base = Math.max(this.leftToPay || this.totalWithTip, 0);
+            if (base <= 0) return [0];
+            const b = Math.round(base);
+            const list = [b, b + 3, b + 8, b + 18];
+            const out: number[] = [];
+            list.forEach((v) => {
+                if (v > 0 && !out.includes(v)) out.push(v);
+            });
+            return out;
+        },
+        cashLeftAfter(): number {
+            const remaining = this.totalWithTip - (this.totalPaid + this.cashAmountNum);
+            return remaining > 0 ? remaining : 0;
+        },
+        cashLeftAfterFormatted(): string {
+            return this.formatNumber(this.cashLeftAfter);
+        },
+
+        // card modal helpers
+        cardAmountNum(): number {
+            const n = parseFloat(this.cardInput || '0');
+            return isNaN(n) ? 0 : Math.max(0, n);
+        },
+        cardInputDisplay(): string {
+            return this.formatNumber(this.cardAmountNum);
+        },
+        cardQuickAmounts(): number[] {
+            const base = Math.max(this.leftToPay || this.totalWithTip, 0);
+            if (base <= 0) return [0];
+            const b = Math.round(base);
+            const list = [b, b + 3, b + 8, b + 18];
+            const out: number[] = [];
+            list.forEach((v) => {
+                if (v > 0 && !out.includes(v)) out.push(v);
+            });
+            return out;
+        },
+        cardLeftAfter(): number {
+            const remaining = this.totalWithTip - (this.totalPaid + this.cardAmountNum);
+            return remaining > 0 ? remaining : 0;
+        },
+        cardLeftAfterFormatted(): string {
+            return this.formatNumber(this.cardLeftAfter);
+        },
+
+        editItemTotal(): number {
+            const price = parseFloat(this.editPriceInput || '0');
+            const qty = Number(this.editQty || 1);
+            const p = isNaN(price) ? 0 : price;
+            const q = isNaN(qty) || qty <= 0 ? 1 : qty;
+            return p * q;
+        },
+
+        footerLabel(): string {
+            return this.changeAmount > 0 ? 'Change' : 'To pay';
+        },
+        footerAmount(): number {
+            if (this.changeAmount > 0) {
+                return this.changeAmount;
+            }
+            return this.leftToPay > 0 ? this.leftToPay : this.totalWithTip;
+        },
+        footerAmountFormatted(): string {
+            return this.formatNumber(this.footerAmount);
+        },
+    },
+
+    watch: {
+        show(val: boolean) {
+            if (val) {
+                const services = Array.isArray(this.meta.services) ? this.meta.services : [];
+                this.localItems = services.map((s: any) => ({ ...s }));
+                this.step = 'tip';
+                this.paymentMethod = this.meta.paymentMethod || null;
+                if (typeof this.meta.tipAmount === 'number' && this.meta.tipAmount > 0) {
+                    this.mode = this.meta.tipMode || 'custom';
+                } else {
+                    this.mode = 'none';
+                }
+                this.payments = [];
+                this.cashModalOpen = false;
+                this.cardModalOpen = false;
+                this.giftCardModalOpen = false;
+                this.splitSelectModalOpen = false;
+            } else {
+                this.step = 'tip';
+                this.paymentMethod = null;
+                this.mode = 'none';
+                this.selectedPercent = 0;
+                this.customInput = '0';
+                this.customIsPercent = false;
+                this.customModalOpen = false;
+                this.editModalOpen = false;
+                this.editIndex = -1;
+                this.editItemDraft = null;
+                this.localItems = [];
+                this.payments = [];
+                this.cashModalOpen = false;
+                this.cardModalOpen = false;
+                this.giftCardModalOpen = false;
+                this.splitSelectModalOpen = false;
+            }
+        },
+    },
+
+    methods: {
+        close() {
+            this.$store.commit('CLOSE_TIP_PANEL');
+        },
+
+        formatNumber(v: number): string {
+            const n = Number(v) || 0;
+            return n.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        },
+        formatNumberNoCents(v: number): string {
+            const n = Number(v) || 0;
+            return n.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            });
+        },
+
+        initials(name: string): string {
+            return String(name || '')
+                .trim()
+                .split(/\s+/)
+                .map((p) => p[0]?.toUpperCase())
+                .join('')
+                .slice(0, 3);
+        },
+
+        onAddClient() {
+            console.log('Open Add Client picker');
+        },
+
+        // ===== tip cards =====
+        cardClass(type: 'none' | 'percent' | 'custom', percent?: number) {
+            const active =
+                (type === 'none' && this.mode === 'none') ||
+                (type === 'custom' && this.mode === 'custom') ||
+                (type === 'percent' &&
+                    this.mode === 'percent' &&
+                    this.selectedPercent === percent);
+
+            return active
+                ? 'border-[1.5px] border-orange-500 ring-2 ring-orange-200 bg-orange-50'
+                : 'border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50';
+        },
+
+        selectNone() {
+            this.mode = 'none';
+            this.selectedPercent = 0;
+            this.customModalOpen = false;
+        },
+
+        selectPercent(p: number) {
+            this.mode = 'percent';
+            this.selectedPercent = p;
+            this.customModalOpen = false;
+        },
+
+        percentAmount(p: number): string {
+            const amount = (this.baseAmount * p) / 100;
+            return this.formatNumber(amount);
+        },
+
+        paymentCardClass(method: PaymentMethod) {
+            const active = this.paymentMethod === method;
+            return active
+                ? 'border-[1.5px] border-neutral-900 ring-2 ring-neutral-200 bg-neutral-50'
+                : 'border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50';
+        },
+
+        paymentLabelFor(method: PaymentMethod | PaymentLineMethod): string {
+            switch (method) {
+                case 'cash':
+                    return 'Cash';
+                case 'card':
+                    return 'Card';
+                case 'gift-card':
+                    return 'Gift card';
+                case 'split':
+                    return 'Split payment';
+                case 'other':
+                    return 'Other';
+                default:
+                    return '';
+            }
+        },
+
+        selectPayment(method: PaymentMethod) {
+            this.paymentMethod = method;
+            this.$store.commit('SET_TIP_PAYMENT_METHOD', method);
+        },
+
+        onCashCardClick() {
+            this.selectPayment('cash');
+            this.openCashModal(false);
+        },
+        onCardCardClick() {
+            this.selectPayment('card');
+            this.openCardModal(false);
+        },
+        onGiftCardCardClick() {
+            this.selectPayment('gift-card');
+            this.openGiftCardModal(false);
+        },
+        onSplitCardClick() {
+            this.selectPayment('split');
+            this.splitSelectModalOpen = true;
+        },
+
+        openCustomModal() {
+            this.mode = 'custom';
+            if (!this.customInput) {
+                this.customInput = '0';
+            }
+            this.customModalOpen = true;
+        },
+
+        closeCustomModal() {
+            this.customModalOpen = false;
+        },
+
+        setCustomKind(kind: 'amount' | 'percent') {
+            if (kind === 'percent' && !this.customIsPercent) {
+                // convert amount -> percent
+                const amt = parseFloat(this.customInput || '0');
+                if (this.baseAmount > 0 && !isNaN(amt)) {
+                    const pct = (amt / this.baseAmount) * 100;
+                    this.customInput = pct.toFixed(0);
+                } else {
+                    this.customInput = '0';
+                }
+                this.customIsPercent = true;
+            } else if (kind === 'amount' && this.customIsPercent) {
+                // convert percent -> amount
+                const pct = parseFloat(this.customInput || '0');
+                if (!isNaN(pct)) {
+                    const amt = (this.baseAmount * pct) / 100;
+                    this.customInput = amt.toFixed(2);
+                } else {
+                    this.customInput = '0';
+                }
+                this.customIsPercent = false;
+            }
+        },
+
+        onKeypadPress(key: string) {
+            if (key === 'back') {
+                if (!this.customInput || this.customInput === '0') {
+                    this.customInput = '0';
+                } else {
+                    const next = this.customInput.slice(0, -1);
+                    this.customInput = next.length ? next : '0';
+                }
+                return;
+            }
+
+            if (key === '.') {
+                if (this.customInput.includes('.')) return;
+                this.customInput += '.';
+                return;
+            }
+
+            // digit
+            if (this.customInput === '0') {
+                this.customInput = key;
+            } else {
+                this.customInput += key;
+            }
+        },
+
+        confirmCustomTip() {
+            this.customModalOpen = false;
+        },
+
+        // ===== cash modal =====
+        openCashModal(fromSplit: boolean) {
+            this.cashFromSplit = fromSplit;
+            const base = this.leftToPay || this.totalWithTip;
+            this.cashInput = base > 0 ? base.toFixed(2) : '0';
+            this.cashModalOpen = true;
+        },
+        closeCashModal() {
+            this.cashModalOpen = false;
+        },
+        onCashKeypadPress(key: string) {
+            if (key === 'back') {
+                if (!this.cashInput || this.cashInput === '0') {
+                    this.cashInput = '0';
+                } else {
+                    const next = this.cashInput.slice(0, -1);
+                    this.cashInput = next.length ? next : '0';
+                }
+                return;
+            }
+            if (key === '.') {
+                if (this.cashInput.includes('.')) return;
+                this.cashInput += '.';
+                return;
+            }
+            if (this.cashInput === '0') {
+                this.cashInput = key;
+            } else {
+                this.cashInput += key;
+            }
+        },
+        setCashFromQuick(amt: number) {
+            this.cashInput = amt.toFixed(2);
+        },
+        confirmCashAmount() {
+            if (this.cashAmountNum <= 0) return;
+            this.addPayment('cash', this.cashAmountNum);
+            this.closeCashModal();
+        },
+
+        // ===== card modal =====
+        openCardModal(fromSplit: boolean) {
+            this.cardFromSplit = fromSplit;
+            const base = this.leftToPay || this.totalWithTip;
+            this.cardInput = base > 0 ? base.toFixed(2) : '0';
+            this.cardModalOpen = true;
+        },
+        closeCardModal() {
+            this.cardModalOpen = false;
+        },
+        onCardKeypadPress(key: string) {
+            if (key === 'back') {
+                if (!this.cardInput || this.cardInput === '0') {
+                    this.cardInput = '0';
+                } else {
+                    const next = this.cardInput.slice(0, -1);
+                    this.cardInput = next.length ? next : '0';
+                }
+                return;
+            }
+            if (key === '.') {
+                if (this.cardInput.includes('.')) return;
+                this.cardInput += '.';
+                return;
+            }
+            if (this.cardInput === '0') {
+                this.cardInput = key;
+            } else {
+                this.cardInput += key;
+            }
+        },
+        setCardFromQuick(amt: number) {
+            this.cardInput = amt.toFixed(2);
+        },
+        confirmCardAmount() {
+            if (this.cardAmountNum <= 0) return;
+            this.addPayment('card', this.cardAmountNum);
+            this.closeCardModal();
+        },
+
+        // ===== gift card modal =====
+        openGiftCardModal(fromSplit: boolean) {
+            this.cashFromSplit = fromSplit;
+            this.giftCardCode = '';
+            this.giftCardModalOpen = true;
+        },
+        closeGiftCardModal() {
+            this.giftCardModalOpen = false;
+        },
+        confirmGiftCard() {
+            if (!this.giftCardCode) return;
+
+            const amount = this.leftToPay || this.totalWithTip;
+            if (amount > 0) {
+                this.addPayment('gift-card', amount);
+            }
+
+            this.giftCardModalOpen = false;
+        },
+
+        // ===== split payment select modal =====
+        closeSplitSelectModal() {
+            this.splitSelectModalOpen = false;
+        },
+        splitSelect(method: PaymentLineMethod) {
+            this.splitSelectModalOpen = false;
+
+            if (method === 'cash') {
+                this.openCashModal(true);
+            } else if (method === 'card') {
+                this.openCardModal(true);
+            } else if (method === 'gift-card') {
+                this.openGiftCardModal(true);
+            } else {
+                const amount = this.leftToPay || this.totalWithTip;
+                if (amount > 0) {
+                    this.addPayment('other', amount);
+                }
+            }
+        },
+
+        addPayment(method: PaymentLineMethod, amount: number) {
+            const safeAmount = Number(amount) || 0;
+            if (safeAmount <= 0) return;
+
+            this.payments.push({
+                method,
+                amount: safeAmount,
+            });
+        },
+
+        removePaymentAt(index: number) {
+            if (index < 0 || index >= this.payments.length) return;
+            this.payments.splice(index, 1);
+        },
+
+        openEditItem(item: any, index: number) {
+            this.editIndex = index;
+            this.editItemDraft = { ...item };
+            const price = Number(item.price ?? item.final_price ?? 0);
+            const qty = Number(item.quantity ?? 1);
+            this.editPriceInput = isNaN(price) ? '0' : price.toFixed(2);
+            this.editQty = isNaN(qty) || qty <= 0 ? 1 : qty;
+            this.editStaffLabel =
+                item.staff_name || item.staffName || this.staffName || 'Select team member';
+            this.editModalOpen = true;
+        },
+
+        closeEditModal() {
+            this.editModalOpen = false;
+            this.editIndex = -1;
+            this.editItemDraft = null;
+        },
+
+        adjustEditQty(delta: number) {
+            const next = (this.editQty || 1) + delta;
+            this.editQty = next <= 1 ? 1 : next;
+        },
+
+        applyEdit() {
+            if (this.editIndex < 0 || !this.editItemDraft) {
+                this.closeEditModal();
+                return;
+            }
+
+            const priceNum = parseFloat(this.editPriceInput || '0');
+            const safePrice = isNaN(priceNum) ? 0 : Math.max(0, priceNum);
+            const safeQty = this.editQty <= 0 ? 1 : this.editQty;
+
+            const updated = {
+                ...this.editItemDraft,
+                price: safePrice,
+                quantity: safeQty,
+            };
+
+            const items = [...this.items];
+            items.splice(this.editIndex, 1, updated);
+            this.localItems = items;
+
+            this.$store.commit('TIP_UPDATE_SERVICES', items);
+
+            this.closeEditModal();
+        },
+
+        goToPaymentStep() {
+            const percentFromCustom =
+                this.mode === 'custom' && this.customIsPercent
+                    ? parseFloat(this.customInput || '0')
+                    : null;
+
+            this.$store.commit('SET_TIP_VALUE', {
+                amount: this.tipAmount,
+                mode: this.mode,
+                percent:
+                    this.mode === 'percent'
+                        ? this.selectedPercent
+                        : percentFromCustom,
+            });
+            this.$store.commit('UPDATE_TIP_BASE_AMOUNT', this.baseAmount);
+
+            this.step = 'payment';
+        },
+
+      saveUnpaid() {
+    const payload = {
+        booking_id: this.bookingId,
+        branch_id: this.meta.branch_id ?? null,
+
+        tip_amount: this.tipAmount,
+        base_amount: this.baseAmount,
+        tax_amount: this.taxAmount,
+        total_with_tip: this.totalWithTip,
+
+        payment_method: this.paymentMethod,
+        payments: this.payments,
+
+        total_paid: this.totalPaid,
+        remaining: this.leftToPay,
+
+        services: this.items,
+    };
+
+    const url = (window as any).route
+        ? (window as any).route('booking.sales.store')
+        : '/booking-sales';
+
+    router.post(url, payload, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: (page: any) => {
+            this.$store.commit('SET_TIP_PAYMENT_METHOD', this.paymentMethod);
+            this.$store.commit('CLOSE_TIP_PANEL');
+
+            const saleMeta = {
+                bookingId: this.bookingId,
+                booking: this.meta.booking ?? null,
+                client: this.meta.client,
+                staff: this.meta.staff,
+                branch_id: this.meta.branch_id ?? null,
+
+                currencySymbol: this.currencySymbol,
+
+                base_amount: this.baseAmount,
+                tax_amount: this.taxAmount,
+                tip_amount: this.tipAmount,
+                total_with_tip: this.totalWithTip,
+
+                payment_method: this.paymentMethod,
+                payments: this.payments,
+                total_paid: this.totalPaid,
+                remaining: this.leftToPay,
+
+                services: this.items,
+            };
+
+            this.$store.commit('OPEN_SUCCESS_PAYMENT', saleMeta);
+        },
+        onError: (errors) => {
+            console.error('Failed to save booking sale', errors);
+        },
+    });
+},
+
+
+        handlePrimaryAction() {
+            if (this.step === 'tip') {
+                this.goToPaymentStep();
+            } else {
+                this.saveUnpaid();
+            }
+        },
+    },
+});
+</script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+    transform: translateX(24px);
+}
+
+/* step switch animation */
+.step-slide-enter-active,
+.step-slide-leave-active {
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+.step-slide-enter-from,
+.step-slide-leave-to {
+    opacity: 0;
+    transform: translateX(12px);
+}
+
+.tip-modal-enter-active,
+.tip-modal-leave-active {
+    transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+}
+.tip-modal-enter-from,
+.tip-modal-leave-to {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+}
+
+.cash-modal-enter-active,
+.cash-modal-leave-active,
+.card-modal-enter-active,
+.card-modal-leave-active,
+.gift-modal-enter-active,
+.gift-modal-leave-active,
+.split-modal-enter-active,
+.split-modal-leave-active,
+.edit-modal-enter-active,
+.edit-modal-leave-active {
+  transition: opacity 0.28s cubic-bezier(0.24, 0.8, 0.25, 1), 
+                transform 0.28s cubic-bezier(0.24, 0.8, 0.25, 1);}
+.cash-modal-enter-from,
+.cash-modal-leave-to,
+.card-modal-enter-from,
+.card-modal-leave-to,
+.gift-modal-enter-from,
+.gift-modal-leave-to,
+.split-modal-enter-from,
+.split-modal-leave-to,
+.edit-modal-enter-from,
+.edit-modal-leave-to {
+    opacity: 0;
+transform: translateY(8px);}
+
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+}
+
+button {
+    cursor: pointer;
+}
+</style>

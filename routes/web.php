@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\StorageOptionController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -29,12 +30,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
     // ✅ Brands
-Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
-Route::get('/brands/data', [BrandController::class, 'data'])->name('brands.data');
-Route::get('/brands/create', [BrandController::class, 'create'])->name('brands.create');
-Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
-Route::get('/brands/{brand}/edit', [BrandController::class, 'edit'])->name('brands.edit');
-Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
-Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
+    Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
+    Route::get('/brands/data', [BrandController::class, 'data'])->name('brands.data');
+    Route::get('/brands/create', [BrandController::class, 'create'])->name('brands.create');
+    Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
+    Route::get('/brands/{brand}/edit', [BrandController::class, 'edit'])->name('brands.edit');
+    Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
+    Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
+
+    Route::get('/storage-options', [StorageOptionController::class, 'index'])->name('storage.index');
+    Route::get('/storage-options/data', [StorageOptionController::class, 'data'])->name('storage.data');
+    Route::get('/storage-options/create', [StorageOptionController::class, 'create'])->name('storage.create');
+    Route::post('/storage-options', [StorageOptionController::class, 'store'])->name('storage.store');
+    Route::get('/storage-options/{storageOption}/edit', [StorageOptionController::class, 'edit'])->name('storage.edit');
+    Route::put('/storage-options/{storageOption}', [StorageOptionController::class, 'update'])->name('storage.update');
+    Route::delete('/storage-options/{storageOption}', [StorageOptionController::class, 'destroy'])->name('storage.destroy');
 
 });

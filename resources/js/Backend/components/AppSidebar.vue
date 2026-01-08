@@ -20,6 +20,8 @@ import {
     Tags, // ✅ Brands icon
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
+import { HardDrive } from 'lucide-vue-next'
+
 import { route } from 'ziggy-js';
 
 const mainNavItems: NavItemWithSubmenu[] = [
@@ -38,6 +40,12 @@ const mainNavItems: NavItemWithSubmenu[] = [
         href: route('brands.index'),
         icon: Tags,
     },
+    {
+  title: 'Storage Options',
+  href: route('storage.index'),
+  icon: HardDrive,
+},
+
 ];
 
 const footerNavItems: NavItem[] = [

@@ -5,6 +5,9 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\StorageOptionController;
 use App\Http\Controllers\RamOptionController;
+use App\Http\Controllers\WarrantyOptionController;
+use App\Http\Controllers\ColorOptionController;
+
 
 
 use Illuminate\Support\Facades\Route;
@@ -56,6 +59,25 @@ Route::post('/ram-options', [RamOptionController::class, 'store'])->name('ram.st
 Route::get('/ram-options/{ramOption}/edit', [RamOptionController::class, 'edit'])->name('ram.edit');
 Route::put('/ram-options/{ramOption}', [RamOptionController::class, 'update'])->name('ram.update');
 Route::delete('/ram-options/{ramOption}', [RamOptionController::class, 'destroy'])->name('ram.destroy');
+
+// ✅ Warranty Options
+Route::get('/warranty-options', [WarrantyOptionController::class, 'index'])->name('warranty.index');
+Route::get('/warranty-options/data', [WarrantyOptionController::class, 'data'])->name('warranty.data');
+Route::get('/warranty-options/create', [WarrantyOptionController::class, 'create'])->name('warranty.create');
+Route::post('/warranty-options', [WarrantyOptionController::class, 'store'])->name('warranty.store');
+Route::get('/warranty-options/{warrantyOption}/edit', [WarrantyOptionController::class, 'edit'])->name('warranty.edit');
+Route::put('/warranty-options/{warrantyOption}', [WarrantyOptionController::class, 'update'])->name('warranty.update');
+Route::delete('/warranty-options/{warrantyOption}', [WarrantyOptionController::class, 'destroy'])->name('warranty.destroy');
+
+// ✅ Color Options
+Route::get('/color-options', [ColorOptionController::class, 'index'])->name('colors.index');
+Route::get('/color-options/data', [ColorOptionController::class, 'data'])->name('colors.data');
+Route::get('/color-options/create', [ColorOptionController::class, 'create'])->name('colors.create');
+Route::post('/color-options', [ColorOptionController::class, 'store'])->name('colors.store');
+Route::get('/color-options/{colorOption}/edit', [ColorOptionController::class, 'edit'])->name('colors.edit');
+Route::put('/color-options/{colorOption}', [ColorOptionController::class, 'update'])->name('colors.update');
+Route::delete('/color-options/{colorOption}', [ColorOptionController::class, 'destroy'])->name('colors.destroy');
+
 
 
 });

@@ -22,6 +22,8 @@ import {
 import AppLogo from './AppLogo.vue';
 import { HardDrive } from 'lucide-vue-next'
 import { MemoryStick } from 'lucide-vue-next'
+import { ShieldCheck, Palette } from 'lucide-vue-next'
+
 
 
 import { route } from 'ziggy-js';
@@ -53,6 +55,20 @@ const mainNavItems: NavItemWithSubmenu[] = [
   href: route('storage.index'),
   icon: HardDrive,
 },
+
+{
+  title: 'Color Options',
+  href: route('colors.index'),
+  icon: Palette,
+},
+
+{
+  title: 'Warranty Options',
+  href: route('warranty.index'),
+  icon: ShieldCheck,
+},
+
+
 
 ];
 

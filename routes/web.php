@@ -4,6 +4,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\StorageOptionController;
+use App\Http\Controllers\RamOptionController;
+
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -45,5 +47,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/storage-options/{storageOption}/edit', [StorageOptionController::class, 'edit'])->name('storage.edit');
     Route::put('/storage-options/{storageOption}', [StorageOptionController::class, 'update'])->name('storage.update');
     Route::delete('/storage-options/{storageOption}', [StorageOptionController::class, 'destroy'])->name('storage.destroy');
+
+    // ✅ RAM Options
+Route::get('/ram-options', [RamOptionController::class, 'index'])->name('ram.index');
+Route::get('/ram-options/data', [RamOptionController::class, 'data'])->name('ram.data');
+Route::get('/ram-options/create', [RamOptionController::class, 'create'])->name('ram.create');
+Route::post('/ram-options', [RamOptionController::class, 'store'])->name('ram.store');
+Route::get('/ram-options/{ramOption}/edit', [RamOptionController::class, 'edit'])->name('ram.edit');
+Route::put('/ram-options/{ramOption}', [RamOptionController::class, 'update'])->name('ram.update');
+Route::delete('/ram-options/{ramOption}', [RamOptionController::class, 'destroy'])->name('ram.destroy');
+
 
 });

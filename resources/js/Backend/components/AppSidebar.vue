@@ -21,6 +21,8 @@ import {
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 import { HardDrive } from 'lucide-vue-next'
+import { MemoryStick } from 'lucide-vue-next'
+
 
 import { route } from 'ziggy-js';
 
@@ -40,6 +42,12 @@ const mainNavItems: NavItemWithSubmenu[] = [
         href: route('brands.index'),
         icon: Tags,
     },
+    {
+  title: 'RAM Options',
+  href: route('ram.index'),
+  icon: MemoryStick,
+},
+
     {
   title: 'Storage Options',
   href: route('storage.index'),

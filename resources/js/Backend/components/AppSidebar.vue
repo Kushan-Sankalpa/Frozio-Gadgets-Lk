@@ -16,7 +16,8 @@ import { Link } from '@inertiajs/vue3';
 import {
     LayoutDashboard,
     BookOpen,
-    Layers, // ✅ for Categories icon
+    Layers,
+    Tags, // ✅ Brands icon
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 import { route } from 'ziggy-js';
@@ -31,6 +32,11 @@ const mainNavItems: NavItemWithSubmenu[] = [
         title: 'Categories',
         href: route('categories.index'),
         icon: Layers,
+    },
+    {
+        title: 'Brands',
+        href: route('brands.index'),
+        icon: Tags,
     },
 ];
 

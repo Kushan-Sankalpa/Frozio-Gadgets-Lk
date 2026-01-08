@@ -79,8 +79,8 @@
             Cancel
           </button>
 
-          <button
-            type="submit"
+          <button type="submit" 
+          @click.stop
             :disabled="form.processing"
             class="rounded-full bg-red-500 px-5 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
           >
@@ -93,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 
@@ -116,7 +116,6 @@ const emit = defineEmits<{
 }>()
 
 const previewUrl = ref<string | null>(null)
-const imageFile = ref<File | null>(null)
 
 const form = useForm<{
   name: string
@@ -128,34 +127,32 @@ const form = useForm<{
   image: null,
 })
 
-function resetForOpen() {
+function hydrateFromProps() {
   form.clearErrors()
-  form.name = props.category?.name ?? ''
-  form.status = props.category?.status ?? 'active'
-  imageFile.value = null
-  form.image = null
+
+  form.defaults({
+    name: props.category?.name ?? '',
+    status: props.category?.status ?? 'active',
+    image: null,
+  })
+
+  form.reset()
   previewUrl.value = props.category?.image_url ?? null
 }
 
-watch(
-  () => props.show,
-  (v) => { if (v) resetForOpen() }
-)
+watch(() => props.show, (open) => { if (open) hydrateFromProps() })
 
-watch(
-  () => props.category,
-  () => { if (props.show) resetForOpen() }
-)
+watch(() => props.category?.id, () => {
+  if (props.show) hydrateFromProps()
+})
+
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0] || null
-  imageFile.value = file
   form.image = file
 
-  if (file) {
-    previewUrl.value = URL.createObjectURL(file)
-  }
+  if (file) previewUrl.value = URL.createObjectURL(file)
 }
 
 function emitClose() {
@@ -163,6 +160,8 @@ function emitClose() {
 }
 
 function submit() {
+  form.clearErrors()
+
   const isEdit = props.mode === 'edit' && props.category?.id
 
   if (!isEdit) {
@@ -174,11 +173,20 @@ function submit() {
     return
   }
 
-  // Laravel update
-  form.put(route('categories.update', props.category!.id), {
-    forceFormData: true,
-    preserveScroll: true,
-    onSuccess: () => emit('saved'),
-  })
+  // ✅ IMPORTANT: POST + _method=PUT so Laravel receives fields correctly
+  form
+    .transform((data) => ({
+      ...data,
+      _method: 'PUT',
+    }))
+    .post(route('categories.update', props.category!.id), {
+      forceFormData: true,
+      preserveScroll: true,
+      onSuccess: () => emit('saved'),
+      onFinish: () => form.transform((d) => d), // reset transform
+    })
 }
+
+
+
 </script>

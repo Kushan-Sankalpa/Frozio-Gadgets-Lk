@@ -37,8 +37,9 @@ const form = useForm<{
 })
 
 watch(
-  () => props.brand,
-  (b) => {
+  () => props.brand?.id,
+  () => {
+    const b = props.brand
     form.name = b?.name ?? ''
     form.status = (b?.status as any) ?? 'active'
     form.category_ids = b?.category_ids ?? []
@@ -46,6 +47,7 @@ watch(
     logoPreview.value = b?.logo_url ?? null
   }
 )
+
 
 function onLogoChange(e: Event) {
   const input = e.target as HTMLInputElement
@@ -55,6 +57,8 @@ function onLogoChange(e: Event) {
 }
 
 function submit() {
+  form.clearErrors()
+
   if (!isEdit.value) {
     form.post(route('brands.store'), {
       forceFormData: true,
@@ -63,11 +67,19 @@ function submit() {
     return
   }
 
-  form.put(route('brands.update', props.brand!.id), {
-    forceFormData: true,
-    preserveScroll: true,
-  })
+  // ✅ multipart update fix: POST + _method=PUT (PHP parses correctly)
+  form
+    .transform((data) => ({
+      ...data,
+      _method: 'PUT',
+    }))
+    .post(route('brands.update', props.brand!.id), {
+      forceFormData: true,
+      preserveScroll: true,
+      onFinish: () => form.transform((d) => d), // reset transform
+    })
 }
+
 </script>
 
 <template>

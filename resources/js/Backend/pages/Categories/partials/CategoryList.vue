@@ -12,23 +12,26 @@
       </button>
     </div>
 
-    <DataTable
-      id="categoriesTable"
-      :url="dataUrl"
-      :columns="columns"
-      :columnDefs="columnDefs"
-      :order="[[0, 'desc']]"
-      :reloadKey="reloadKey"
-    >
-      <template #header>
-        <tr>
-          <th style="width: 60px;">#</th>
-          <th>Name</th>
-          <th style="width: 120px;">Status</th>
-          <th style="width: 220px;">Actions</th>
-        </tr>
-      </template>
-    </DataTable>
+    <!-- ✅ wrap table to bind click handler only here -->
+    <div ref="tableWrap" @click="onTableClick">
+      <DataTable
+        id="categoriesTable"
+        :url="dataUrl"
+        :columns="columns"
+        :columnDefs="columnDefs"
+        :order="[[0, 'desc']]"
+        :reloadKey="reloadKey"
+      >
+        <template #header>
+          <tr>
+            <th style="width: 60px;">#</th>
+            <th>Name</th>
+            <th style="width: 120px;">Status</th>
+            <th style="width: 220px;">Actions</th>
+          </tr>
+        </template>
+      </DataTable>
+    </div>
 
     <CreateUpdate
       :show="showModal"
@@ -41,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import DataTable from '@/Backend/components/DataTable.vue'
 import CreateUpdate from './CreateUpdate.vue'
 import { router } from '@inertiajs/vue3'
@@ -68,7 +71,6 @@ const columns = [
   { data: 'actions', name: 'actions', orderable: false, searchable: false },
 ]
 
-// ensure HTML renders in status/actions
 const columnDefs = [
   { targets: [2, 3], render: (data: any) => data },
 ]
@@ -94,11 +96,14 @@ function onSaved() {
   reloadKey.value = Date.now()
 }
 
-// DataTable action handlers (event delegation)
-function onTableClick(e: Event) {
+function onTableClick(e: MouseEvent) {
   const target = e.target as HTMLElement
   const btn = target.closest('button[data-action]') as HTMLButtonElement | null
   if (!btn) return
+
+  // ✅ stop anything else
+  e.preventDefault()
+  e.stopPropagation()
 
   const action = btn.dataset.action
   const payload = btn.dataset.payload
@@ -125,13 +130,4 @@ function onTableClick(e: Event) {
     })
   }
 }
-
-onMounted(async () => {
-  await nextTick()
-  document.addEventListener('click', onTableClick, true)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onTableClick, true)
-})
 </script>

@@ -43,11 +43,17 @@
 
         <div>
           <label class="block text-xs font-medium text-neutral-600 mb-1">Colors</label>
-          <ColorMultiSelect
-            :options="colorOptions"
-            v-model="filters.color_ids"
-            placeholder="All colors"
-          />
+<MultiSelect
+  id="filter_color_ids"
+  label=""
+  placeholder="All colors"
+  :options="colorOptions"
+  v-model="filters.color_ids"
+  valueKey="id"
+  labelKey="name"
+  imageKey="image_url"
+/>
+
         </div>
       </div>
     </div>
@@ -81,6 +87,8 @@
 <script setup lang="ts">
 import { computed, ref, watch, defineComponent } from 'vue'
 import DataTable from '@/Backend/components/DataTable.vue'
+import MultiSelect from '@/Backend/components/MultiSelect.vue'
+
 import { router, usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 
@@ -184,56 +192,56 @@ function onTableClick(e: MouseEvent) {
 }
 
 /** Simple color multi select (image circles + name) */
-const ColorMultiSelect = defineComponent({
-  props: {
-    options: { type: Array as any, required: true },
-    modelValue: { type: Array as any, required: true },
-    placeholder: { type: String, default: 'Select colors' },
-  },
-  emits: ['update:modelValue'],
-  setup(props, { emit }) {
-    const open = ref(false)
+// const ColorMultiSelect = defineComponent({
+//   props: {
+//     options: { type: Array as any, required: true },
+//     modelValue: { type: Array as any, required: true },
+//     placeholder: { type: String, default: 'Select colors' },
+//   },
+//   emits: ['update:modelValue'],
+//   setup(props, { emit }) {
+//     const open = ref(false)
 
-    const selected = computed<number[]>({
-      get: () => props.modelValue,
-      set: (v) => emit('update:modelValue', v),
-    })
+//     const selected = computed<number[]>({
+//       get: () => props.modelValue,
+//       set: (v) => emit('update:modelValue', v),
+//     })
 
-    function toggle(id: number) {
-      const s = new Set(selected.value)
-      if (s.has(id)) s.delete(id)
-      else s.add(id)
-      selected.value = Array.from(s)
-    }
+//     function toggle(id: number) {
+//       const s = new Set(selected.value)
+//       if (s.has(id)) s.delete(id)
+//       else s.add(id)
+//       selected.value = Array.from(s)
+//     }
 
-    const selectedLabels = computed(() => {
-      const map = new Map((props.options as any[]).map(o => [o.id, o]))
-      return selected.value.map(id => map.get(id)).filter(Boolean)
-    })
+//     const selectedLabels = computed(() => {
+//       const map = new Map((props.options as any[]).map(o => [o.id, o]))
+//       return selected.value.map(id => map.get(id)).filter(Boolean)
+//     })
 
-    return { open, selected, toggle, selectedLabels }
-  },
-  template: `
-    <div class="relative">
-      <button type="button"
-        class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm text-left outline-none hover:bg-neutral-50"
-        @click="open = !open">
-        <span v-if="selected.length === 0" class="text-neutral-400">{{ placeholder }}</span>
-        <span v-else class="text-neutral-700">{{ selected.length }} selected</span>
-      </button>
+//     return { open, selected, toggle, selectedLabels }
+//   },
+//   template: `
+//     <div class="relative">
+//       <button type="button"
+//         class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm text-left outline-none hover:bg-neutral-50"
+//         @click="open = !open">
+//         <span v-if="selected.length === 0" class="text-neutral-400">{{ placeholder }}</span>
+//         <span v-else class="text-neutral-700">{{ selected.length }} selected</span>
+//       </button>
 
-      <div v-if="open" class="absolute z-50 mt-2 w-full rounded-xl border border-neutral-200 bg-white shadow-lg p-2 max-h-64 overflow-auto">
-        <div v-for="c in options" :key="c.id"
-          class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-neutral-50 cursor-pointer"
-          @click="toggle(c.id)">
-          <div class="h-5 w-5 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50 flex items-center justify-center">
-            <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
-          </div>
-          <div class="text-sm text-neutral-700">{{ c.name }}</div>
-          <div class="ml-auto text-xs text-neutral-500" v-if="selected.includes(c.id)">✓</div>
-        </div>
-      </div>
-    </div>
-  `,
-})
+//       <div v-if="open" class="absolute z-50 mt-2 w-full rounded-xl border border-neutral-200 bg-white shadow-lg p-2 max-h-64 overflow-auto">
+//         <div v-for="c in options" :key="c.id"
+//           class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-neutral-50 cursor-pointer"
+//           @click="toggle(c.id)">
+//           <div class="h-5 w-5 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50 flex items-center justify-center">
+//             <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
+//           </div>
+//           <div class="text-sm text-neutral-700">{{ c.name }}</div>
+//           <div class="ml-auto text-xs text-neutral-500" v-if="selected.includes(c.id)">✓</div>
+//         </div>
+//       </div>
+//     </div>
+//   `,
+// })
 </script>

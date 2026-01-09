@@ -176,7 +176,7 @@ class ProductController extends Controller
 
 // No pivot sync - colors saved as JSON
 
-        $p->colors()->sync($request->input('color_ids', []));
+        // $p->colors()->sync($request->input('color_ids', []));
 
         return redirect()->route('products.index')->with('success', 'Product created.');
     }
@@ -237,7 +237,6 @@ $product->save();
             if ($p && Storage::disk('public')->exists($p)) Storage::disk('public')->delete($p);
         }
 
-        $product->colors()->detach();
         $product->delete();
 
         return redirect()->route('products.index')->with('success', 'Product deleted.');
@@ -258,9 +257,13 @@ $product->save();
         $categoryId = $request->input('category_id');
         $brandId = $request->input('brand_id');
         $warrantyOptionId = $request->input('warranty_option_id');
-        $colorIds = $request->input('color_ids') ? explode(',', $request->input('color_ids')) : null;
+       $colorIds = $request->input('color_ids')
+    ? array_values(array_filter(array_map('intval', explode(',', $request->input('color_ids')))))
+    : null;
 
-        $baseQuery = Product::with(['category:id,name', 'brand:id,name', 'colors:id,name'])
+
+      $baseQuery = Product::with(['category:id,name', 'brand:id,name'])
+
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
             ->select('products.*', 'categories.name as category_name', 'brands.name as brand_name');

@@ -30,7 +30,11 @@
                     @click.stop="remove(getVal(opt))"
                     :title="`Remove ${getLbl(opt)}`"
                 >
-                    {{ getLbl(opt) }}
+                   <span v-if="getImg(opt)" class="mr-1 h-4 w-4 rounded-full overflow-hidden border border-white/50">
+  <img :src="getImg(opt)" class="h-full w-full object-cover" />
+</span>
+{{ getLbl(opt) }}
+
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         class="ml-1 h-3.5 w-3.5"
@@ -95,7 +99,13 @@
                             @click="toggle(opt)"
                             @mouseenter="activeIndex = idx"
                         >
-                            {{ getLbl(opt) }}
+                          <div class="flex items-center gap-2">
+  <div class="h-5 w-5 rounded-full overflow-hidden border border-zinc-200 bg-zinc-50 flex items-center justify-center">
+    <img v-if="getImg(opt)" :src="getImg(opt)" class="h-full w-full object-cover" />
+  </div>
+  <span>{{ getLbl(opt) }}</span>
+</div>
+
                         </li>
 
                         <li
@@ -130,6 +140,8 @@ export default {
         valueKey: { type: String, default: 'id' },
         labelKey: { type: String, default: 'name' },
         maxSelected: { type: Number, default: Infinity },
+        imageKey: { type: String, default: '' }, // e.g. "image_url"
+
     },
     data() {
         return {
@@ -146,6 +158,11 @@ export default {
             return (o) =>
                 o?.[this.labelKey] ?? o?.label ?? o?.title ?? String(o);
         },
+
+        getImg() {
+  return (o) => (this.imageKey ? (o?.[this.imageKey] ?? null) : null);
+},
+
 
         selectedOptions() {
             const set = new Set(this.modelValue ?? []);

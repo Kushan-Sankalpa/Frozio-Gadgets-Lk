@@ -193,66 +193,66 @@ function submit() {
 }
 
 /** color multi select with image circle */
-const ColorMultiSelect = defineComponent({
-  props: {
-    options: { type: Array as any, required: true },
-    modelValue: { type: Array as any, required: true },
-  },
-  emits: ['update:modelValue'],
-  setup(props, { emit }) {
-    const open = ref(false)
+// const ColorMultiSelect = defineComponent({
+//   props: {
+//     options: { type: Array as any, required: true },
+//     modelValue: { type: Array as any, required: true },
+//   },
+//   emits: ['update:modelValue'],
+//   setup(props, { emit }) {
+//     const open = ref(false)
 
-    const selected = computed<number[]>({
-      get: () => props.modelValue,
-      set: (v) => emit('update:modelValue', v),
-    })
+//     const selected = computed<number[]>({
+//       get: () => props.modelValue,
+//       set: (v) => emit('update:modelValue', v),
+//     })
 
-    function toggle(id: number) {
-      const s = new Set(selected.value)
-      if (s.has(id)) s.delete(id)
-      else s.add(id)
-      selected.value = Array.from(s)
-    }
+//     function toggle(id: number) {
+//       const s = new Set(selected.value)
+//       if (s.has(id)) s.delete(id)
+//       else s.add(id)
+//       selected.value = Array.from(s)
+//     }
 
-    const selectedObjects = computed(() => {
-      const map = new Map((props.options as any[]).map(o => [o.id, o]))
-      return selected.value.map(id => map.get(id)).filter(Boolean)
-    })
+//     const selectedObjects = computed(() => {
+//       const map = new Map((props.options as any[]).map(o => [o.id, o]))
+//       return selected.value.map(id => map.get(id)).filter(Boolean)
+//     })
 
-    return { open, selected, toggle, selectedObjects }
-  },
-  template: `
-    <div class="relative">
-      <button type="button"
-        class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm text-left outline-none hover:bg-neutral-50"
-        @click="open = !open">
-        <span v-if="selected.length === 0" class="text-neutral-400">Select colors</span>
-        <span v-else class="text-neutral-700">{{ selected.length }} selected</span>
-      </button>
+//     return { open, selected, toggle, selectedObjects }
+//   },
+//   template: `
+//     <div class="relative">
+//       <button type="button"
+//         class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm text-left outline-none hover:bg-neutral-50"
+//         @click="open = !open">
+//         <span v-if="selected.length === 0" class="text-neutral-400">Select colors</span>
+//         <span v-else class="text-neutral-700">{{ selected.length }} selected</span>
+//       </button>
 
-      <div v-if="open" class="absolute z-50 mt-2 w-full rounded-xl border border-neutral-200 bg-white shadow-lg p-2 max-h-72 overflow-auto">
-        <div v-for="c in options" :key="c.id"
-          class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-neutral-50 cursor-pointer"
-          @click="toggle(c.id)">
-          <div class="h-6 w-6 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50">
-            <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
-          </div>
-          <div class="text-sm text-neutral-700">{{ c.name }}</div>
-          <div class="ml-auto text-xs text-neutral-500" v-if="selected.includes(c.id)">✓</div>
-        </div>
-      </div>
+//       <div v-if="open" class="absolute z-50 mt-2 w-full rounded-xl border border-neutral-200 bg-white shadow-lg p-2 max-h-72 overflow-auto">
+//         <div v-for="c in options" :key="c.id"
+//           class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-neutral-50 cursor-pointer"
+//           @click="toggle(c.id)">
+//           <div class="h-6 w-6 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50">
+//             <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
+//           </div>
+//           <div class="text-sm text-neutral-700">{{ c.name }}</div>
+//           <div class="ml-auto text-xs text-neutral-500" v-if="selected.includes(c.id)">✓</div>
+//         </div>
+//       </div>
 
-      <div v-if="selectedObjects.length" class="mt-2 flex flex-wrap gap-2">
-        <div v-for="c in selectedObjects" :key="c.id" class="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1 text-xs">
-          <div class="h-4 w-4 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50">
-            <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
-          </div>
-          <span class="text-neutral-700">{{ c.name }}</span>
-        </div>
-      </div>
-    </div>
-  `,
-})
+//       <div v-if="selectedObjects.length" class="mt-2 flex flex-wrap gap-2">
+//         <div v-for="c in selectedObjects" :key="c.id" class="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1 text-xs">
+//           <div class="h-4 w-4 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50">
+//             <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
+//           </div>
+//           <span class="text-neutral-700">{{ c.name }}</span>
+//         </div>
+//       </div>
+//     </div>
+//   `,
+// })
 
 const deviceStatusOptions = [
   { id: 'brandnew', name: 'Brand New' },
@@ -554,10 +554,20 @@ const statusOptions = [
             </div>
 
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Colors (multi select)</label>
-              <ColorMultiSelect :options="colors" v-model="form.color_ids" />
-              <p v-if="form.errors.color_ids" class="mt-1 text-sm text-red-600">{{ form.errors.color_ids }}</p>
-            </div>
+  <MultiSelect
+    id="color_ids"
+    label="Colors (multi select)"
+    placeholder="Pick colors"
+    :options="colors"
+    v-model="form.color_ids"
+    valueKey="id"
+    labelKey="name"
+    imageKey="image_url"
+    :required="false"
+    :error="form.errors.color_ids"
+  />
+</div>
+
           </div>
         </div>
 

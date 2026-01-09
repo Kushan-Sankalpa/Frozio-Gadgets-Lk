@@ -124,7 +124,10 @@ class ProductController extends Controller
                 'short_description' => $product->short_description,
                 'long_description' => $product->long_description,
 
-                'color_ids' => $product->colors->pluck('id')->values(),
+               'color_ids' => is_array($product->color_ids) && count($product->color_ids)
+    ? $product->color_ids
+    : $product->colors->pluck('id')->map(fn($v) => (int)$v)->values(),
+
                 'main_image_url' => $product->main_image_url,
                 'gallery_urls' => $product->gallery_urls,
             ],
@@ -164,11 +167,14 @@ class ProductController extends Controller
         }
 
         $p = Product::create([
-            ...$validated,
-            'main_image_path' => $mainPath,
-            'gallery_image_paths' => $galleryPaths ?: null,
-            'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
-        ]);
+    ...$validated,
+    'color_ids' => $validated['color_ids'] ?? [],
+    'main_image_path' => $mainPath,
+    'gallery_image_paths' => $galleryPaths ?: null,
+    'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
+]);
+
+// No pivot sync - colors saved as JSON
 
         $p->colors()->sync($request->input('color_ids', []));
 
@@ -207,13 +213,16 @@ class ProductController extends Controller
             $product->gallery_image_paths = $paths;
         }
 
-        $product->fill([
-            ...$validated,
-            'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
-        ]);
+  $product->fill([
+    ...$validated,
+    'color_ids' => $validated['color_ids'] ?? [],
+    'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
+]);
 
-        $product->save();
-        $product->colors()->sync($request->input('color_ids', []));
+$product->save();
+
+// No pivot sync - colors saved as JSON
+
 
         return redirect()->route('products.index')->with('success', 'Product updated.');
     }
@@ -266,11 +275,14 @@ class ProductController extends Controller
         if ($warrantyOptionId) {
             $baseQuery->where('warranty_option_id', $warrantyOptionId);
         }
-        if ($colorIds) {
-            $baseQuery->whereHas('colors', function ($q) use ($colorIds) {
-                $q->whereIn('color_options.id', $colorIds);
-            });
+     if ($colorIds) {
+    $baseQuery->where(function ($q) use ($colorIds) {
+        foreach ($colorIds as $cid) {
+            $q->orWhereJsonContains('products.color_ids', (int) $cid);
         }
+    });
+}
+
 
         $recordsTotal = (clone $baseQuery)->count();
 

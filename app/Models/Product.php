@@ -18,9 +18,10 @@ class Product extends Model
         'warranty_option_id','warranty_period',
         'os',
 
-        // ✅ NEW: multi
-        'storage_option_ids',
-        'ram_option_ids',
+       'storage_option_ids',
+'ram_option_ids',
+'color_ids',
+
 
         // legacy (optional, if columns still exist)
         'storage_option_id',
@@ -37,9 +38,10 @@ class Product extends Model
         'is_featured' => 'boolean',
         'gallery_image_paths' => 'array',
 
-        // ✅ NEW
-        'storage_option_ids' => 'array',
-        'ram_option_ids' => 'array',
+      'storage_option_ids' => 'array',
+'ram_option_ids' => 'array',
+'color_ids' => 'array',
+
     ];
 
     protected $appends = ['main_image_url', 'gallery_urls'];

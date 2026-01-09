@@ -8,6 +8,7 @@ use App\Http\Controllers\RamOptionController;
 use App\Http\Controllers\WarrantyOptionController;
 use App\Http\Controllers\ColorOptionController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\HomeBannerController;
 
 
 
@@ -88,6 +89,18 @@ Route::post('/products', [ProductController::class, 'store'])->name('products.st
 Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
 Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
 Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+
+  Route::prefix('other-cms')->group(function () {
+        Route::get('/homebanners', [HomeBannerController::class, 'index'])->name('homebanners.index');
+        Route::get('/homebanners/create', [HomeBannerController::class, 'create'])->name('homebanners.create');
+        Route::post('/homebanners', [HomeBannerController::class, 'store'])->name('homebanners.store');
+        Route::get('/homebanners/{homeBanner}/edit', [HomeBannerController::class, 'edit'])->name('homebanners.edit');
+        Route::put('/homebanners/{homeBanner}', [HomeBannerController::class, 'update'])->name('homebanners.update');
+        Route::delete('/homebanners/{homeBanner}', [HomeBannerController::class, 'destroy'])->name('homebanners.destroy');
+
+        Route::get('/homebanners/data', [HomeBannerController::class, 'data'])->name('homebanners.data');
+    });
 
 
 

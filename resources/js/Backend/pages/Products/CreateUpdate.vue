@@ -4,6 +4,10 @@ import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
 import { computed, ref, watch, defineComponent } from 'vue'
 import { route } from 'ziggy-js'
 
+// components
+import MultiSelect from '@/Backend/components/MultiSelect.vue'
+import SelectInputComponent from '@/Backend/components/SelectInputComponent.vue'
+
 type Opt = { id: number; name: string }
 type BrandOpt = { id: number; name: string; category_ids?: number[] }
 type WarrantyOpt = { id: number; name: string }
@@ -29,8 +33,14 @@ type ProductPayload = {
   warranty_period?: string | null
 
   os?: string | null
+  // ✅ multi
+  storage_option_ids?: number[]
+  ram_option_ids?: number[]
+
+  // legacy fallback (if old data exists)
   storage_option_id?: number | null
   ram_option_id?: number | null
+
   display_size?: string | null
   display_type?: string | null
   resolution?: string | null
@@ -67,6 +77,21 @@ const mainPreview = ref<string | null>(props.product?.main_image_url ?? null)
 const galleryPreview = ref<string[]>(props.product?.gallery_urls ?? [])
 const galleryNewPreview = ref<string[]>([])
 
+// legacy -> multi fallback for edit
+const initialStorageIds =
+  props.product?.storage_option_ids?.length
+    ? props.product.storage_option_ids
+    : props.product?.storage_option_id
+      ? [Number(props.product.storage_option_id)]
+      : []
+
+const initialRamIds =
+  props.product?.ram_option_ids?.length
+    ? props.product.ram_option_ids
+    : props.product?.ram_option_id
+      ? [Number(props.product.ram_option_id)]
+      : []
+
 const form = useForm({
   // required
   category_id: props.product?.category_id ?? (categories.value[0]?.id ?? null),
@@ -87,8 +112,9 @@ const form = useForm({
 
   // optional specs
   os: props.product?.os ?? '',
-  storage_option_id: props.product?.storage_option_id ?? null,
-  ram_option_id: props.product?.ram_option_id ?? null,
+  // ✅ multi
+  storage_option_ids: initialStorageIds as number[],
+  ram_option_ids: initialRamIds as number[],
   display_size: props.product?.display_size ?? '',
   display_type: props.product?.display_type ?? '',
   resolution: props.product?.resolution ?? '',
@@ -118,11 +144,17 @@ const brandsFiltered = computed(() => {
 watch(
   () => form.category_id,
   () => {
-    // reset brand if not in category
     const b = brandsAll.value.find(x => x.id === Number(form.brand_id))
     if (form.brand_id && b && !(b.category_ids || []).includes(Number(form.category_id))) {
       form.brand_id = null
     }
+  }
+)
+
+watch(
+  () => form.in_stock,
+  (val) => {
+    if (!val) form.stock_count = null
   }
 )
 
@@ -151,7 +183,6 @@ function submit() {
     return
   }
 
-  // ✅ multipart update fix
   form
     .transform((data: any) => ({ ...data, _method: 'PUT' }))
     .post(route('products.update', props.product!.id), {
@@ -222,6 +253,27 @@ const ColorMultiSelect = defineComponent({
     </div>
   `,
 })
+
+const deviceStatusOptions = [
+  { id: 'brandnew', name: 'Brand New' },
+  { id: 'used', name: 'Used' },
+]
+
+const discountTypeOptions = [
+  { id: null, name: 'None' },
+  { id: 'percent', name: '%' },
+  { id: 'price', name: 'Price' },
+]
+
+const inStockOptions = [
+  { id: true, name: 'Yes' },
+  { id: false, name: 'No' },
+]
+
+const statusOptions = [
+  { id: 'active', name: 'Active' },
+  { id: 'inactive', name: 'Inactive' },
+]
 </script>
 
 <template>
@@ -251,45 +303,68 @@ const ColorMultiSelect = defineComponent({
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Category</label>
-              <select v-model="form.category_id" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="null" disabled>Select category</option>
-                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
-              <p v-if="form.errors.category_id" class="mt-1 text-sm text-red-600">{{ form.errors.category_id }}</p>
+              <SelectInputComponent
+                id="category_id"
+                label="Category"
+                :options="categories"
+                v-model="form.category_id"
+                :error="form.errors.category_id"
+                :isRequired="true"
+                valueKey="id"
+                labelKey="name"
+                placeholder="Select category"
+              />
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Brand (filtered by category)</label>
-              <select v-model="form.brand_id" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="null" disabled>Select brand</option>
-                <option v-for="b in brandsFiltered" :key="b.id" :value="b.id">{{ b.name }}</option>
-              </select>
-              <p v-if="form.errors.brand_id" class="mt-1 text-sm text-red-600">{{ form.errors.brand_id }}</p>
+              <SelectInputComponent
+                id="brand_id"
+                label="Brand (filtered by category)"
+                :options="brandsFiltered"
+                v-model="form.brand_id"
+                :error="form.errors.brand_id"
+                :isRequired="true"
+                valueKey="id"
+                labelKey="name"
+                placeholder="Select brand"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">Device Model</label>
-              <input v-model="form.model" type="text"
+              <input
+                v-model="form.model"
+                type="text"
                 class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                placeholder="e.g. iPhone 13 Pro" />
+                placeholder="e.g. iPhone 13 Pro"
+              />
               <p v-if="form.errors.model" class="mt-1 text-sm text-red-600">{{ form.errors.model }}</p>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Device Status</label>
-              <select v-model="form.device_status" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option value="brandnew">Brand New</option>
-                <option value="used">Used</option>
-              </select>
-              <p v-if="form.errors.device_status" class="mt-1 text-sm text-red-600">{{ form.errors.device_status }}</p>
+              <SelectInputComponent
+                id="device_status"
+                label="Device Status"
+                :options="deviceStatusOptions"
+                v-model="form.device_status"
+                :error="form.errors.device_status"
+                :isRequired="true"
+                valueKey="id"
+                labelKey="name"
+                placeholder="Select status"
+              />
             </div>
 
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-neutral-700 mb-1">Price (LKR)</label>
-              <input v-model="form.price_lkr" type="number" step="0.01" min="0"
+              <input
+                v-model="form.price_lkr"
+                type="number"
+                step="0.01"
+                min="0"
                 class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                placeholder="e.g. 250000" />
+                placeholder="e.g. 250000"
+              />
               <p v-if="form.errors.price_lkr" class="mt-1 text-sm text-red-600">{{ form.errors.price_lkr }}</p>
             </div>
           </div>
@@ -301,48 +376,72 @@ const ColorMultiSelect = defineComponent({
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Discount Type</label>
-              <select v-model="form.discount_type" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="null">None</option>
-                <option value="percent">%</option>
-                <option value="price">Price</option>
-              </select>
-              <p v-if="form.errors.discount_type" class="mt-1 text-sm text-red-600">{{ form.errors.discount_type }}</p>
+              <SelectInputComponent
+                id="discount_type"
+                label="Discount Type"
+                :options="discountTypeOptions"
+                v-model="form.discount_type"
+                :error="form.errors.discount_type"
+                :isRequired="false"
+                valueKey="id"
+                labelKey="name"
+                placeholder="None"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">Discount Value</label>
-              <input v-model="form.discount_value" type="number" step="0.01" min="0"
+              <input
+                v-model="form.discount_value"
+                type="number"
+                step="0.01"
+                min="0"
                 class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                placeholder="e.g. 10 or 5000" />
+                placeholder="e.g. 10 or 5000"
+              />
               <p v-if="form.errors.discount_value" class="mt-1 text-sm text-red-600">{{ form.errors.discount_value }}</p>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">In Stock</label>
-              <select v-model="form.in_stock" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="true">Yes</option>
-                <option :value="false">No</option>
-              </select>
-              <p v-if="form.errors.in_stock" class="mt-1 text-sm text-red-600">{{ form.errors.in_stock }}</p>
+              <SelectInputComponent
+                id="in_stock"
+                label="In Stock"
+                :options="inStockOptions"
+                v-model="form.in_stock"
+                :error="form.errors.in_stock"
+                :isRequired="false"
+                valueKey="id"
+                labelKey="name"
+                placeholder="Select"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">Stock Count</label>
-              <input v-model="form.stock_count" type="number" step="1" min="0"
+              <input
+                v-model="form.stock_count"
+                type="number"
+                step="1"
+                min="0"
                 :disabled="!form.in_stock"
                 class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500 disabled:bg-neutral-100"
-                placeholder="e.g. 10" />
+                placeholder="e.g. 10"
+              />
               <p v-if="form.errors.stock_count" class="mt-1 text-sm text-red-600">{{ form.errors.stock_count }}</p>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Status</label>
-              <select v-model="form.status" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <p v-if="form.errors.status" class="mt-1 text-sm text-red-600">{{ form.errors.status }}</p>
+              <SelectInputComponent
+                id="status"
+                label="Status"
+                :options="statusOptions"
+                v-model="form.status"
+                :error="form.errors.status"
+                :isRequired="false"
+                valueKey="id"
+                labelKey="name"
+                placeholder="Select status"
+              />
             </div>
 
             <div class="flex items-center gap-3 mt-6">
@@ -351,19 +450,27 @@ const ColorMultiSelect = defineComponent({
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Warranty Type</label>
-              <select v-model="form.warranty_option_id" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="null">None</option>
-                <option v-for="w in warrantyOptions" :key="w.id" :value="w.id">{{ w.name }}</option>
-              </select>
-              <p v-if="form.errors.warranty_option_id" class="mt-1 text-sm text-red-600">{{ form.errors.warranty_option_id }}</p>
+              <SelectInputComponent
+                id="warranty_option_id"
+                label="Warranty Type"
+                :options="[{ id: null, name: 'None' }, ...warrantyOptions]"
+                v-model="form.warranty_option_id"
+                :error="form.errors.warranty_option_id"
+                :isRequired="false"
+                valueKey="id"
+                labelKey="name"
+                placeholder="None"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">Warranty Period</label>
-              <input v-model="form.warranty_period" type="text"
+              <input
+                v-model="form.warranty_period"
+                type="text"
                 class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                placeholder="e.g. 12 months / 1 year" />
+                placeholder="e.g. 12 months / 1 year"
+              />
               <p v-if="form.errors.warranty_period" class="mt-1 text-sm text-red-600">{{ form.errors.warranty_period }}</p>
             </div>
           </div>
@@ -384,20 +491,36 @@ const ColorMultiSelect = defineComponent({
               <input v-model="form.connectivity" type="text" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500" placeholder="e.g. 5G, WiFi 6" />
             </div>
 
+            <!-- ✅ STORAGE MULTI -->
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">Storage</label>
-              <select v-model="form.storage_option_id" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="null">None</option>
-                <option v-for="s in storages" :key="s.id" :value="s.id">{{ s.label }}</option>
-              </select>
+              <MultiSelect
+                id="storage_option_ids"
+                label="Storage (multi)"
+                placeholder="Pick storage options"
+                :options="storages"
+                v-model="form.storage_option_ids"
+                valueKey="id"
+                labelKey="label"
+                :required="false"
+                :error="form.errors.storage_option_ids"
+              />
+              <p v-if="form.errors['storage_option_ids.0']" class="mt-1 text-sm text-red-600">{{ form.errors['storage_option_ids.0'] }}</p>
             </div>
 
+            <!-- ✅ RAM MULTI -->
             <div>
-              <label class="block text-sm font-medium text-neutral-700 mb-1">RAM</label>
-              <select v-model="form.ram_option_id" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
-                <option :value="null">None</option>
-                <option v-for="r in rams" :key="r.id" :value="r.id">{{ r.label }}</option>
-              </select>
+              <MultiSelect
+                id="ram_option_ids"
+                label="RAM (multi)"
+                placeholder="Pick ram options"
+                :options="rams"
+                v-model="form.ram_option_ids"
+                valueKey="id"
+                labelKey="label"
+                :required="false"
+                :error="form.errors.ram_option_ids"
+              />
+              <p v-if="form.errors['ram_option_ids.0']" class="mt-1 text-sm text-red-600">{{ form.errors['ram_option_ids.0'] }}</p>
             </div>
 
             <div>

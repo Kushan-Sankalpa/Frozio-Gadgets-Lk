@@ -17,7 +17,6 @@ class ProductController extends Controller
 {
     public function index()
     {
-        // brands with category_ids for filtering
         $brands = Brand::with('categories:id')->get()->map(fn($b) => [
             'id' => $b->id,
             'name' => $b->name,
@@ -76,6 +75,15 @@ class ProductController extends Controller
             'category_ids' => $b->categories->pluck('id')->values(),
         ]);
 
+        // ✅ legacy fallback for old single values
+        $storageIds = is_array($product->storage_option_ids) && count($product->storage_option_ids)
+            ? $product->storage_option_ids
+            : ($product->storage_option_id ? [(int)$product->storage_option_id] : []);
+
+        $ramIds = is_array($product->ram_option_ids) && count($product->ram_option_ids)
+            ? $product->ram_option_ids
+            : ($product->ram_option_id ? [(int)$product->ram_option_id] : []);
+
         return Inertia::render('Products/CreateUpdate', [
             'mode' => 'edit',
             'product' => [
@@ -96,8 +104,15 @@ class ProductController extends Controller
                 'warranty_period' => $product->warranty_period,
 
                 'os' => $product->os,
+
+                // ✅ multi
+                'storage_option_ids' => array_values(array_map('intval', $storageIds)),
+                'ram_option_ids' => array_values(array_map('intval', $ramIds)),
+
+                // legacy (optional, kept for safety)
                 'storage_option_id' => $product->storage_option_id,
                 'ram_option_id' => $product->ram_option_id,
+
                 'display_size' => $product->display_size,
                 'display_type' => $product->display_type,
                 'resolution' => $product->resolution,
@@ -164,7 +179,6 @@ class ProductController extends Controller
     {
         $validated = $this->validateProduct($request, $product->id);
 
-        // main image replace
         if ($request->hasFile('main_image')) {
             if ($product->main_image_path && Storage::disk('public')->exists($product->main_image_path)) {
                 Storage::disk('public')->delete($product->main_image_path);
@@ -172,7 +186,6 @@ class ProductController extends Controller
             $product->main_image_path = $request->file('main_image')->store('products', 'public');
         }
 
-        // gallery replace / clear
         $clearGallery = (bool) $request->input('clear_gallery', false);
 
         if ($clearGallery) {
@@ -183,7 +196,6 @@ class ProductController extends Controller
         }
 
         if ($request->hasFile('gallery_images')) {
-            // replace existing
             foreach (($product->gallery_image_paths ?: []) as $p) {
                 if ($p && Storage::disk('public')->exists($p)) Storage::disk('public')->delete($p);
             }
@@ -222,93 +234,6 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', 'Product deleted.');
     }
 
-    public function data(Request $request)
-    {
-        $draw   = (int) $request->input('draw', 1);
-        $start  = (int) $request->input('start', 0);
-        $length = (int) $request->input('length', 10);
-
-        $searchValue = $request->input('search.value');
-
-        $categoryId = $request->input('category_id');
-        $brandId = $request->input('brand_id');
-        $warrantyId = $request->input('warranty_option_id');
-        $colorIdsRaw = $request->input('color_ids'); // comma list
-        $colorIds = $colorIdsRaw ? array_filter(array_map('intval', explode(',', $colorIdsRaw))) : [];
-
-        $q = Product::query()->with(['category:id,name', 'brand:id,name']);
-
-        if ($categoryId) $q->where('category_id', $categoryId);
-        if ($brandId) $q->where('brand_id', $brandId);
-        if ($warrantyId) $q->where('warranty_option_id', $warrantyId);
-        if (!empty($colorIds)) {
-            $q->whereHas('colors', fn($x) => $x->whereIn('color_options.id', $colorIds));
-        }
-
-        $recordsTotal = (clone $q)->count();
-
-        if ($searchValue) {
-            $q->where(function ($x) use ($searchValue) {
-                $x->where('model', 'like', "%{$searchValue}%")
-                  ->orWhere('device_status', 'like', "%{$searchValue}%")
-                  ->orWhere('status', 'like', "%{$searchValue}%");
-            });
-        }
-
-        $recordsFiltered = (clone $q)->count();
-
-        $orderColIndex = (int) $request->input('order.0.column', 0);
-        $orderDir      = $request->input('order.0.dir', 'desc');
-
-        $columns = [
-            0 => 'id',
-            1 => 'model',
-            4 => 'price_lkr',
-        ];
-
-        $orderBy = $columns[$orderColIndex] ?? 'id';
-        $q->orderBy($orderBy, $orderDir);
-
-        $rows = $q->skip($start)->take($length)->get();
-
-        $data = $rows->map(function (Product $p) {
-            $statusBadge = $p->status === 'active'
-                ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
-                : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
-
-            $stockBadge = $p->in_stock
-                ? '<span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">In Stock</span>'
-                : '<span class="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Out</span>';
-
-            $actions = '
-              <div class="flex items-center gap-2">
-                <button type="button" data-action="edit" data-id="'.$p->id.'" data-name="'.e($p->model).'"
-                  class="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">Edit</button>
-                <button type="button" data-action="delete" data-id="'.$p->id.'" data-name="'.e($p->model).'"
-                  class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">Delete</button>
-              </div>
-            ';
-
-            return [
-                'id' => $p->id,
-                'model' => e($p->model),
-                'category_name' => e(optional($p->category)->name ?? '-'),
-                'brand_name' => e(optional($p->brand)->name ?? '-'),
-                'price_lkr' => number_format((float) $p->price_lkr, 2),
-                'stock_badge' => $stockBadge,
-                'status_badge' => $statusBadge,
-                'actions' => $actions,
-            ];
-        });
-
-        return response()->json([
-            'draw' => $draw,
-            'recordsTotal' => $recordsTotal,
-            'recordsFiltered' => $recordsFiltered,
-            'data' => $data,
-        ]);
-    }
-
     private function validateProduct(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([
@@ -331,8 +256,13 @@ class ProductController extends Controller
             'warranty_period' => ['nullable', 'string', 'max:100'],
 
             'os' => ['nullable', 'string', 'max:255'],
-            'storage_option_id' => ['nullable', 'exists:storage_options,id'],
-            'ram_option_id' => ['nullable', 'exists:ram_options,id'],
+
+            // ✅ NEW (multi)
+            'storage_option_ids' => ['nullable', 'array'],
+            'storage_option_ids.*' => ['integer', 'exists:storage_options,id'],
+
+            'ram_option_ids' => ['nullable', 'array'],
+            'ram_option_ids.*' => ['integer', 'exists:ram_options,id'],
 
             'display_size' => ['nullable', 'string', 'max:255'],
             'display_type' => ['nullable', 'string', 'max:255'],

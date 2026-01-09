@@ -16,7 +16,16 @@ class Product extends Model
         'in_stock','stock_count',
         'status','is_featured',
         'warranty_option_id','warranty_period',
-        'os','storage_option_id','ram_option_id',
+        'os',
+
+        // ✅ NEW: multi
+        'storage_option_ids',
+        'ram_option_ids',
+
+        // legacy (optional, if columns still exist)
+        'storage_option_id',
+        'ram_option_id',
+
         'display_size','display_type','resolution',
         'rear_camera','front_camera','connectivity','battery_mah',
         'short_description','long_description',
@@ -27,6 +36,10 @@ class Product extends Model
         'in_stock' => 'boolean',
         'is_featured' => 'boolean',
         'gallery_image_paths' => 'array',
+
+        // ✅ NEW
+        'storage_option_ids' => 'array',
+        'ram_option_ids' => 'array',
     ];
 
     protected $appends = ['main_image_url', 'gallery_urls'];
@@ -34,8 +47,6 @@ class Product extends Model
     public function category() { return $this->belongsTo(Category::class); }
     public function brand() { return $this->belongsTo(Brand::class); }
     public function warrantyOption() { return $this->belongsTo(WarrantyOption::class); }
-    public function storageOption() { return $this->belongsTo(StorageOption::class); }
-    public function ramOption() { return $this->belongsTo(RamOption::class); }
 
     public function colors()
     {

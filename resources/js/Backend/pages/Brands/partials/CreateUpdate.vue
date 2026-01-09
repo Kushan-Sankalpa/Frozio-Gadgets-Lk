@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
-import MultiSelect from '@/Backend/components/Multiselect.vue'
+import MultiSelect from '@/Backend/components/MultiSelect.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import { computed, ref, watch } from 'vue'
 import { route } from 'ziggy-js'

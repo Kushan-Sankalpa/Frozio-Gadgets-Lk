@@ -150,8 +150,11 @@ export default {
         ajax: {
           url: this.url,
           method: this.method,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': this.csrfToken(),
+          },
           data: (d) => {
-            d._token = this.csrfToken()
             Object.assign(d, this.submitData)
           },
         },

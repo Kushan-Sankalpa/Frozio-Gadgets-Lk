@@ -234,6 +234,141 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', 'Product deleted.');
     }
 
+    /**
+     * DataTables server-side JSON
+     */
+    public function data(Request $request)
+    {
+        $draw   = (int) $request->input('draw', 1);
+        $start  = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 10);
+
+        $searchValue = $request->input('search.value');
+
+        // Filters
+        $categoryId = $request->input('category_id');
+        $brandId = $request->input('brand_id');
+        $warrantyOptionId = $request->input('warranty_option_id');
+        $colorIds = $request->input('color_ids') ? explode(',', $request->input('color_ids')) : null;
+
+        $baseQuery = Product::with(['category:id,name', 'brand:id,name', 'colors:id,name'])
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+            ->select('products.*', 'categories.name as category_name', 'brands.name as brand_name');
+
+        // Apply filters
+        if ($categoryId) {
+            $baseQuery->where('category_id', $categoryId);
+        }
+        if ($brandId) {
+            $baseQuery->where('brand_id', $brandId);
+        }
+        if ($warrantyOptionId) {
+            $baseQuery->where('warranty_option_id', $warrantyOptionId);
+        }
+        if ($colorIds) {
+            $baseQuery->whereHas('colors', function ($q) use ($colorIds) {
+                $q->whereIn('color_options.id', $colorIds);
+            });
+        }
+
+        $recordsTotal = (clone $baseQuery)->count();
+
+        // Search
+        if ($searchValue) {
+            $baseQuery->where(function ($q) use ($searchValue) {
+                $q->where('model', 'like', "%{$searchValue}%")
+                  ->orWhereHas('category', function ($cq) use ($searchValue) {
+                      $cq->where('name', 'like', "%{$searchValue}%");
+                  })
+                  ->orWhereHas('brand', function ($bq) use ($searchValue) {
+                      $bq->where('name', 'like', "%{$searchValue}%");
+                  });
+            });
+        }
+
+        $recordsFiltered = (clone $baseQuery)->count();
+
+        // Ordering
+        $orderColIndex = (int) $request->input('order.0.column', 0);
+        $orderDir      = $request->input('order.0.dir', 'desc');
+
+        // columns mapping based on frontend columns
+        $columns = [
+            0 => 'products.id',
+            1 => 'products.model',
+            2 => 'categories.name', // category_name
+            3 => 'brands.name',    // brand_name
+            4 => 'products.price_lkr',
+        ];
+
+        $orderBy = $columns[$orderColIndex] ?? 'products.id';
+        $baseQuery->orderBy($orderBy, $orderDir);
+
+        $rows = $baseQuery
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $data = $rows->map(function (Product $p) {
+            $stockBadge = $p->in_stock
+                ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">In Stock</span>'
+                : '<span class="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Out of Stock</span>';
+
+            $statusBadge = $p->status === 'active'
+                ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
+                : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
+
+            $payload = htmlspecialchars(json_encode([
+                'id' => $p->id,
+                'model' => $p->model,
+                'category_name' => $p->category?->name,
+                'brand_name' => $p->brand?->name,
+            ]), ENT_QUOTES, 'UTF-8');
+
+            $actions = '
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-action="edit"
+                  data-id="' . $p->id . '"
+                  data-name="' . htmlspecialchars($p->model, ENT_QUOTES, 'UTF-8') . '"
+                  class="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  data-action="delete"
+                  data-id="' . $p->id . '"
+                  data-name="' . htmlspecialchars($p->model, ENT_QUOTES, 'UTF-8') . '"
+                  class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            ';
+
+            return [
+                'id' => $p->id,
+                'model' => $p->model,
+                'category_name' => $p->category_name ?? '',
+                'brand_name' => $p->brand_name ?? '',
+                'price_lkr' => number_format($p->price_lkr, 2),
+                'stock_badge' => $stockBadge,
+                'status_badge' => $statusBadge,
+                'actions' => $actions,
+            ];
+        });
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
     private function validateProduct(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([

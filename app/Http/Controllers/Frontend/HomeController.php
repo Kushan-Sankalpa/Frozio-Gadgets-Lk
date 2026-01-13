@@ -28,7 +28,8 @@ class HomeController extends Controller
                 ];
             });
 
-        return Inertia::render('Frontend/Home/Index', [
+       return Inertia::render('Home/Index', [
+
             'products' => $products,
             'activeCategory' => $activeCategory,
         ]);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,38 @@ class CategoryController extends Controller
         ]);
     }
 
+    public function create()
+    {
+        return Inertia::render('Categories/createupdate', [
+            'mode' => 'create',
+            'category' => null,
+            'brands' => Brand::query()
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
+    public function edit(Category $category)
+    {
+        $category->load('brands:id');
+
+        return Inertia::render('Categories/createupdate', [
+            'mode' => 'edit',
+            'brands' => Brand::query()
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get(),
+            'category' => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'status' => $category->status,
+                'image_url' => $category->image_url,
+                'brand_ids' => $category->brands->pluck('id')->values(),
+            ],
+        ]);
+    }
+
     /**
      * DataTables server-side JSON
      */
@@ -27,7 +60,7 @@ class CategoryController extends Controller
 
         $searchValue = $request->input('search.value');
 
-        $baseQuery = Category::query();
+        $baseQuery = Category::query()->with('brands:id,name');
 
         $recordsTotal = (clone $baseQuery)->count();
 
@@ -45,10 +78,12 @@ class CategoryController extends Controller
         $orderDir      = $request->input('order.0.dir', 'desc');
 
         // columns mapping based on frontend columns
+        // 0 => id, 1 => name, 2 => brands (no direct column), 3 => status
         $columns = [
             0 => 'id',
             1 => 'name',
-            2 => 'status',
+            2 => 'name',   // fallback
+            3 => 'status',
         ];
 
         $orderBy = $columns[$orderColIndex] ?? 'id';
@@ -64,27 +99,26 @@ class CategoryController extends Controller
                 ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
                 : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
 
-            $payload = htmlspecialchars(json_encode([
-                'id' => $c->id,
-                'name' => $c->name,
-                'status' => $c->status,
-                'image_url' => $c->image_url,
-            ]), ENT_QUOTES, 'UTF-8');
+            $brandsBadge = $c->brands->count()
+                ? $c->brands->map(function ($b) {
+                    return '<span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100 mr-1 mb-1">'
+                        . e($b->name) .
+                    '</span>';
+                })->implode(' ')
+                : '<span class="text-xs text-neutral-400">—</span>';
 
             $actions = '
               <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  data-action="edit"
-                  data-payload="'.$payload.'"
+                <a
+                  href="'.route('categories.edit', $c->id).'"
                   class="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
                 >
                   Edit
-                </button>
+                </a>
                 <button
                   type="button"
                   data-action="delete"
-                  data-payload="'.$payload.'"
+                  data-id="'.$c->id.'"
                   class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
                   Delete
@@ -95,6 +129,7 @@ class CategoryController extends Controller
             return [
                 'id' => $c->id,
                 'name' => $c->name,
+                'brands_badge' => $brandsBadge,
                 'status_badge' => $statusBadge,
                 'actions' => $actions,
             ];
@@ -114,6 +149,8 @@ class CategoryController extends Controller
             'name'   => ['required', 'string', 'max:255', 'unique:categories,name'],
             'status' => ['required', 'in:active,inactive'],
             'image'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'brand_ids' => ['nullable', 'array'],
+            'brand_ids.*' => ['integer', 'exists:brands,id'],
         ]);
 
         $imagePath = null;
@@ -121,11 +158,13 @@ class CategoryController extends Controller
             $imagePath = $request->file('image')->store('categories', 'public');
         }
 
-        Category::create([
+        $category = Category::create([
             'name' => $validated['name'],
             'status' => $validated['status'],
             'image_path' => $imagePath,
         ]);
+
+        $category->brands()->sync($validated['brand_ids'] ?? []);
 
         return redirect()->route('categories.index')->with('success', 'Category created.');
     }
@@ -136,6 +175,8 @@ class CategoryController extends Controller
             'name'   => ['required', 'string', 'max:255', 'unique:categories,name,' . $category->id],
             'status' => ['required', 'in:active,inactive'],
             'image'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'brand_ids' => ['nullable', 'array'],
+            'brand_ids.*' => ['integer', 'exists:brands,id'],
         ]);
 
         if ($request->hasFile('image')) {
@@ -149,6 +190,8 @@ class CategoryController extends Controller
         $category->status = $validated['status'];
         $category->save();
 
+        $category->brands()->sync($validated['brand_ids'] ?? []);
+
         return redirect()->route('categories.index')->with('success', 'Category updated.');
     }
 
@@ -158,6 +201,7 @@ class CategoryController extends Controller
             Storage::disk('public')->delete($category->image_path);
         }
 
+        $category->brands()->detach();
         $category->delete();
 
         return redirect()->route('categories.index')->with('success', 'Category deleted.');

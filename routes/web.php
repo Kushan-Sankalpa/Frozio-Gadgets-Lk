@@ -24,8 +24,8 @@ Route::get('/privacy-policy', function () {
 // ✅ if anything still hits /dashboard, send it to admin
 Route::redirect('/dashboard', '/admin/dashboard');
 
-// ✅ OPTIONAL: if Laravel redirects guests to /login, push that to /admin/login
-Route::redirect('/login', '/admin/login')->name('login');
+// ✅ optional: keep old /login URL working (GET only) -> send to admin login
+Route::redirect('/login', '/admin/login');
 
 // =======================
 // ✅ ADMIN (Backend)
@@ -35,7 +35,9 @@ Route::prefix('admin')->middleware('web')->group(function () {
     // ✅ Admin login page (guest only)
     Route::get('/login', function () {
         return Inertia::render('auth/Login', [
+            'status' => session('status'),
             'canRegister' => Features::enabled(Features::registration()),
+            'canResetPassword' => Features::enabled(Features::resetPasswords()),
         ]);
     })->middleware('guest')->name('admin.login');
 

@@ -23,11 +23,19 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    resolve: (name) =>
-        resolvePageComponent(
-            `./Backend/pages/${name}.vue`,
-            import.meta.glob<DefineComponent>('./Backend/pages/**/*.vue'),
-        ),
+    resolve: (name) => {
+        if (name.startsWith('Frontend/')) {
+            return resolvePageComponent(
+                `./Frontend/pages/${name.replace('Frontend/', '')}.vue`,
+                import.meta.glob<DefineComponent>('./Frontend/pages/**/*.vue'),
+            );
+        } else {
+            return resolvePageComponent(
+                `./Backend/pages/${name}.vue`,
+                import.meta.glob<DefineComponent>('./Backend/pages/**/*.vue'),
+            );
+        }
+    },
     setup({ el, App, props, plugin }) {
         const vueApp = createApp({ render: () => h(App, props) });
 

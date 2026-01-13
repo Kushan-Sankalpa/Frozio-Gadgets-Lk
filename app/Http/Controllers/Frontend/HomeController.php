@@ -10,12 +10,12 @@ class HomeController extends Controller
 {
     public function index()
     {
+        $activeCategory = request('category'); // used by navbar + UI (no filtering yet)
+
         $products = Product::query()
             ->latest()
             ->paginate(12)
             ->through(function ($product) {
-
-                // ✅ robust image fallback (works even if main_image_url accessor is missing)
                 $image = $product->main_image_url
                     ?? ($product->main_image_path ? asset('storage/' . $product->main_image_path) : null);
 
@@ -28,8 +28,9 @@ class HomeController extends Controller
                 ];
             });
 
-        return Inertia::render('Frontend/Home', [
+        return Inertia::render('Frontend/Home/Index', [
             'products' => $products,
+            'activeCategory' => $activeCategory,
         ]);
     }
 }

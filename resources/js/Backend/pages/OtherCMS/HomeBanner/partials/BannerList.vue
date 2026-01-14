@@ -37,15 +37,37 @@ const reloadKey = ref<number>(0)
 const columns = [
   { data: 'id', name: 'id' },
   { data: 'name', name: 'name' },
-  { data: 'video_preview', name: 'video_path', orderable: false, searchable: false },
+ { data: 'video_url', name: 'video_path', orderable: false, searchable: false },
+
   { data: 'description', name: 'description' },
   { data: 'actions', name: 'actions', orderable: false, searchable: false },
 ]
 
 // Render raw HTML for video + actions
 const columnDefs = [
-  { targets: [2, 4], render: (d: any) => d },
+  // Video column (index 2)
+  {
+    targets: 2,
+    render: (d: any) => {
+      if (!d) return '<span class="text-xs text-neutral-400">No Video</span>'
+
+      return `
+        <video
+          src="${d}"
+          muted
+          playsinline
+          preload="metadata"
+          controls
+          class="h-16 w-28 rounded-lg border border-neutral-200 bg-black object-cover"
+        ></video>
+      `
+    },
+  },
+
+  // Actions column (index 4) - keep raw HTML
+  { targets: 4, render: (d: any) => d },
 ]
+
 
 function onTableClick(e: MouseEvent) {
   const target = e.target as HTMLElement

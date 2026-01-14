@@ -19,8 +19,11 @@ class HomeBanner extends Model
     protected $appends = ['video_url'];
 
     public function getVideoUrlAttribute(): ?string
-    {
-        if (!$this->video_path) return null;
-        return Storage::disk('public')->url($this->video_path);
-    }
+{
+    if (!$this->video_path) return null;
+
+   
+    return url('/storage/' . ltrim($this->video_path, '/'));
+}
+
 }

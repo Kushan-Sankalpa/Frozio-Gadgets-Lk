@@ -133,14 +133,14 @@ class HomeBannerController extends Controller
         $rows = $q->skip($start)->take($length)->get();
 
         $data = $rows->map(function (HomeBanner $b) {
-            $videoHtml = $b->video_url
-                ? '<video
-                        src="'.e($b->video_url).'"
-                        controls
-                        preload="metadata"
-                        class="h-16 w-28 rounded-lg border border-neutral-200 bg-black object-cover"
-                   ></video>'
-                : '<span class="text-xs text-neutral-400">No Video</span>';
+            // $videoHtml = $b->video_url
+            //     ? '<video
+            //             src="'.e($b->video_url).'"
+            //             controls
+            //             preload="metadata"
+            //             class="h-16 w-28 rounded-lg border border-neutral-200 bg-black object-cover"
+            //        ></video>'
+            //     : '<span class="text-xs text-neutral-400">No Video</span>';
 
             $desc = e(Str::limit(strip_tags($b->description ?? ''), 90));
 
@@ -152,13 +152,14 @@ class HomeBannerController extends Controller
                   class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">Delete</button>
               </div>';
 
-            return [
-                'id' => $b->id,
-                'name' => e($b->name),
-                'video_preview' => $videoHtml,
-                'description' => $desc,
-                'actions' => $actions,
-            ];
+           return [
+    'id' => $b->id,
+    'name' => e($b->name),
+    'video_url' => $b->video_url, // <-- send URL only
+    'description' => $desc,
+    'actions' => $actions,
+];
+
         });
 
         return response()->json([

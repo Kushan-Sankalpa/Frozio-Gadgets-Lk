@@ -19,7 +19,7 @@ class CategoryController extends Controller
 
     public function create()
     {
-        return Inertia::render('Categories/createupdate', [
+        return Inertia::render('Categories/partials/CreateUpdate', [
             'mode' => 'create',
             'category' => null,
             'brands' => Brand::query()
@@ -33,7 +33,7 @@ class CategoryController extends Controller
     {
         $category->load('brands:id');
 
-        return Inertia::render('Categories/createupdate', [
+        return Inertia::render('Categories/partials/CreateUpdate', [
             'mode' => 'edit',
             'brands' => Brand::query()
                 ->select('id', 'name')
@@ -44,14 +44,11 @@ class CategoryController extends Controller
                 'name' => $category->name,
                 'status' => $category->status,
                 'image_url' => $category->image_url,
-                'brand_ids' => $category->brands->pluck('id')->values(),
+                'brand_ids' => $category->brands->pluck('id')->map(fn ($id) => (int) $id)->values(),
             ],
         ]);
     }
 
-    /**
-     * DataTables server-side JSON
-     */
     public function data(Request $request)
     {
         $draw   = (int) $request->input('draw', 1);
@@ -73,17 +70,13 @@ class CategoryController extends Controller
 
         $recordsFiltered = (clone $baseQuery)->count();
 
-        // Ordering
         $orderColIndex = (int) $request->input('order.0.column', 0);
         $orderDir      = $request->input('order.0.dir', 'desc');
 
-        // columns mapping based on frontend columns
-        // 0 => id, 1 => name, 2 => brands (no direct column), 3 => status
         $columns = [
             0 => 'id',
             1 => 'name',
-            2 => 'name',   // fallback
-            3 => 'status',
+            2 => 'status',
         ];
 
         $orderBy = $columns[$orderColIndex] ?? 'id';
@@ -99,26 +92,22 @@ class CategoryController extends Controller
                 ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
                 : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
 
-            $brandsBadge = $c->brands->count()
-                ? $c->brands->map(function ($b) {
-                    return '<span class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100 mr-1 mb-1">'
-                        . e($b->name) .
-                    '</span>';
-                })->implode(' ')
-                : '<span class="text-xs text-neutral-400">—</span>';
-
             $actions = '
               <div class="flex items-center gap-2">
-                <a
-                  href="'.route('categories.edit', $c->id).'"
+                <button
+                  type="button"
+                  data-action="edit"
+                  data-id="' . $c->id . '"
+                  data-name="' . e($c->name) . '"
                   class="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
                 >
                   Edit
-                </a>
+                </button>
                 <button
                   type="button"
                   data-action="delete"
-                  data-id="'.$c->id.'"
+                  data-id="' . $c->id . '"
+                  data-name="' . e($c->name) . '"
                   class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
                   Delete
@@ -128,8 +117,7 @@ class CategoryController extends Controller
 
             return [
                 'id' => $c->id,
-                'name' => $c->name,
-                'brands_badge' => $brandsBadge,
+                'name' => e($c->name),
                 'status_badge' => $statusBadge,
                 'actions' => $actions,
             ];
@@ -154,6 +142,7 @@ class CategoryController extends Controller
         ]);
 
         $imagePath = null;
+
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('categories', 'public');
         }
@@ -183,6 +172,7 @@ class CategoryController extends Controller
             if ($category->image_path && Storage::disk('public')->exists($category->image_path)) {
                 Storage::disk('public')->delete($category->image_path);
             }
+
             $category->image_path = $request->file('image')->store('categories', 'public');
         }
 

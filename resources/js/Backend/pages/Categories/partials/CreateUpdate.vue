@@ -2,7 +2,7 @@
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import MultiSelect from '@/Backend/components/MultiSelect.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { route } from 'ziggy-js'
 
 type BrandOption = { id: number; name: string }
@@ -21,9 +21,10 @@ const props = defineProps<{
   category?: CategoryPayload | null
 }>()
 
-const isEdit = computed(() => props.mode === 'edit' && props.category?.id)
+const isEdit = computed(() => props.mode === 'edit' && !!props.category?.id)
 
 const previewUrl = ref<string | null>(props.category?.image_url ?? null)
+let objectUrl: string | null = null
 
 const form = useForm<{
   name: string
@@ -37,23 +38,45 @@ const form = useForm<{
   brand_ids: props.category?.brand_ids ?? [],
 })
 
+function revokeObjectUrl() {
+  if (objectUrl) {
+    URL.revokeObjectURL(objectUrl)
+    objectUrl = null
+  }
+}
+
 watch(
-  () => props.category?.id,
-  () => {
-    const c = props.category
+  () => props.category,
+  (c) => {
+    form.clearErrors()
     form.name = c?.name ?? ''
-    form.status = (c?.status as any) ?? 'active'
+    form.status = c?.status ?? 'active'
     form.image = null
     form.brand_ids = c?.brand_ids ?? []
     previewUrl.value = c?.image_url ?? null
-  }
+    revokeObjectUrl()
+  },
+  { immediate: true, deep: true }
 )
+
+onBeforeUnmount(() => {
+  revokeObjectUrl()
+})
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0] || null
+
   form.image = file
-  if (file) previewUrl.value = URL.createObjectURL(file)
+
+  revokeObjectUrl()
+
+  if (file) {
+    objectUrl = URL.createObjectURL(file)
+    previewUrl.value = objectUrl
+  } else {
+    previewUrl.value = props.category?.image_url ?? null
+  }
 }
 
 function submit() {
@@ -87,7 +110,9 @@ function submit() {
     <div class="p-6 space-y-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-bold">{{ isEdit ? 'Update Category' : 'Create Category' }}</h1>
+          <h1 class="text-2xl font-bold">
+            {{ isEdit ? 'Update Category' : 'Create Category' }}
+          </h1>
           <p class="text-sm text-neutral-500">
             {{ isEdit ? 'Edit category details.' : 'Create a new category.' }}
           </p>
@@ -101,23 +126,30 @@ function submit() {
         </Link>
       </div>
 
-      <form @submit.prevent="submit" class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm">
+      <form
+        @submit.prevent="submit"
+        class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm"
+      >
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <!-- Category Name -->
           <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Category Name</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">
+              Category Name
+            </label>
             <input
               v-model="form.name"
               type="text"
               class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
               placeholder="e.g. Accessories"
             />
-            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
+            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">
+              {{ form.errors.name }}
+            </p>
           </div>
 
-          <!-- Status -->
           <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Status</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">
+              Status
+            </label>
             <select
               v-model="form.status"
               class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
@@ -125,10 +157,11 @@ function submit() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-            <p v-if="form.errors.status" class="mt-1 text-sm text-red-600">{{ form.errors.status }}</p>
+            <p v-if="form.errors.status" class="mt-1 text-sm text-red-600">
+              {{ form.errors.status }}
+            </p>
           </div>
 
-          <!-- Brands MultiSelect -->
           <div class="md:col-span-2">
             <MultiSelect
               id="categoryBrands"
@@ -145,13 +178,20 @@ function submit() {
             </p>
           </div>
 
-          <!-- Category Image -->
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Category Image</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">
+              Category Image
+            </label>
 
             <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center">
-                <img v-if="previewUrl" :src="previewUrl" class="h-full w-full object-cover" />
+              <div
+                class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center"
+              >
+                <img
+                  v-if="previewUrl"
+                  :src="previewUrl"
+                  class="h-full w-full object-cover"
+                />
                 <span v-else class="text-xs text-neutral-400">No Image</span>
               </div>
 
@@ -162,8 +202,12 @@ function submit() {
                   @change="onFileChange"
                   class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
                 />
-                <p class="text-xs text-neutral-500 mt-1">JPG/PNG/WebP, up to 2MB recommended.</p>
-                <p v-if="form.errors.image" class="mt-1 text-sm text-red-600">{{ form.errors.image }}</p>
+                <p class="text-xs text-neutral-500 mt-1">
+                  JPG/PNG/WebP, up to 2MB recommended.
+                </p>
+                <p v-if="form.errors.image" class="mt-1 text-sm text-red-600">
+                  {{ form.errors.image }}
+                </p>
               </div>
             </div>
           </div>

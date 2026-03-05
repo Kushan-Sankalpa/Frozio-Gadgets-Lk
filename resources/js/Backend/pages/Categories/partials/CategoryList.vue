@@ -12,8 +12,7 @@
       </button>
     </div>
 
-    <!-- ✅ wrap table to bind click handler only here -->
-    <div ref="tableWrap" @click="onTableClick">
+    <div @click="onTableClick">
       <DataTable
         id="categoriesTable"
         :url="dataUrl"
@@ -32,21 +31,12 @@
         </template>
       </DataTable>
     </div>
-
-    <CreateUpdate
-      :show="showModal"
-      :mode="modalMode"
-      :category="selectedCategory"
-      @close="closeModal"
-      @saved="onSaved"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import DataTable from '@/Backend/components/DataTable.vue'
-import CreateUpdate from './CreateUpdate.vue'
 import { router } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 
@@ -58,11 +48,7 @@ type CategoryRow = {
 }
 
 const dataUrl = computed(() => route('categories.data'))
-
 const reloadKey = ref<number>(0)
-const showModal = ref(false)
-const modalMode = ref<'create' | 'edit'>('create')
-const selectedCategory = ref<CategoryRow | null>(null)
 
 const columns = [
   { data: 'id', name: 'id' },
@@ -76,24 +62,11 @@ const columnDefs = [
 ]
 
 function openCreate() {
-  modalMode.value = 'create'
-  selectedCategory.value = null
-  showModal.value = true
+  router.visit(route('categories.create'))
 }
 
 function openEdit(row: CategoryRow) {
-  modalMode.value = 'edit'
-  selectedCategory.value = row
-  showModal.value = true
-}
-
-function closeModal() {
-  showModal.value = false
-}
-
-function onSaved() {
-  showModal.value = false
-  reloadKey.value = Date.now()
+  router.visit(route('categories.edit', row.id))
 }
 
 function onTableClick(e: MouseEvent) {
@@ -101,7 +74,6 @@ function onTableClick(e: MouseEvent) {
   const btn = target.closest('button[data-action]') as HTMLButtonElement | null
   if (!btn) return
 
-  // ✅ stop anything else
   e.preventDefault()
   e.stopPropagation()
 
@@ -110,7 +82,12 @@ function onTableClick(e: MouseEvent) {
   if (!action || !payload) return
 
   let row: CategoryRow | null = null
-  try { row = JSON.parse(payload) } catch { row = null }
+  try {
+    row = JSON.parse(payload)
+  } catch {
+    row = null
+  }
+
   if (!row) return
 
   if (action === 'edit') {

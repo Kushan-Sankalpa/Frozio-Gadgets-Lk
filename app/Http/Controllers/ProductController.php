@@ -26,11 +26,14 @@ class ProductController extends Controller
         return Inertia::render('Products/index', [
             'categories' => Category::select('id','name')->orderBy('name')->get(),
             'brands' => $brands,
-            'colors' => ColorOption::select('id','name')->get()->map(fn($c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'image_url' => $c->image_url,
-            ]),
+           'colors' => ColorOption::select('id', 'name', 'image_path')
+    ->orderBy('name')
+    ->get()
+    ->map(fn($c) => [
+        'id' => $c->id,
+        'name' => $c->name,
+        'image_url' => $c->image_url,
+    ]),
             'warranties' => WarrantyOption::select('id','name')->orderBy('name')->get(),
         ]);
     }
@@ -48,11 +51,14 @@ class ProductController extends Controller
             'product' => null,
             'categories' => Category::select('id','name')->orderBy('name')->get(),
             'brands' => $brands,
-            'colors' => ColorOption::select('id','name')->get()->map(fn($c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'image_url' => $c->image_url,
-            ]),
+           'colors' => ColorOption::select('id', 'name', 'image_path')
+    ->orderBy('name')
+    ->get()
+    ->map(fn($c) => [
+        'id' => $c->id,
+        'name' => $c->name,
+        'image_url' => $c->image_url,
+    ]),
             'warranties' => WarrantyOption::select('id','name')->orderBy('name')->get(),
             'storages' => StorageOption::orderBy('value')->get()->map(fn($s) => [
                 'id' => $s->id,
@@ -133,11 +139,14 @@ class ProductController extends Controller
             ],
             'categories' => Category::select('id','name')->orderBy('name')->get(),
             'brands' => $brands,
-            'colors' => ColorOption::select('id','name')->get()->map(fn($c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'image_url' => $c->image_url,
-            ]),
+          'colors' => ColorOption::select('id', 'name', 'image_path')
+    ->orderBy('name')
+    ->get()
+    ->map(fn($c) => [
+        'id' => $c->id,
+        'name' => $c->name,
+        'image_url' => $c->image_url,
+    ]),
             'warranties' => WarrantyOption::select('id','name')->orderBy('name')->get(),
             'storages' => StorageOption::orderBy('value')->get()->map(fn($s) => [
                 'id' => $s->id,

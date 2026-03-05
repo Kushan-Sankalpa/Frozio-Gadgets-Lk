@@ -25,4 +25,9 @@ class Category extends Model
         if (!$this->image_path) return null;
         return Storage::disk('public')->url($this->image_path);
     }
+
+    public function brands()
+    {
+        return $this->belongsToMany(Brand::class, 'brand_category');
+    }
 }

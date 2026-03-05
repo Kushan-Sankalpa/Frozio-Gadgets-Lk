@@ -35,6 +35,23 @@ class ColorOptionController extends Controller
         ]);
     }
 
+    public function image(ColorOption $colorOption)
+    {
+        if (!$colorOption->image_path) {
+            abort(404);
+        }
+
+        $disk = Storage::disk('public');
+
+        if (!$disk->exists($colorOption->image_path)) {
+            abort(404);
+        }
+
+        return response()->file($disk->path($colorOption->image_path), [
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -44,6 +61,7 @@ class ColorOptionController extends Controller
         ]);
 
         $path = null;
+
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('colors', 'public');
         }
@@ -69,6 +87,7 @@ class ColorOptionController extends Controller
             if ($colorOption->image_path && Storage::disk('public')->exists($colorOption->image_path)) {
                 Storage::disk('public')->delete($colorOption->image_path);
             }
+
             $colorOption->image_path = $request->file('image')->store('colors', 'public');
         }
 
@@ -84,6 +103,7 @@ class ColorOptionController extends Controller
         if ($colorOption->image_path && Storage::disk('public')->exists($colorOption->image_path)) {
             Storage::disk('public')->delete($colorOption->image_path);
         }
+
         $colorOption->delete();
 
         return redirect()->route('colors.index')->with('success', 'Color deleted.');
@@ -100,17 +120,24 @@ class ColorOptionController extends Controller
         $recordsTotal = (clone $q)->count();
 
         if ($searchValue) {
-            $q->where(fn($x) => $x
-                ->where('name', 'like', "%{$searchValue}%")
-                ->orWhere('status', 'like', "%{$searchValue}%")
-            );
+            $q->where(function ($x) use ($searchValue) {
+                $x->where('name', 'like', "%{$searchValue}%")
+                  ->orWhere('status', 'like', "%{$searchValue}%");
+            });
         }
 
         $recordsFiltered = (clone $q)->count();
 
         $orderColIndex = (int) $request->input('order.0.column', 0);
         $orderDir      = $request->input('order.0.dir', 'desc');
-        $columns = [0 => 'id', 1 => 'name', 2 => 'status'];
+
+        $columns = [
+            0 => 'id',
+            1 => 'image_path',
+            2 => 'name',
+            3 => 'status',
+        ];
+
         $q->orderBy($columns[$orderColIndex] ?? 'id', $orderDir);
 
         $rows = $q->skip($start)->take($length)->get();
@@ -119,6 +146,16 @@ class ColorOptionController extends Controller
             $statusBadge = $c->status === 'active'
                 ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
                 : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
+
+            $imageHtml = $c->image_url
+                ? '<div class="flex items-center justify-center">
+                        <img src="' . e($c->image_url) . '" alt="' . e($c->name) . '" class="h-12 w-12 rounded-lg object-cover border border-neutral-200 bg-white" />
+                   </div>'
+                : '<div class="flex items-center justify-center">
+                        <div class="h-12 w-12 rounded-lg border border-dashed border-neutral-300 bg-neutral-100 text-[10px] text-neutral-500 flex items-center justify-center">
+                            No Image
+                        </div>
+                   </div>';
 
             $actions = '
               <div class="flex items-center gap-2">
@@ -130,6 +167,7 @@ class ColorOptionController extends Controller
 
             return [
                 'id' => $c->id,
+                'image_html' => $imageHtml,
                 'name' => e($c->name),
                 'status_badge' => $statusBadge,
                 'actions' => $actions,

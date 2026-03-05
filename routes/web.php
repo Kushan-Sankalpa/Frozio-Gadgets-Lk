@@ -94,11 +94,15 @@ Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])-
         Route::put('/warranty-options/{warrantyOption}', [WarrantyOptionController::class, 'update'])->name('warranty.update');
         Route::delete('/warranty-options/{warrantyOption}', [WarrantyOptionController::class, 'destroy'])->name('warranty.destroy');
 
-        // ✅ Color Options
+               // ✅ Color Options
         Route::get('/color-options', [ColorOptionController::class, 'index'])->name('colors.index');
         Route::get('/color-options/data', [ColorOptionController::class, 'data'])->name('colors.data');
         Route::get('/color-options/create', [ColorOptionController::class, 'create'])->name('colors.create');
         Route::post('/color-options', [ColorOptionController::class, 'store'])->name('colors.store');
+
+        // IMPORTANT: image route
+        Route::get('/color-options/{colorOption}/image', [ColorOptionController::class, 'image'])->name('colors.image');
+
         Route::get('/color-options/{colorOption}/edit', [ColorOptionController::class, 'edit'])->name('colors.edit');
         Route::put('/color-options/{colorOption}', [ColorOptionController::class, 'update'])->name('colors.update');
         Route::delete('/color-options/{colorOption}', [ColorOptionController::class, 'destroy'])->name('colors.destroy');

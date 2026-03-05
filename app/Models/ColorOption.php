@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class ColorOption extends Model
 {
@@ -16,7 +15,10 @@ class ColorOption extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        if (!$this->image_path) return null;
-        return Storage::disk('public')->url($this->image_path);
+        if (!$this->image_path) {
+            return null;
+        }
+
+        return route('colors.image', $this->id);
     }
 }

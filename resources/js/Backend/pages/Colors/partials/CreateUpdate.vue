@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { route } from 'ziggy-js'
 
 type ColorPayload = {
@@ -19,6 +19,10 @@ const props = defineProps<{
 const isEdit = computed(() => props.mode === 'edit' && !!props.color?.id)
 
 const imagePreview = ref<string | null>(props.color?.image_url ?? null)
+const selectedFileName = ref<string>('')
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+let objectUrl: string | null = null
 
 const form = useForm<{
   name: string
@@ -30,23 +34,54 @@ const form = useForm<{
   image: null,
 })
 
+function revokePreviewUrl() {
+  if (objectUrl) {
+    URL.revokeObjectURL(objectUrl)
+    objectUrl = null
+  }
+}
+
 watch(
-  () => props.color?.id,
-  () => {
-    const c = props.color
+  () => props.color,
+  (c) => {
+    revokePreviewUrl()
     form.clearErrors()
     form.name = c?.name ?? ''
-    form.status = (c?.status as any) ?? 'active'
+    form.status = c?.status ?? 'active'
     form.image = null
     imagePreview.value = c?.image_url ?? null
-  }
+    selectedFileName.value = ''
+  },
+  { immediate: true, deep: true }
 )
+
+onBeforeUnmount(() => {
+  revokePreviewUrl()
+})
+
+function openFilePicker() {
+  fileInputRef.value?.click()
+}
 
 function onImageChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0] || null
+
   form.image = file
-  if (file) imagePreview.value = URL.createObjectURL(file)
+  selectedFileName.value = file ? file.name : ''
+
+  revokePreviewUrl()
+
+  if (file) {
+    objectUrl = URL.createObjectURL(file)
+    imagePreview.value = objectUrl
+  } else {
+    imagePreview.value = props.color?.image_url ?? null
+  }
+}
+
+function onPreviewError() {
+  imagePreview.value = null
 }
 
 function submit() {
@@ -60,7 +95,6 @@ function submit() {
     return
   }
 
-  // ✅ multipart update fix
   form
     .transform((data) => ({ ...data, _method: 'PUT' }))
     .post(route('colors.update', props.color!.id), {
@@ -79,7 +113,9 @@ function submit() {
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 class="text-2xl font-bold">{{ isEdit ? 'Update Color' : 'Create Color' }}</h1>
-          <p class="text-sm text-neutral-500">{{ isEdit ? 'Edit color details.' : 'Create a new color.' }}</p>
+          <p class="text-sm text-neutral-500">
+            {{ isEdit ? 'Edit color details.' : 'Create a new color.' }}
+          </p>
         </div>
 
         <Link
@@ -105,7 +141,10 @@ function submit() {
 
           <div class="md:col-span-1">
             <label class="block text-sm font-medium text-neutral-700 mb-1">Status</label>
-            <select v-model="form.status" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500">
+            <select
+              v-model="form.status"
+              class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+            >
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
@@ -116,19 +155,44 @@ function submit() {
             <label class="block text-sm font-medium text-neutral-700 mb-1">Color Image</label>
 
             <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center">
-                <img v-if="imagePreview" :src="imagePreview" class="h-full w-full object-cover" />
+              <div class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center shrink-0">
+                <img
+                  v-if="imagePreview"
+                  :src="imagePreview"
+                  class="h-full w-full object-cover"
+                  @error="onPreviewError"
+                />
                 <span v-else class="text-xs text-neutral-400">No Image</span>
               </div>
 
               <div class="flex-1 w-full">
                 <input
+                  ref="fileInputRef"
                   type="file"
                   accept="image/*"
                   @change="onImageChange"
-                  class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
+                  class="hidden"
                 />
-                <p class="text-xs text-neutral-500 mt-1">JPG/PNG/WebP up to 2MB.</p>
+
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <button
+                    type="button"
+                    @click="openFilePicker"
+                    class="inline-flex w-fit items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-200 transition"
+                  >
+                    Choose File
+                  </button>
+
+                  <span class="text-sm text-neutral-600">
+                    {{
+                      selectedFileName
+                        ? selectedFileName
+                        : (isEdit && props.color?.image_url ? 'Current image saved' : 'No file chosen')
+                    }}
+                  </span>
+                </div>
+
+                <p class="text-xs text-neutral-500 mt-2">JPG/PNG/WebP up to 2MB.</p>
                 <p v-if="form.errors.image" class="mt-1 text-sm text-red-600">{{ form.errors.image }}</p>
               </div>
             </div>

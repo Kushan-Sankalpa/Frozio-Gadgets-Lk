@@ -14,6 +14,7 @@
         <template #header>
           <tr>
             <th style="width: 60px;">#</th>
+            <th style="width: 100px;">Image</th>
             <th>Color Name</th>
             <th style="width: 120px;">Status</th>
             <th style="width: 220px;">Actions</th>
@@ -35,12 +36,15 @@ const reloadKey = ref<number>(0)
 
 const columns = [
   { data: 'id', name: 'id' },
+  { data: 'image_html', name: 'image_path', orderable: false, searchable: false },
   { data: 'name', name: 'name' },
   { data: 'status_badge', name: 'status', orderable: true, searchable: true },
   { data: 'actions', name: 'actions', orderable: false, searchable: false },
 ]
 
-const columnDefs = [{ targets: [2, 3], render: (d: any) => d }]
+const columnDefs = [
+  { targets: [1, 3, 4], render: (d: any) => d },
+]
 
 function onTableClick(e: MouseEvent) {
   const target = e.target as HTMLElement

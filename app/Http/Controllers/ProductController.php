@@ -130,9 +130,11 @@ class ProductController extends Controller
                 'short_description' => $product->short_description,
                 'long_description' => $product->long_description,
 
-               'color_ids' => is_array($product->color_ids) && count($product->color_ids)
-    ? $product->color_ids
-    : $product->colors->pluck('id')->map(fn($v) => (int)$v)->values(),
+             'color_ids' => collect(
+    !empty($product->color_ids)
+        ? $product->color_ids
+        : $product->colors->pluck('id')->all()
+)->map(fn ($v) => (int) $v)->values()->all(),
 
                 'main_image_url' => $product->main_image_url,
                 'gallery_urls' => $product->gallery_urls,
@@ -161,7 +163,13 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $this->validateProduct($request);
+        $request->merge([
+    'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
+    'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
+    'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
+]);
+
+$validated = $this->validateProduct($request);
 
         $mainPath = null;
         if ($request->hasFile('main_image')) {
@@ -192,7 +200,13 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-        $validated = $this->validateProduct($request, $product->id);
+        $request->merge([
+    'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
+    'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
+    'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
+]);
+
+$validated = $this->validateProduct($request, $product->id);
 
         if ($request->hasFile('main_image')) {
             if ($product->main_image_path && Storage::disk('public')->exists($product->main_image_path)) {
@@ -443,4 +457,25 @@ $product->save();
             'clear_gallery' => ['nullable', 'boolean'],
         ]);
     }
+
+    private function normalizeIdArray($value): array
+{
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $value = $decoded;
+        } else {
+            $value = [$value];
+        }
+    }
+
+    return collect((array) $value)
+        ->flatten()
+        ->filter(fn ($v) => $v !== null && $v !== '')
+        ->map(fn ($v) => (int) $v)
+        ->filter(fn ($v) => $v > 0)
+        ->unique()
+        ->values()
+        ->all();
+}
 }

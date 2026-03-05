@@ -175,16 +175,29 @@ function onGalleryChange(e: Event) {
 function submit() {
   form.clearErrors()
 
+  const payloadTransform = (data: any) => ({
+    ...data,
+    color_ids: (data.color_ids || []).map((id: any) => Number(id)),
+    storage_option_ids: (data.storage_option_ids || []).map((id: any) => Number(id)),
+    ram_option_ids: (data.ram_option_ids || []).map((id: any) => Number(id)),
+  })
+
   if (!isEdit.value) {
-    form.post(route('products.store'), {
-      forceFormData: true,
-      preserveScroll: true,
-    })
+    form
+      .transform(payloadTransform)
+      .post(route('products.store'), {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => form.transform((d: any) => d),
+      })
     return
   }
 
   form
-    .transform((data: any) => ({ ...data, _method: 'PUT' }))
+    .transform((data: any) => ({
+      ...payloadTransform(data),
+      _method: 'PUT',
+    }))
     .post(route('products.update', props.product!.id), {
       forceFormData: true,
       preserveScroll: true,

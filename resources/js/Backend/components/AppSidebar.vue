@@ -16,14 +16,8 @@ import { Link } from '@inertiajs/vue3';
 import {
   LayoutDashboard,
   BookOpen,
-  Layers,
-  Tags,
-  HardDrive,
-  MemoryStick,
-  ShieldCheck,
-  Palette,
   Package,
-  FolderKanban, // ✅ add
+  FolderKanban,
 } from 'lucide-vue-next';
 
 import AppLogo from './AppLogo.vue';
@@ -36,42 +30,40 @@ const mainNavItems: NavItemWithSubmenu[] = [
     icon: LayoutDashboard,
   },
   {
-    title: 'Categories',
-    href: route('categories.index'),
-    icon: Layers,
-  },
-  {
-    title: 'Brands',
-    href: route('brands.index'),
-    icon: Tags,
-  },
-  {
-    title: 'RAM Options',
-    href: route('ram.index'),
-    icon: MemoryStick,
-  },
-  {
-    title: 'Storage Options',
-    href: route('storage.index'),
-    icon: HardDrive,
-  },
-  {
-    title: 'Color Options',
-    href: route('colors.index'),
-    icon: Palette,
-  },
-  {
-    title: 'Warranty Options',
-    href: route('warranty.index'),
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Products',
-    href: route('products.index'),
+    title: 'Tech Products',
+    href: '#',
     icon: Package,
+    submenu: [
+      {
+        title: 'Categories',
+        href: route('categories.index'),
+      },
+      {
+        title: 'Brands',
+        href: route('brands.index'),
+      },
+      {
+        title: 'Ram Options',
+        href: route('ram.index'),
+      },
+      {
+        title: 'Storage Options',
+        href: route('storage.index'),
+      },
+      {
+        title: 'Color Options',
+        href: route('colors.index'),
+      },
+      {
+        title: 'Warranty Options',
+        href: route('warranty.index'),
+      },
+      {
+        title: 'Products',
+        href: route('products.index'),
+      },
+    ],
   },
-
-  // ✅ NEW: Other CMS tab + mini tab
   {
     title: 'Other CMS',
     href: route('homebanners.index'),
@@ -94,29 +86,29 @@ const footerNavItems: NavItem[] = [
 ];
 </script>
 
-
 <template>
-    <Sidebar collapsible="icon" variant="inset">
-        <SidebarHeader>
-            <SidebarMenu>
-                <SidebarMenuItem>
-                    <SidebarMenuButton size="lg" as-child>
-                        <Link :href="route('dashboard')">
-                            <AppLogo />
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            </SidebarMenu>
-        </SidebarHeader>
+  <Sidebar collapsible="icon" variant="inset">
+    <SidebarHeader>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" as-child>
+            <Link :href="route('dashboard')">
+              <AppLogo />
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarHeader>
 
-        <SidebarContent>
-            <NavMain :items="mainNavItems" />
-        </SidebarContent>
+    <SidebarContent>
+      <NavMain :items="mainNavItems" />
+    </SidebarContent>
 
-        <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
-            <NavUser />
-        </SidebarFooter>
-    </Sidebar>
-    <slot />
+    <SidebarFooter>
+      <NavFooter :items="footerNavItems" />
+      <NavUser />
+    </SidebarFooter>
+  </Sidebar>
+
+  <slot />
 </template>

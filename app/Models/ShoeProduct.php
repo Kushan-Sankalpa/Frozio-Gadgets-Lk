@@ -98,22 +98,27 @@ class ShoeProduct extends Model
         return $this->belongsTo(ShoeSubcategory::class, 'subcategory_id');
     }
 
-    public function getThumbnailUrlAttribute(): ?string
+    protected function publicFileUrl(?string $path): ?string
     {
-        if (!$this->thumbnail_path) {
+        if (!$path) {
             return null;
         }
 
-        return Storage::disk('public')->url($this->thumbnail_path);
+        $path = str_replace('\\', '/', $path);
+        $path = preg_replace('#^public/#', '', $path);
+        $path = ltrim($path, '/');
+
+        return asset('storage/' . $path);
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return $this->publicFileUrl($this->thumbnail_path);
     }
 
     public function getHoverImageUrlAttribute(): ?string
     {
-        if (!$this->hover_image_path) {
-            return null;
-        }
-
-        return Storage::disk('public')->url($this->hover_image_path);
+        return $this->publicFileUrl($this->hover_image_path);
     }
 
     public function getGalleryUrlsAttribute(): array
@@ -122,7 +127,8 @@ class ShoeProduct extends Model
 
         return collect($images)
             ->filter()
-            ->map(fn ($path) => Storage::disk('public')->url($path))
+            ->map(fn ($path) => $this->publicFileUrl($path))
+            ->filter()
             ->values()
             ->all();
     }

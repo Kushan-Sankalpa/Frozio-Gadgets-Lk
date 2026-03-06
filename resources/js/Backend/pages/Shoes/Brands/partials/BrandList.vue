@@ -12,17 +12,102 @@
       </button>
     </div>
 
-    <div class="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-6 py-12 text-center text-sm text-neutral-500">
-      No data yet.
+    <div @click="onTableClick">
+      <DataTable
+        id="shoeBrandsTable"
+        :url="dataUrl"
+        :columns="columns"
+        :columnDefs="columnDefs"
+        :order="[[0, 'desc']]"
+        :reloadKey="reloadKey"
+      >
+        <template #header>
+          <tr>
+            <th style="width: 60px">#</th>
+            <th style="width: 90px">Logo</th>
+            <th>Name</th>
+            <th style="width: 120px">Status</th>
+            <th style="width: 220px">Actions</th>
+          </tr>
+        </template>
+      </DataTable>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+import DataTable from '@/Backend/components/DataTable.vue'
 import { router } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 
+type BrandRow = {
+  id: number
+  name: string
+  status: 'active' | 'inactive'
+  logo_url?: string | null
+}
+
+const dataUrl = computed(() => route('admin.shoes.brands.data'))
+const reloadKey = ref<number>(0)
+
+const columns = [
+  { data: 'id', name: 'id' },
+  { data: 'logo_html', name: 'logo', orderable: false, searchable: false },
+  { data: 'name', name: 'name' },
+  { data: 'status_badge', name: 'status', orderable: true, searchable: true },
+  { data: 'actions', name: 'actions', orderable: false, searchable: false },
+]
+
+const columnDefs = [
+  { targets: [1, 3, 4], render: (data: any) => data },
+]
+
 function openCreate() {
   router.visit(route('admin.shoes.brands.create'))
+}
+
+function openEdit(row: BrandRow) {
+  router.visit(route('admin.shoes.brands.edit', row.id))
+}
+
+function onTableClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  const btn = target.closest('button[data-action]') as HTMLButtonElement | null
+  if (!btn) return
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  const action = btn.dataset.action
+  const payload = btn.dataset.payload
+  if (!action || !payload) return
+
+  let row: BrandRow | null = null
+
+  try {
+    row = JSON.parse(payload)
+  } catch {
+    row = null
+  }
+
+  if (!row) return
+
+  if (action === 'edit') {
+    openEdit(row)
+    return
+  }
+
+  if (action === 'delete') {
+    const ok = confirm(`Delete shoe brand "${row.name}"? This cannot be undone.`)
+    if (!ok) return
+
+    router.delete(route('admin.shoes.brands.destroy', row.id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        reloadKey.value = Date.now()
+      },
+    })
+  }
 }
 </script>

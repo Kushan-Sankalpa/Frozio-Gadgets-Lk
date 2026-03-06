@@ -122,13 +122,15 @@ Route::prefix('admin')->middleware('web')->group(function () {
         Route::prefix('shoes')->name('admin.shoes.')->group(function () {
 
             Route::prefix('brands')->name('brands.')->controller(ShoeBrandController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{brand}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{brand}', 'update')->name('update');
-            });
+        Route::get('/', 'index')->name('index');
+        Route::get('/data', 'data')->name('data');
+        Route::get('/options', 'options')->name('options');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{brand}/edit', 'edit')->name('edit');
+        Route::match(['put', 'patch'], '/{brand}', 'update')->name('update');
+        Route::delete('/{brand}', 'destroy')->name('destroy');
+    });
 
             Route::prefix('types')->name('types.')->controller(ShoeTypeController::class)->group(function () {
                 Route::get('/', 'index')->name('index');

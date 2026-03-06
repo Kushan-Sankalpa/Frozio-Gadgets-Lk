@@ -8,14 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('brand_category', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('brand_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('category_id')->constrained()->cascadeOnDelete();
-            $table->timestamps();
-
-            $table->unique(['brand_id', 'category_id']);
-        });
+        if (!Schema::hasTable('brand_category')) {
+            Schema::create('brand_category', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('brand_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('category_id')->constrained()->cascadeOnDelete();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

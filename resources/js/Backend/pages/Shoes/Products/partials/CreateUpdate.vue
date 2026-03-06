@@ -188,14 +188,6 @@ watch(
   () => form.category_id,
   async (categoryId) => {
     await fetchSubcategories(categoryId ? Number(categoryId) : null)
-
-    const selectedStillExists = subcategoryOptions.value.some(
-      (item) => Number(item.id) === Number(form.subcategory_id)
-    )
-
-    if (!selectedStillExists) {
-      form.subcategory_id = null
-    }
   }
 )
 
@@ -350,14 +342,29 @@ function validateSizes() {
 async function fetchSubcategories(categoryId: number | null) {
   if (!categoryId) {
     subcategoryOptions.value = []
+    form.subcategory_id = null
     return
   }
 
-  const response = await axios.get(route('admin.shoes.subcategories.options'), {
-    params: { category_id: categoryId },
-  })
+  try {
+    const response = await axios.get(route('admin.shoes.subcategories.options'), {
+      params: { category_id: categoryId },
+    })
 
-  subcategoryOptions.value = Array.isArray(response.data) ? response.data : []
+    subcategoryOptions.value = Array.isArray(response.data) ? response.data : []
+
+    const exists = subcategoryOptions.value.some(
+      (item) => Number(item.id) === Number(form.subcategory_id)
+    )
+
+    if (!exists) {
+      form.subcategory_id = null
+    }
+  } catch (error) {
+    subcategoryOptions.value = []
+    form.subcategory_id = null
+    console.error('Failed to fetch subcategories:', error)
+  }
 }
 
 async function fetchAllOptions() {

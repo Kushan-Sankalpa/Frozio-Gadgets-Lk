@@ -188,16 +188,15 @@ class ShoeSubcategoryController extends Controller
             ->with('success', 'Shoe subcategory deleted.');
     }
 
-    public function options(Request $request)
+     public function options(Request $request)
     {
-        $query = ShoeSubcategory::query()
-            ->where('status', 'active');
+        $categoryId = $request->integer('category_id');
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', (int) $request->category_id);
-        }
-
-        $subcategories = $query
+        $subcategories = ShoeSubcategory::query()
+            ->where('status', 'active')
+            ->when($categoryId, function ($query) use ($categoryId) {
+                $query->where('category_id', $categoryId);
+            })
             ->orderBy('name')
             ->get()
             ->map(fn (ShoeSubcategory $subcategory) => [
@@ -205,7 +204,6 @@ class ShoeSubcategoryController extends Controller
                 'name' => $subcategory->name,
                 'value' => $subcategory->id,
                 'label' => $subcategory->name,
-                'category_id' => $subcategory->category_id,
             ]);
 
         return response()->json($subcategories);

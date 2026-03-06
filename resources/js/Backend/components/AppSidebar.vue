@@ -65,6 +65,45 @@ const mainNavItems: NavItemWithSubmenu[] = [
     ],
   },
   {
+    title: 'Shoe Products',
+    href: '#',
+    icon: Package,
+    submenu: [
+      {
+        title: 'Shoe Brands',
+        href: route('admin.shoes.brands.index'),
+      },
+      {
+        title: 'Shoe Types',
+        href: route('admin.shoes.types.index'),
+      },
+      {
+        title: 'Shoe Categories',
+        href: route('admin.shoes.categories.index'),
+      },
+      {
+        title: 'Shoe Subcategories',
+        href: route('admin.shoes.subcategories.index'),
+      },
+      {
+        title: 'Shoe Size Types',
+        href: route('admin.shoes.size-types.index'),
+      },
+      {
+        title: 'Shoe Colors',
+        href: route('admin.shoes.colors.index'),
+      },
+      {
+        title: 'Shoe Materials',
+        href: route('admin.shoes.materials.index'),
+      },
+      {
+        title: 'Shoe Products',
+        href: route('admin.shoes.products.index'),
+      },
+    ],
+  },
+  {
     title: 'Other CMS',
     href: route('homebanners.index'),
     icon: FolderKanban,

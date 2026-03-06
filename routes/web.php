@@ -163,32 +163,38 @@ Route::prefix('subcategories')->name('subcategories.')->controller(ShoeSubcatego
     Route::delete('/{subcategory}', 'destroy')->name('destroy');
 });
 
-            Route::prefix('size-types')->name('size-types.')->controller(ShoeSizeTypeController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{sizeType}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{sizeType}', 'update')->name('update');
-            });
+          Route::prefix('size-types')->name('size-types.')->controller(ShoeSizeTypeController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/data', 'data')->name('data');
+    Route::get('/options', 'options')->name('options');
+    Route::get('/create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('/{sizeType}/edit', 'edit')->name('edit');
+    Route::match(['put', 'patch'], '/{sizeType}', 'update')->name('update');
+    Route::delete('/{sizeType}', 'destroy')->name('destroy');
+});
 
-            Route::prefix('colors')->name('colors.')->controller(ShoeColorController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{color}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{color}', 'update')->name('update');
-            });
+Route::prefix('colors')->name('colors.')->controller(ShoeColorController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/data', 'data')->name('data');
+    Route::get('/options', 'options')->name('options');
+    Route::get('/create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('/{color}/edit', 'edit')->name('edit');
+    Route::match(['put', 'patch'], '/{color}', 'update')->name('update');
+    Route::delete('/{color}', 'destroy')->name('destroy');
+});
 
-            Route::prefix('materials')->name('materials.')->controller(ShoeMaterialController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{material}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{material}', 'update')->name('update');
-            });
+Route::prefix('materials')->name('materials.')->controller(ShoeMaterialController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/data', 'data')->name('data');
+    Route::get('/options', 'options')->name('options');
+    Route::get('/create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('/{material}/edit', 'edit')->name('edit');
+    Route::match(['put', 'patch'], '/{material}', 'update')->name('update');
+    Route::delete('/{material}', 'destroy')->name('destroy');
+});
 
             Route::prefix('products')->name('products.')->controller(ShoeProductController::class)->group(function () {
                 Route::get('/', 'index')->name('index');

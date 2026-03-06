@@ -198,10 +198,12 @@ Route::prefix('admin')->middleware('web')->group(function () {
 
             Route::prefix('products')->name('products.')->controller(ShoeProductController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
                 Route::get('/create', 'create')->name('create');
                 Route::post('/', 'store')->name('store');
                 Route::get('/{product}/edit', 'edit')->name('edit');
                 Route::match(['put', 'patch'], '/{product}', 'update')->name('update');
+                Route::delete('/{product}', 'destroy')->name('destroy');
             });
         });
 

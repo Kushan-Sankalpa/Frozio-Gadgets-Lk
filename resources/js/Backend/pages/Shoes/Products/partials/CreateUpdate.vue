@@ -33,7 +33,7 @@ type ProductPayload = {
   sale_price?: number | string | null
   cost_price?: number | string | null
   currency?: string | null
-  tax_class?: string | null
+  // tax_class?: string | null
   discount_type?: 'percentage' | 'fixed' | null
   discount_value?: number | string | null
   sale_start_date?: string | null
@@ -82,12 +82,12 @@ const currencyOptions = [
   { id: 'EUR', name: 'EUR' },
 ]
 
-const taxClassOptions = [
-  { id: 'standard', name: 'Standard' },
-  { id: 'reduced', name: 'Reduced' },
-  { id: 'zero', name: 'Zero Rated' },
-  { id: 'exempt', name: 'Exempt' },
-]
+// const taxClassOptions = [
+//   { id: 'standard', name: 'Standard' },
+//   { id: 'reduced', name: 'Reduced' },
+//   { id: 'zero', name: 'Zero Rated' },
+//   { id: 'exempt', name: 'Exempt' },
+// ]
 
 const discountTypeOptions = [
   { id: '', name: 'None' },
@@ -147,7 +147,7 @@ const form = useForm({
   sale_price: props.product?.sale_price ?? '',
   cost_price: props.product?.cost_price ?? '',
   currency: props.product?.currency ?? 'LKR',
-  tax_class: props.product?.tax_class ?? 'standard',
+  // tax_class: props.product?.tax_class ?? 'standard',
   discount_type: props.product?.discount_type ?? '',
   discount_value: props.product?.discount_value ?? '',
   sale_start_date: props.product?.sale_start_date ?? '',
@@ -691,7 +691,7 @@ onBeforeUnmount(() => {
               />
             </div>
 
-            <div>
+            <!-- <div>
               <SelectInputComponent
                 id="shoe_product_tax_class"
                 label="Tax Class"
@@ -703,7 +703,7 @@ onBeforeUnmount(() => {
                 labelKey="name"
                 placeholder="Select tax class"
               />
-            </div>
+            </div> -->
 
             <div>
               <SelectInputComponent

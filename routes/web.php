@@ -132,14 +132,16 @@ Route::prefix('admin')->middleware('web')->group(function () {
         Route::delete('/{brand}', 'destroy')->name('destroy');
     });
 
-            Route::prefix('types')->name('types.')->controller(ShoeTypeController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{type}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{type}', 'update')->name('update');
-            });
+           Route::prefix('types')->name('types.')->controller(ShoeTypeController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/data', 'data')->name('data');
+    Route::get('/options', 'options')->name('options');
+    Route::get('/create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('/{type}/edit', 'edit')->name('edit');
+    Route::match(['put', 'patch'], '/{type}', 'update')->name('update');
+    Route::delete('/{type}', 'destroy')->name('destroy');
+});
 
             Route::prefix('categories')->name('categories.')->controller(ShoeCategoryController::class)->group(function () {
                 Route::get('/', 'index')->name('index');

@@ -142,24 +142,26 @@ Route::prefix('admin')->middleware('web')->group(function () {
     Route::match(['put', 'patch'], '/{type}', 'update')->name('update');
     Route::delete('/{type}', 'destroy')->name('destroy');
 });
-
-            Route::prefix('categories')->name('categories.')->controller(ShoeCategoryController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{category}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{category}', 'update')->name('update');
-            });
-
-            Route::prefix('subcategories')->name('subcategories.')->controller(ShoeSubcategoryController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('/options', 'options')->name('options');
-                Route::get('/create', 'create')->name('create');
-                Route::post('/', 'store')->name('store');
-                Route::get('/{subcategory}/edit', 'edit')->name('edit');
-                Route::match(['put', 'patch'], '/{subcategory}', 'update')->name('update');
-            });
+Route::prefix('categories')->name('categories.')->controller(ShoeCategoryController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/data', 'data')->name('data');
+    Route::get('/options', 'options')->name('options');
+    Route::get('/create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('/{category}/edit', 'edit')->name('edit');
+    Route::match(['put', 'patch'], '/{category}', 'update')->name('update');
+    Route::delete('/{category}', 'destroy')->name('destroy');
+});
+Route::prefix('subcategories')->name('subcategories.')->controller(ShoeSubcategoryController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/data', 'data')->name('data');
+    Route::get('/options', 'options')->name('options');
+    Route::get('/create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('/{subcategory}/edit', 'edit')->name('edit');
+    Route::match(['put', 'patch'], '/{subcategory}', 'update')->name('update');
+    Route::delete('/{subcategory}', 'destroy')->name('destroy');
+});
 
             Route::prefix('size-types')->name('size-types.')->controller(ShoeSizeTypeController::class)->group(function () {
                 Route::get('/', 'index')->name('index');

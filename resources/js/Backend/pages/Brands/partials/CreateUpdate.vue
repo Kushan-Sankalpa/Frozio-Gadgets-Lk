@@ -2,16 +2,17 @@
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import MultiSelect from '@/Backend/components/MultiSelect.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { route } from 'ziggy-js'
 
 type CategoryOption = { id: number; name: string }
+
 type BrandPayload = {
   id: number
   name: string
   status: 'active' | 'inactive'
   logo_url?: string | null
-  category_ids?: number[]
+  category_ids?: number[] | null
 }
 
 const props = defineProps<{
@@ -20,9 +21,10 @@ const props = defineProps<{
   brand?: BrandPayload | null
 }>()
 
-const isEdit = computed(() => props.mode === 'edit' && props.brand?.id)
+const isEdit = computed(() => props.mode === 'edit' && !!props.brand?.id)
 
 const logoPreview = ref<string | null>(props.brand?.logo_url ?? null)
+let objectUrl: string | null = null
 
 const form = useForm<{
   name: string
@@ -36,50 +38,78 @@ const form = useForm<{
   logo: null,
 })
 
+function revokeObjectUrl() {
+  if (objectUrl) {
+    URL.revokeObjectURL(objectUrl)
+    objectUrl = null
+  }
+}
+
 watch(
-  () => props.brand?.id,
-  () => {
-    const b = props.brand
+  () => props.brand,
+  (b) => {
+    form.clearErrors()
     form.name = b?.name ?? ''
-    form.status = (b?.status as any) ?? 'active'
+    form.status = b?.status ?? 'active'
     form.category_ids = b?.category_ids ?? []
     form.logo = null
+
+    revokeObjectUrl()
     logoPreview.value = b?.logo_url ?? null
-  }
+  },
+  { immediate: true, deep: true }
 )
 
+onBeforeUnmount(() => {
+  revokeObjectUrl()
+})
 
 function onLogoChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0] || null
+
   form.logo = file
-  if (file) logoPreview.value = URL.createObjectURL(file)
+
+  revokeObjectUrl()
+
+  if (file) {
+    objectUrl = URL.createObjectURL(file)
+    logoPreview.value = objectUrl
+  } else {
+    logoPreview.value = props.brand?.logo_url ?? null
+  }
 }
 
 function submit() {
   form.clearErrors()
 
   if (!isEdit.value) {
-    form.post(route('brands.store'), {
-      forceFormData: true,
-      preserveScroll: true,
-    })
+    form
+      .transform((data) => ({
+        ...data,
+        category_ids: Array.isArray(data.category_ids) ? data.category_ids : [],
+      }))
+      .post(route('brands.store'), {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => form.transform((d) => d),
+      })
+
     return
   }
 
-  // ✅ multipart update fix: POST + _method=PUT (PHP parses correctly)
   form
     .transform((data) => ({
       ...data,
       _method: 'PUT',
+      category_ids: Array.isArray(data.category_ids) ? data.category_ids : [],
     }))
     .post(route('brands.update', props.brand!.id), {
       forceFormData: true,
       preserveScroll: true,
-      onFinish: () => form.transform((d) => d), // reset transform
+      onFinish: () => form.transform((d) => d),
     })
 }
-
 </script>
 
 <template>
@@ -89,7 +119,9 @@ function submit() {
     <div class="p-6 space-y-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-2xl font-bold">{{ isEdit ? 'Update Brand' : 'Create Brand' }}</h1>
+          <h1 class="text-2xl font-bold">
+            {{ isEdit ? 'Update Brand' : 'Create Brand' }}
+          </h1>
           <p class="text-sm text-neutral-500">
             {{ isEdit ? 'Edit brand details.' : 'Create a new brand.' }}
           </p>
@@ -103,23 +135,30 @@ function submit() {
         </Link>
       </div>
 
-      <form @submit.prevent="submit" class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm">
+      <form
+        @submit.prevent="submit"
+        class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm"
+      >
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <!-- Brand Name -->
           <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Brand Name</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">
+              Brand Name
+            </label>
             <input
               v-model="form.name"
               type="text"
               class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
               placeholder="e.g. Apple"
             />
-            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
+            <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">
+              {{ form.errors.name }}
+            </p>
           </div>
 
-          <!-- Status -->
           <div class="md:col-span-1">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Status</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">
+              Status
+            </label>
             <select
               v-model="form.status"
               class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
@@ -127,14 +166,15 @@ function submit() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-            <p v-if="form.errors.status" class="mt-1 text-sm text-red-600">{{ form.errors.status }}</p>
+            <p v-if="form.errors.status" class="mt-1 text-sm text-red-600">
+              {{ form.errors.status }}
+            </p>
           </div>
 
-          <!-- Brand Category MultiSelect -->
           <div class="md:col-span-2">
             <MultiSelect
               id="brandCategories"
-              label="Brand Category"
+              label="Brand Categories (Optional)"
               placeholder="Select categories"
               :options="categories"
               v-model="form.category_ids"
@@ -142,18 +182,28 @@ function submit() {
               labelKey="name"
               :error="form.errors.category_ids"
             />
+            <p class="mt-1 text-xs text-neutral-500">
+              You can leave this empty and save the brand without categories.
+            </p>
             <p v-if="form.errors.category_ids" class="mt-1 text-sm text-red-600">
               {{ form.errors.category_ids }}
             </p>
           </div>
 
-          <!-- Brand Logo -->
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Brand Logo</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">
+              Brand Logo
+            </label>
 
             <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center">
-                <img v-if="logoPreview" :src="logoPreview" class="h-full w-full object-cover" />
+              <div
+                class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center"
+              >
+                <img
+                  v-if="logoPreview"
+                  :src="logoPreview"
+                  class="h-full w-full object-cover"
+                />
                 <span v-else class="text-xs text-neutral-400">No Logo</span>
               </div>
 
@@ -164,8 +214,12 @@ function submit() {
                   @change="onLogoChange"
                   class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
                 />
-                <p class="text-xs text-neutral-500 mt-1">JPG/PNG/WebP, up to 2MB recommended.</p>
-                <p v-if="form.errors.logo" class="mt-1 text-sm text-red-600">{{ form.errors.logo }}</p>
+                <p class="text-xs text-neutral-500 mt-1">
+                  JPG/PNG/WebP, up to 2MB recommended.
+                </p>
+                <p v-if="form.errors.logo" class="mt-1 text-sm text-red-600">
+                  {{ form.errors.logo }}
+                </p>
               </div>
             </div>
           </div>

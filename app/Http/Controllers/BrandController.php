@@ -60,8 +60,8 @@ class BrandController extends Controller
                 <button
                   type="button"
                   data-action="edit"
-                  data-id="'.$b->id.'"
-                  data-name="'.e($b->name).'"
+                  data-id="' . $b->id . '"
+                  data-name="' . e($b->name) . '"
                   class="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
                 >
                   Edit
@@ -69,8 +69,8 @@ class BrandController extends Controller
                 <button
                   type="button"
                   data-action="delete"
-                  data-id="'.$b->id.'"
-                  data-name="'.e($b->name).'"
+                  data-id="' . $b->id . '"
+                  data-name="' . e($b->name) . '"
                   class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                 >
                   Delete
@@ -96,7 +96,7 @@ class BrandController extends Controller
 
     public function create()
     {
-       return Inertia::render('Brands/partials/CreateUpdate', [
+        return Inertia::render('Brands/partials/CreateUpdate', [
             'mode' => 'create',
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             'brand' => null,
@@ -109,11 +109,12 @@ class BrandController extends Controller
             'name' => ['required', 'string', 'max:255', 'unique:brands,name'],
             'status' => ['required', 'in:active,inactive'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'category_ids' => ['required', 'array', 'min:1'],
+            'category_ids' => ['nullable', 'array'],
             'category_ids.*' => ['integer', 'exists:categories,id'],
         ]);
 
         $logoPath = null;
+
         if ($request->hasFile('logo')) {
             $logoPath = $request->file('logo')->store('brands', 'public');
         }
@@ -124,7 +125,7 @@ class BrandController extends Controller
             'logo_path' => $logoPath,
         ]);
 
-        $brand->categories()->sync($validated['category_ids']);
+        $brand->categories()->sync($validated['category_ids'] ?? []);
 
         return redirect()->route('brands.index')->with('success', 'Brand created.');
     }
@@ -133,7 +134,7 @@ class BrandController extends Controller
     {
         $brand->load('categories:id');
 
-       return Inertia::render('Brands/partials/CreateUpdate', [
+        return Inertia::render('Brands/partials/CreateUpdate', [
             'mode' => 'edit',
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             'brand' => [
@@ -141,7 +142,11 @@ class BrandController extends Controller
                 'name' => $brand->name,
                 'status' => $brand->status,
                 'logo_url' => $brand->logo_url,
-                'category_ids' => $brand->categories->pluck('id')->values(),
+                'category_ids' => $brand->categories
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->values()
+                    ->all(),
             ],
         ]);
     }
@@ -152,7 +157,7 @@ class BrandController extends Controller
             'name' => ['required', 'string', 'max:255', 'unique:brands,name,' . $brand->id],
             'status' => ['required', 'in:active,inactive'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'category_ids' => ['required', 'array', 'min:1'],
+            'category_ids' => ['nullable', 'array'],
             'category_ids.*' => ['integer', 'exists:categories,id'],
         ]);
 
@@ -160,6 +165,7 @@ class BrandController extends Controller
             if ($brand->logo_path && Storage::disk('public')->exists($brand->logo_path)) {
                 Storage::disk('public')->delete($brand->logo_path);
             }
+
             $brand->logo_path = $request->file('logo')->store('brands', 'public');
         }
 
@@ -167,7 +173,7 @@ class BrandController extends Controller
         $brand->status = $validated['status'];
         $brand->save();
 
-        $brand->categories()->sync($validated['category_ids']);
+        $brand->categories()->sync($validated['category_ids'] ?? []);
 
         return redirect()->route('brands.index')->with('success', 'Brand updated.');
     }
@@ -178,6 +184,7 @@ class BrandController extends Controller
             Storage::disk('public')->delete($brand->logo_path);
         }
 
+        $brand->categories()->detach();
         $brand->delete();
 
         return redirect()->route('brands.index')->with('success', 'Brand deleted.');

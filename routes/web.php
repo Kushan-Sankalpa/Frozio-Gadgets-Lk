@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\Shoes\ShoeSizeTypeController;
 use App\Http\Controllers\Admin\Shoes\ShoeColorController;
 use App\Http\Controllers\Admin\Shoes\ShoeMaterialController;
 use App\Http\Controllers\Admin\Shoes\ShoeProductController;
+use App\Http\Controllers\InvoiceController;
 
 // ✅ load frontend routes
 require __DIR__ . '/frontend.php';
@@ -208,6 +209,17 @@ Route::prefix('admin')->middleware('web')->group(function () {
             });
         });
 
+                // ✅ Invoices
+        Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/invoices/data', [InvoiceController::class, 'data'])->name('invoices.data');
+        Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
+        Route::get('/invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
+        Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
+        Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
+        Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
+        Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
+        Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+        
         // ✅ Other CMS
         Route::prefix('other-cms')->group(function () {
             Route::get('/homebanners', [HomeBannerController::class, 'index'])->name('homebanners.index');

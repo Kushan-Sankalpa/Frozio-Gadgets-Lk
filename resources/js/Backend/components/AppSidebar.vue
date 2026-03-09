@@ -29,6 +29,7 @@ const mainNavItems: NavItemWithSubmenu[] = [
     href: route('dashboard'),
     icon: LayoutDashboard,
   },
+
   {
     title: 'Tech Products',
     href: '#',
@@ -113,6 +114,12 @@ const mainNavItems: NavItemWithSubmenu[] = [
         href: route('homebanners.index'),
       },
     ],
+  },
+
+    {
+    title: 'Invoice',
+    href: route('invoices.index'),
+    icon: FolderKanban,
   },
 ];
 

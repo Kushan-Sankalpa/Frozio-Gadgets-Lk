@@ -122,6 +122,7 @@ const newGalleryPreview = ref<string[]>([])
 const sizeInputMap = reactive<Record<string, string>>({})
 const attemptedSubmit = ref(false)
 const slugTouched = ref(false)
+const isGeneratingSku = ref(false)
 
 let thumbnailObjectUrl: string | null = null
 let hoverObjectUrl: string | null = null
@@ -209,6 +210,60 @@ function slugify(value: string) {
 
 function onSlugInput() {
   slugTouched.value = true
+}
+
+function generateSkuFallback(name?: string) {
+  const safeName = (name || form.name || 'SHOE')
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  const parts = safeName
+    .split('-')
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((part) => part.slice(0, 4))
+
+  const base = parts.length ? parts.join('-') : 'SHOE'
+
+  const now = new Date()
+  const stamp =
+    `${now.getFullYear()}` +
+    `${String(now.getMonth() + 1).padStart(2, '0')}` +
+    `${String(now.getDate()).padStart(2, '0')}` +
+    `${String(now.getHours()).padStart(2, '0')}` +
+    `${String(now.getMinutes()).padStart(2, '0')}` +
+    `${String(now.getSeconds()).padStart(2, '0')}`
+
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase()
+
+  return `${base}-${stamp}-${rand}`
+}
+
+async function generateSku() {
+  form.clearErrors('sku')
+  isGeneratingSku.value = true
+
+  try {
+    const response = await axios.get(route('admin.shoes.products.generate-sku'), {
+      params: {
+        name: form.name || 'shoe',
+      },
+    })
+
+    const sku = response?.data?.sku
+
+    form.sku =
+      typeof sku === 'string' && sku.trim()
+        ? sku.trim()
+        : generateSkuFallback(form.name)
+  } catch (error) {
+    console.error('Failed to generate SKU:', error)
+    form.sku = generateSkuFallback(form.name)
+  } finally {
+    isGeneratingSku.value = false
+  }
 }
 
 function revokeThumbnailObjectUrl() {
@@ -558,16 +613,35 @@ onBeforeUnmount(() => {
               />
             </div>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium text-neutral-700">SKU</label>
-              <input
-                v-model="form.sku"
-                type="text"
-                placeholder="e.g. NZ-ALPHA-001"
-                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-              />
-              <p v-if="form.errors.sku" class="mt-1 text-sm text-red-600">{{ form.errors.sku }}</p>
-            </div>
+           <div>
+  <label class="mb-1 block text-sm font-medium text-neutral-700">SKU</label>
+
+  <div class="flex flex-col gap-2 sm:flex-row">
+    <input
+      v-model="form.sku"
+      type="text"
+      placeholder="e.g. NZ-ALPHA-001"
+      class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+    />
+
+    <button
+      type="button"
+      :disabled="isGeneratingSku"
+      @click="generateSku"
+      class="inline-flex shrink-0 items-center justify-center rounded-xl border border-red-500 px-4 py-2 text-sm font-medium text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-50"
+    >
+      {{ isGeneratingSku ? 'Generating...' : 'Generate' }}
+    </button>
+  </div>
+
+  <p class="mt-1 text-xs text-neutral-500">
+    Click Generate to create a unique SKU automatically.
+  </p>
+
+  <p v-if="form.errors.sku" class="mt-1 text-sm text-red-600">
+    {{ form.errors.sku }}
+  </p>
+</div>
 
             <div>
               <label class="mb-1 block text-sm font-medium text-neutral-700">Barcode / UPC / EAN</label>

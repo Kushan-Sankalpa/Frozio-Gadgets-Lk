@@ -200,6 +200,7 @@ Route::prefix('admin')->middleware('web')->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/data', 'data')->name('data');
                 Route::get('/create', 'create')->name('create');
+                Route::get('/generate-sku', 'generateSku')->name('generate-sku');
                 Route::post('/', 'store')->name('store');
                 Route::get('/{product}/edit', 'edit')->name('edit');
                 Route::match(['put', 'patch'], '/{product}', 'update')->name('update');

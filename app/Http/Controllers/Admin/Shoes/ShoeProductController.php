@@ -82,6 +82,15 @@ class ShoeProductController extends Controller
         ]);
     }
 
+
+    public function generateSku(Request $request)
+{
+    $name = (string) $request->input('name', '');
+
+    return response()->json([
+        'sku' => $this->makeUniqueSku($name),
+    ]);
+}
     public function data(Request $request)
     {
         $draw = (int) $request->input('draw', 1);
@@ -270,7 +279,12 @@ class ShoeProductController extends Controller
             'product_type_id' => ['required', 'integer', 'exists:shoe_types,id'],
             'category_id' => ['required', 'integer', 'exists:shoes_categories,id'],
             'subcategory_id' => ['required', 'integer', 'exists:shoe_subcategories,id'],
-            'sku' => ['nullable', 'string', 'max:255'],
+            'sku' => [
+    'nullable',
+    'string',
+    'max:255',
+    Rule::unique('shoe_products', 'sku')->ignore($product?->id),
+],
             'barcode' => ['nullable', 'string', 'max:255'],
             'model_code' => ['nullable', 'string', 'max:255'],
             'short_description' => ['nullable', 'string'],
@@ -352,7 +366,10 @@ class ShoeProductController extends Controller
             'product_type_id' => (int) $validated['product_type_id'],
             'category_id' => (int) $validated['category_id'],
             'subcategory_id' => (int) $validated['subcategory_id'],
-            'sku' => $validated['sku'] ?? null,
+            'sku' => filled(trim((string) ($validated['sku'] ?? '')))
+    ? strtoupper(trim((string) $validated['sku']))
+    : $this->makeUniqueSku($validated['name'] ?? 'SHOE', $product?->id),
+
             'barcode' => $validated['barcode'] ?? null,
             'model_code' => $validated['model_code'] ?? null,
             'short_description' => $validated['short_description'] ?? null,
@@ -465,6 +482,42 @@ class ShoeProductController extends Controller
             ->values()
             ->all();
     }
+
+    protected function makeUniqueSku(?string $name = null, ?int $ignoreId = null): string
+{
+    $base = $this->buildSkuBase($name);
+
+    do {
+        $suffix = strtoupper(Str::random(6));
+        $sku = $base . '-' . $suffix;
+
+        $exists = ShoeProduct::query()
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->where('sku', $sku)
+            ->exists();
+    } while ($exists);
+
+    return $sku;
+}
+
+protected function buildSkuBase(?string $name = null): string
+{
+    $base = Str::upper(Str::slug((string) $name, '-'));
+    $base = preg_replace('/[^A-Z0-9\-]/', '', $base ?? '');
+    $base = trim((string) $base, '-');
+
+    if ($base === '') {
+        return 'SHOE';
+    }
+
+    $parts = array_filter(explode('-', $base));
+    $short = collect($parts)
+        ->take(3)
+        ->map(fn ($part) => Str::upper(Str::substr($part, 0, 4)))
+        ->implode('-');
+
+    return $short ?: 'SHOE';
+}
 
     protected function deleteStoredFile(?string $path): void
     {

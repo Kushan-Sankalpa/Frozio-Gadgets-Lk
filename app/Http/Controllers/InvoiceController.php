@@ -578,8 +578,13 @@ class InvoiceController extends Controller
             'phone' => '0765807548',
             'website' => 'www.froziohub.com',
             'logo_url' => asset('assets/images/froziohub-logo.png'),
+
         ];
+
+
+        
     }
+    
 
     protected function techProductsPayload()
     {

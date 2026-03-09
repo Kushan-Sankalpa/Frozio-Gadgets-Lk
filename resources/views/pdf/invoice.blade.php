@@ -25,8 +25,8 @@
             text-align: center;
         }
         .logo-wrap img {
-            max-width: 120px;
-            max-height: 80px;
+            max-width: 150px;
+            max-height: 90px;
         }
         .invoice-title {
             font-size: 26px;
@@ -63,7 +63,7 @@
             width: 100%;
         }
         .summary-table {
-            width: 320px;
+            width: 360px;
             margin-left: auto;
         }
         .summary-table td {
@@ -86,6 +86,7 @@
     <table class="header-table">
         <tr>
             <td width="34%">
+                <div>{{ $shop['name'] ?? 'Frozio Hub' }}</div>
                 @foreach(($shop['address_lines'] ?? []) as $line)
                     <div>{{ $line }}</div>
                 @endforeach
@@ -112,8 +113,8 @@
                         <td class="text-right">{{ $invoice->invoice_no }}</td>
                     </tr>
                     <tr>
-                        <td class="muted">Payment</td>
-                        <td class="text-right">{{ ucfirst($invoice->payment_type ?? '-') }}</td>
+                        <td class="muted">Payment Type</td>
+                        <td class="text-right">{{ ucfirst(str_replace('_', ' ', $invoice->payment_type ?? 'unpaid')) }}</td>
                     </tr>
                 </table>
             </td>
@@ -194,7 +195,19 @@
                 <td class="text-right">{{ number_format((float) $invoice->grand_total, 2) }}</td>
             </tr>
             <tr>
-                <td>Paid</td>
+                <td>Cash Paid</td>
+                <td class="text-right">{{ number_format((float) $invoice->cash_paid, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Card Paid</td>
+                <td class="text-right">{{ number_format((float) $invoice->card_paid, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Advance Amount</td>
+                <td class="text-right">{{ number_format((float) $invoice->advance_amount, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Total Paid</td>
                 <td class="text-right">{{ number_format((float) $invoice->paid_amount, 2) }}</td>
             </tr>
             <tr>

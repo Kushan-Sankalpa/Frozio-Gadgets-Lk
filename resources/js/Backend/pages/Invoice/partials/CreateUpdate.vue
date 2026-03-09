@@ -60,7 +60,10 @@ type InvoicePayload = {
   sales_person?: string | null
   ship_date?: string | null
   ship_via?: string | null
-  payment_type?: 'cash' | 'card' | '' | null
+  payment_type?: string | null
+  cash_paid: number
+  card_paid: number
+  advance_amount: number
   paid_amount: number
   subtotal: number
   total_discount: number
@@ -102,8 +105,9 @@ const form = useForm({
   sales_person: props.invoice?.sales_person ?? '',
   ship_date: props.invoice?.ship_date ?? '',
   ship_via: props.invoice?.ship_via ?? '',
-  payment_type: props.invoice?.payment_type ?? '',
-  paid_amount: props.invoice?.paid_amount ?? 0,
+  cash_paid: props.invoice?.cash_paid ?? 0,
+  card_paid: props.invoice?.card_paid ?? 0,
+  advance_amount: props.invoice?.advance_amount ?? 0,
   tax_amount: props.invoice?.tax_amount ?? 0,
   notes: props.invoice?.notes ?? '',
   terms: props.invoice?.terms ?? '',
@@ -334,9 +338,31 @@ const grandTotal = computed(() =>
   Number((grandTotalBeforeTax.value + Number(form.tax_amount || 0)).toFixed(2))
 )
 
-const balanceDue = computed(() =>
-  Number(Math.max(0, grandTotal.value - Number(form.paid_amount || 0)).toFixed(2))
+const totalPaid = computed(() =>
+  Number((
+    Number(form.cash_paid || 0) +
+    Number(form.card_paid || 0) +
+    Number(form.advance_amount || 0)
+  ).toFixed(2))
 )
+
+const balanceDue = computed(() =>
+  Number(Math.max(0, grandTotal.value - totalPaid.value).toFixed(2))
+)
+
+const paymentTypeLabel = computed(() => {
+  const cash = Number(form.cash_paid || 0)
+  const card = Number(form.card_paid || 0)
+  const advance = Number(form.advance_amount || 0)
+
+  const count = [cash > 0, card > 0, advance > 0].filter(Boolean).length
+
+  if (count === 0) return 'Unpaid'
+  if (count > 1) return 'Mixed'
+  if (cash > 0) return 'Cash'
+  if (card > 0) return 'Card'
+  return 'Advance'
+})
 
 function resetForm() {
   if (!confirm('Reset the invoice form?')) return
@@ -350,8 +376,9 @@ function resetForm() {
   form.sales_person = ''
   form.ship_date = ''
   form.ship_via = ''
-  form.payment_type = ''
-  form.paid_amount = 0
+  form.cash_paid = 0
+  form.card_paid = 0
+  form.advance_amount = 0
   form.tax_amount = 0
   form.notes = ''
   form.terms = ''
@@ -366,7 +393,9 @@ function submit(action: 'draft' | 'finalize') {
 
   const payload = {
     ...form.data(),
-    paid_amount: Number(form.paid_amount || 0),
+    cash_paid: Number(form.cash_paid || 0),
+    card_paid: Number(form.card_paid || 0),
+    advance_amount: Number(form.advance_amount || 0),
     tax_amount: Number(form.tax_amount || 0),
     items: form.items.map((item, index) => ({
       ...item,
@@ -493,41 +522,6 @@ function submit(action: 'draft' | 'finalize') {
                 />
               </div>
 
-              <div>
-                <label class="mb-1 block text-sm font-medium text-neutral-700">Payment Type</label>
-                <select
-                  v-model="form.payment_type"
-                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                >
-                  <option value="">Select payment type</option>
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                </select>
-                <p v-if="form.errors.payment_type" class="mt-1 text-sm text-red-600">{{ form.errors.payment_type }}</p>
-              </div>
-
-              <div>
-                <label class="mb-1 block text-sm font-medium text-neutral-700">Paid Amount</label>
-                <input
-                  v-model="form.paid_amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
-                <label class="mb-1 block text-sm font-medium text-neutral-700">Tax Amount</label>
-                <input
-                  v-model="form.tax_amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                />
-              </div>
-
               <div class="md:col-span-2">
                 <label class="mb-1 block text-sm font-medium text-neutral-700">Status</label>
                 <select
@@ -556,6 +550,70 @@ function submit(action: 'draft' | 'finalize') {
                   rows="3"
                   class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
                 />
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-neutral-200 p-4">
+            <h2 class="mb-4 text-lg font-semibold text-neutral-800">Payment Options</h2>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Payment Type</label>
+                <input
+                  :value="paymentTypeLabel"
+                  type="text"
+                  readonly
+                  class="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2 outline-none"
+                />
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Tax Amount</label>
+                <input
+                  v-model="form.tax_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                />
+                <p v-if="form.errors.tax_amount" class="mt-1 text-sm text-red-600">{{ form.errors.tax_amount }}</p>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Cash Paid</label>
+                <input
+                  v-model="form.cash_paid"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                />
+                <p v-if="form.errors.cash_paid" class="mt-1 text-sm text-red-600">{{ form.errors.cash_paid }}</p>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Card Paid</label>
+                <input
+                  v-model="form.card_paid"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                />
+                <p v-if="form.errors.card_paid" class="mt-1 text-sm text-red-600">{{ form.errors.card_paid }}</p>
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Advance Amount</label>
+                <input
+                  v-model="form.advance_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                />
+                <p v-if="form.errors.advance_amount" class="mt-1 text-sm text-red-600">{{ form.errors.advance_amount }}</p>
               </div>
             </div>
           </div>
@@ -942,8 +1000,8 @@ function submit(action: 'draft' | 'finalize') {
                 <div class="text-lg font-semibold text-neutral-800">{{ totalDiscount.toFixed(2) }}</div>
               </div>
               <div class="rounded-xl bg-neutral-50 px-4 py-3">
-                <div class="text-xs uppercase tracking-wide text-neutral-500">Grand Total</div>
-                <div class="text-lg font-semibold text-neutral-800">{{ grandTotal.toFixed(2) }}</div>
+                <div class="text-xs uppercase tracking-wide text-neutral-500">Total Paid</div>
+                <div class="text-lg font-semibold text-neutral-800">{{ totalPaid.toFixed(2) }}</div>
               </div>
               <div class="rounded-xl bg-neutral-50 px-4 py-3">
                 <div class="text-xs uppercase tracking-wide text-neutral-500">Balance Due</div>
@@ -992,6 +1050,7 @@ function submit(action: 'draft' | 'finalize') {
           <div class="mx-auto max-w-[800px] rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-800">
             <div class="grid grid-cols-3 gap-4 border-b border-neutral-200 pb-6">
               <div class="space-y-1 text-sm">
+                <div class="font-semibold">{{ shop.name }}</div>
                 <div v-for="line in shop.address_lines" :key="line">{{ line }}</div>
                 <div v-if="shop.phone">Phone: {{ shop.phone }}</div>
               </div>
@@ -1001,7 +1060,7 @@ function submit(action: 'draft' | 'finalize') {
                   v-if="shop.logo_url"
                   :src="shop.logo_url"
                   alt="Logo"
-                  class="max-h-20 max-w-[140px] object-contain"
+                  class="max-h-24 max-w-[160px] object-contain"
                 />
               </div>
 
@@ -1009,7 +1068,7 @@ function submit(action: 'draft' | 'finalize') {
                 <div class="text-2xl font-bold tracking-wide">INVOICE</div>
                 <div><span class="text-neutral-500">Date:</span> {{ form.invoice_date || '-' }}</div>
                 <div><span class="text-neutral-500">Invoice No:</span> {{ form.invoice_no }}</div>
-                <div><span class="text-neutral-500">Payment:</span> {{ form.payment_type || '-' }}</div>
+                <div><span class="text-neutral-500">Payment Type:</span> {{ paymentTypeLabel }}</div>
               </div>
             </div>
 
@@ -1080,8 +1139,20 @@ function submit(action: 'draft' | 'finalize') {
                 <span class="font-semibold">{{ grandTotal.toFixed(2) }}</span>
               </div>
               <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Paid</span>
-                <span class="font-medium">{{ Number(form.paid_amount || 0).toFixed(2) }}</span>
+                <span class="text-neutral-500">Cash Paid</span>
+                <span class="font-medium">{{ Number(form.cash_paid || 0).toFixed(2) }}</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
+                <span class="text-neutral-500">Card Paid</span>
+                <span class="font-medium">{{ Number(form.card_paid || 0).toFixed(2) }}</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
+                <span class="text-neutral-500">Advance Amount</span>
+                <span class="font-medium">{{ Number(form.advance_amount || 0).toFixed(2) }}</span>
+              </div>
+              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
+                <span class="text-neutral-500">Total Paid</span>
+                <span class="font-medium">{{ totalPaid.toFixed(2) }}</span>
               </div>
               <div class="flex items-center justify-between py-2 text-base font-bold">
                 <span>Balance Due</span>

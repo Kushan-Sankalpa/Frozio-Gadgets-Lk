@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\ColorOption;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Product;
 use App\Models\ShoeProduct;
 use App\Models\StorageOption;
-use App\Models\InvoiceItem;
 use App\Models\WarrantyOption;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -54,6 +54,9 @@ class InvoiceController extends Controller
                 'ship_date' => optional($invoice->ship_date)->format('Y-m-d'),
                 'ship_via' => $invoice->ship_via,
                 'payment_type' => $invoice->payment_type,
+                'cash_paid' => (float) $invoice->cash_paid,
+                'card_paid' => (float) $invoice->card_paid,
+                'advance_amount' => (float) $invoice->advance_amount,
                 'paid_amount' => (float) $invoice->paid_amount,
                 'subtotal' => (float) $invoice->subtotal,
                 'total_discount' => (float) $invoice->total_discount,
@@ -203,7 +206,7 @@ class InvoiceController extends Controller
                 'customer_name' => e($invoice->customer_name),
                 'customer_contact_number' => e($invoice->customer_contact_number),
                 'sales_person' => e($invoice->sales_person ?? '-'),
-                'payment_type' => e(ucfirst($invoice->payment_type ?? '-')),
+                'payment_type' => e(ucfirst(str_replace('_', ' ', $invoice->payment_type ?? 'unpaid'))),
                 'grand_total' => number_format((float) $invoice->grand_total, 2),
                 'paid_amount' => number_format((float) $invoice->paid_amount, 2),
                 'balance_due' => number_format((float) $invoice->balance_due, 2),
@@ -223,12 +226,17 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validateInvoice($request);
-
         $submitAction = $request->input('submit_action', 'draft');
 
         $invoice = DB::transaction(function () use ($validated, $submitAction) {
             $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
-            $totals = $this->calculateTotals($itemsPayload, (float) ($validated['paid_amount'] ?? 0), (float) ($validated['tax_amount'] ?? 0));
+
+            $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
+            $cardPaid = round((float) ($validated['card_paid'] ?? 0), 2);
+            $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
+            $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
+
+            $totals = $this->calculateTotals($itemsPayload, $cashPaid, $cardPaid, $advanceAmount, $taxAmount);
 
             $invoice = Invoice::create([
                 'invoice_no' => $this->nextInvoiceNumber(),
@@ -240,7 +248,10 @@ class InvoiceController extends Controller
                 'sales_person' => $validated['sales_person'] ?? null,
                 'ship_date' => $validated['ship_date'] ?? null,
                 'ship_via' => $validated['ship_via'] ?? null,
-                'payment_type' => $validated['payment_type'] ?? null,
+                'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
+                'cash_paid' => $totals['cash_paid'],
+                'card_paid' => $totals['card_paid'],
+                'advance_amount' => $totals['advance_amount'],
                 'paid_amount' => $totals['paid_amount'],
                 'subtotal' => $totals['subtotal'],
                 'total_discount' => $totals['total_discount'],
@@ -269,7 +280,9 @@ class InvoiceController extends Controller
 
         return redirect()
             ->route('invoices.edit', $invoice)
-            ->with('success', $submitAction === 'finalize' ? 'Invoice created and PDF generated.' : 'Invoice saved as draft.');
+            ->with('success', $submitAction === 'finalize'
+                ? 'Invoice created and PDF generated.'
+                : 'Invoice saved as draft.');
     }
 
     public function update(Request $request, Invoice $invoice)
@@ -279,7 +292,13 @@ class InvoiceController extends Controller
 
         DB::transaction(function () use ($validated, $invoice, $submitAction) {
             $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
-            $totals = $this->calculateTotals($itemsPayload, (float) ($validated['paid_amount'] ?? 0), (float) ($validated['tax_amount'] ?? 0));
+
+            $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
+            $cardPaid = round((float) ($validated['card_paid'] ?? 0), 2);
+            $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
+            $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
+
+            $totals = $this->calculateTotals($itemsPayload, $cashPaid, $cardPaid, $advanceAmount, $taxAmount);
 
             $invoice->update([
                 'invoice_date' => $validated['invoice_date'],
@@ -290,7 +309,10 @@ class InvoiceController extends Controller
                 'sales_person' => $validated['sales_person'] ?? null,
                 'ship_date' => $validated['ship_date'] ?? null,
                 'ship_via' => $validated['ship_via'] ?? null,
-                'payment_type' => $validated['payment_type'] ?? null,
+                'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
+                'cash_paid' => $totals['cash_paid'],
+                'card_paid' => $totals['card_paid'],
+                'advance_amount' => $totals['advance_amount'],
                 'paid_amount' => $totals['paid_amount'],
                 'subtotal' => $totals['subtotal'],
                 'total_discount' => $totals['total_discount'],
@@ -325,7 +347,9 @@ class InvoiceController extends Controller
 
         return redirect()
             ->route('invoices.edit', $invoice)
-            ->with('success', $submitAction === 'finalize' ? 'Invoice updated and PDF regenerated.' : 'Invoice updated.');
+            ->with('success', $submitAction === 'finalize'
+                ? 'Invoice updated and PDF regenerated.'
+                : 'Invoice updated.');
     }
 
     public function destroy(Invoice $invoice)
@@ -379,8 +403,9 @@ class InvoiceController extends Controller
             'sales_person' => ['nullable', 'string', 'max:255'],
             'ship_date' => ['nullable', 'date'],
             'ship_via' => ['nullable', 'string', 'max:255'],
-            'payment_type' => ['nullable', 'in:cash,card'],
-            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'cash_paid' => ['nullable', 'numeric', 'min:0'],
+            'card_paid' => ['nullable', 'numeric', 'min:0'],
+            'advance_amount' => ['nullable', 'numeric', 'min:0'],
             'tax_amount' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'terms' => ['nullable', 'string'],
@@ -435,8 +460,13 @@ class InvoiceController extends Controller
             ->all();
     }
 
-    protected function calculateTotals(array $items, float $paidAmount = 0, float $taxAmount = 0): array
-    {
+    protected function calculateTotals(
+        array $items,
+        float $cashPaid = 0,
+        float $cardPaid = 0,
+        float $advanceAmount = 0,
+        float $taxAmount = 0
+    ): array {
         $subtotal = 0;
         $grandTotalBeforeTax = 0;
 
@@ -452,10 +482,13 @@ class InvoiceController extends Controller
         $subtotal = round($subtotal, 2);
         $grandTotalBeforeTax = round($grandTotalBeforeTax, 2);
         $taxAmount = round($taxAmount, 2);
+        $cashPaid = round(max(0, $cashPaid), 2);
+        $cardPaid = round(max(0, $cardPaid), 2);
+        $advanceAmount = round(max(0, $advanceAmount), 2);
 
         $grandTotal = round($grandTotalBeforeTax + $taxAmount, 2);
         $totalDiscount = round($subtotal - $grandTotalBeforeTax, 2);
-        $paidAmount = round(max(0, $paidAmount), 2);
+        $paidAmount = round($cashPaid + $cardPaid + $advanceAmount, 2);
         $balanceDue = round(max(0, $grandTotal - $paidAmount), 2);
 
         return [
@@ -463,9 +496,39 @@ class InvoiceController extends Controller
             'total_discount' => $totalDiscount,
             'tax_amount' => $taxAmount,
             'grand_total' => $grandTotal,
+            'cash_paid' => $cashPaid,
+            'card_paid' => $cardPaid,
+            'advance_amount' => $advanceAmount,
             'paid_amount' => $paidAmount,
             'balance_due' => $balanceDue,
         ];
+    }
+
+    protected function detectPaymentType(float $cashPaid, float $cardPaid, float $advanceAmount): string
+    {
+        $hasCash = $cashPaid > 0;
+        $hasCard = $cardPaid > 0;
+        $hasAdvance = $advanceAmount > 0;
+
+        $count = collect([$hasCash, $hasCard, $hasAdvance])->filter()->count();
+
+        if ($count === 0) {
+            return 'unpaid';
+        }
+
+        if ($count > 1) {
+            return 'mixed';
+        }
+
+        if ($hasCash) {
+            return 'cash';
+        }
+
+        if ($hasCard) {
+            return 'card';
+        }
+
+        return 'advance';
     }
 
     protected function nextInvoiceNumber(): string
@@ -507,15 +570,14 @@ class InvoiceController extends Controller
     protected function shopInfo(): array
     {
         return [
-            'name' => config('app.name', 'Frozio Hub'),
+            'name' => 'Frozio Hub',
             'address_lines' => [
-                'Frozio Hub',
-                'Your Address Line 1',
-                'Your Address Line 2',
+                '522/c, Dhramapala mawatha,',
+                'Aggona junction, Koswatta',
             ],
-            'phone' => '0770000000',
+            'phone' => '0765807548',
             'website' => 'www.froziohub.com',
-            'logo_url' => asset('images/logo.png'),
+            'logo_url' => asset('assets/images/froziohub-logo.png'),
         ];
     }
 

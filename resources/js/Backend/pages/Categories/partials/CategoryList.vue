@@ -65,8 +65,8 @@ function openCreate() {
   router.visit(route('categories.create'))
 }
 
-function openEdit(row: CategoryRow) {
-  router.visit(route('categories.edit', row.id))
+function openEdit(id: number) {
+  router.visit(route('categories.edit', id))
 }
 
 function onTableClick(e: MouseEvent) {
@@ -78,28 +78,21 @@ function onTableClick(e: MouseEvent) {
   e.stopPropagation()
 
   const action = btn.dataset.action
-  const payload = btn.dataset.payload
-  if (!action || !payload) return
+  const id = Number(btn.dataset.id)
+  const name = btn.dataset.name || 'this category'
 
-  let row: CategoryRow | null = null
-  try {
-    row = JSON.parse(payload)
-  } catch {
-    row = null
-  }
-
-  if (!row) return
+  if (!action || !id) return
 
   if (action === 'edit') {
-    openEdit(row)
+    openEdit(id)
     return
   }
 
   if (action === 'delete') {
-    const ok = confirm(`Delete category "${row.name}"? This cannot be undone.`)
+    const ok = confirm(`Delete category "${name}"? This cannot be undone.`)
     if (!ok) return
 
-    router.delete(route('categories.destroy', row.id), {
+    router.delete(route('categories.destroy', id), {
       preserveScroll: true,
       onSuccess: () => {
         reloadKey.value = Date.now()

@@ -53,6 +53,12 @@ class InvoiceController extends Controller
                 'sales_person' => $invoice->sales_person,
                 'ship_date' => optional($invoice->ship_date)->format('Y-m-d'),
                 'ship_via' => $invoice->ship_via,
+                'delivery_enabled' => (bool) $invoice->delivery_enabled,
+                'delivery_method' => $invoice->delivery_method,
+                'delivery_payment_status' => $invoice->delivery_payment_status,
+                'tracking_id' => $invoice->tracking_id,
+                'delivery_agent' => $invoice->delivery_agent,
+                'delivery_amount' => (float) ($invoice->delivery_amount ?? 0),
                 'payment_type' => $invoice->payment_type,
                 'cash_paid' => (float) $invoice->cash_paid,
                 'card_paid' => (float) $invoice->card_paid,
@@ -115,6 +121,9 @@ class InvoiceController extends Controller
                     ->orWhere('customer_contact_number', 'like', "%{$searchValue}%")
                     ->orWhere('sales_person', 'like', "%{$searchValue}%")
                     ->orWhere('payment_type', 'like', "%{$searchValue}%")
+                    ->orWhere('delivery_method', 'like', "%{$searchValue}%")
+                    ->orWhere('tracking_id', 'like', "%{$searchValue}%")
+                    ->orWhere('delivery_agent', 'like', "%{$searchValue}%")
                     ->orWhere('status', 'like', "%{$searchValue}%");
             });
         }
@@ -236,7 +245,19 @@ class InvoiceController extends Controller
             $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
             $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
 
-            $totals = $this->calculateTotals($itemsPayload, $cashPaid, $cardPaid, $advanceAmount, $taxAmount);
+            $deliveryEnabled = (bool) ($validated['delivery_enabled'] ?? false);
+            $deliveryAmount = $deliveryEnabled
+                ? round((float) ($validated['delivery_amount'] ?? 0), 2)
+                : 0;
+
+            $totals = $this->calculateTotals(
+                $itemsPayload,
+                $cashPaid,
+                $cardPaid,
+                $advanceAmount,
+                $taxAmount,
+                $deliveryAmount
+            );
 
             $invoice = Invoice::create([
                 'invoice_no' => $this->nextInvoiceNumber(),
@@ -248,6 +269,12 @@ class InvoiceController extends Controller
                 'sales_person' => $validated['sales_person'] ?? null,
                 'ship_date' => $validated['ship_date'] ?? null,
                 'ship_via' => $validated['ship_via'] ?? null,
+                'delivery_enabled' => $deliveryEnabled,
+                'delivery_method' => $deliveryEnabled ? ($validated['delivery_method'] ?? null) : null,
+                'delivery_payment_status' => $deliveryEnabled ? ($validated['delivery_payment_status'] ?? null) : null,
+                'tracking_id' => $deliveryEnabled ? ($validated['tracking_id'] ?? null) : null,
+                'delivery_agent' => $deliveryEnabled ? ($validated['delivery_agent'] ?? null) : null,
+                'delivery_amount' => $deliveryEnabled ? $totals['delivery_amount'] : null,
                 'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
                 'cash_paid' => $totals['cash_paid'],
                 'card_paid' => $totals['card_paid'],
@@ -298,7 +325,19 @@ class InvoiceController extends Controller
             $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
             $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
 
-            $totals = $this->calculateTotals($itemsPayload, $cashPaid, $cardPaid, $advanceAmount, $taxAmount);
+            $deliveryEnabled = (bool) ($validated['delivery_enabled'] ?? false);
+            $deliveryAmount = $deliveryEnabled
+                ? round((float) ($validated['delivery_amount'] ?? 0), 2)
+                : 0;
+
+            $totals = $this->calculateTotals(
+                $itemsPayload,
+                $cashPaid,
+                $cardPaid,
+                $advanceAmount,
+                $taxAmount,
+                $deliveryAmount
+            );
 
             $invoice->update([
                 'invoice_date' => $validated['invoice_date'],
@@ -309,6 +348,12 @@ class InvoiceController extends Controller
                 'sales_person' => $validated['sales_person'] ?? null,
                 'ship_date' => $validated['ship_date'] ?? null,
                 'ship_via' => $validated['ship_via'] ?? null,
+                'delivery_enabled' => $deliveryEnabled,
+                'delivery_method' => $deliveryEnabled ? ($validated['delivery_method'] ?? null) : null,
+                'delivery_payment_status' => $deliveryEnabled ? ($validated['delivery_payment_status'] ?? null) : null,
+                'tracking_id' => $deliveryEnabled ? ($validated['tracking_id'] ?? null) : null,
+                'delivery_agent' => $deliveryEnabled ? ($validated['delivery_agent'] ?? null) : null,
+                'delivery_amount' => $deliveryEnabled ? $totals['delivery_amount'] : null,
                 'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
                 'cash_paid' => $totals['cash_paid'],
                 'card_paid' => $totals['card_paid'],
@@ -410,6 +455,14 @@ class InvoiceController extends Controller
             'sales_person' => ['nullable', 'string', 'max:255'],
             'ship_date' => ['nullable', 'date'],
             'ship_via' => ['nullable', 'string', 'max:255'],
+
+            'delivery_enabled' => ['nullable', 'boolean'],
+            'delivery_method' => ['nullable', 'in:cash_on_delivery,paid_delivery,pickme_flash,uber_flash'],
+            'delivery_payment_status' => ['nullable', 'in:paid,non_paid'],
+            'tracking_id' => ['nullable', 'string', 'max:255'],
+            'delivery_agent' => ['nullable', 'in:domex,pickme'],
+            'delivery_amount' => ['nullable', 'numeric', 'min:0'],
+
             'cash_paid' => ['nullable', 'numeric', 'min:0'],
             'card_paid' => ['nullable', 'numeric', 'min:0'],
             'advance_amount' => ['nullable', 'numeric', 'min:0'],
@@ -472,7 +525,8 @@ class InvoiceController extends Controller
         float $cashPaid = 0,
         float $cardPaid = 0,
         float $advanceAmount = 0,
-        float $taxAmount = 0
+        float $taxAmount = 0,
+        float $deliveryAmount = 0
     ): array {
         $subtotal = 0;
         $grandTotalBeforeTax = 0;
@@ -486,8 +540,10 @@ class InvoiceController extends Controller
             $grandTotalBeforeTax += $lineTotal;
         }
 
-        $subtotal = round($subtotal, 2);
-        $grandTotalBeforeTax = round($grandTotalBeforeTax, 2);
+        $deliveryAmount = round(max(0, $deliveryAmount), 2);
+
+        $subtotal = round($subtotal + $deliveryAmount, 2);
+        $grandTotalBeforeTax = round($grandTotalBeforeTax + $deliveryAmount, 2);
         $taxAmount = round($taxAmount, 2);
         $cashPaid = round(max(0, $cashPaid), 2);
         $cardPaid = round(max(0, $cardPaid), 2);
@@ -508,6 +564,7 @@ class InvoiceController extends Controller
             'advance_amount' => $advanceAmount,
             'paid_amount' => $paidAmount,
             'balance_due' => $balanceDue,
+            'delivery_amount' => $deliveryAmount,
         ];
     }
 

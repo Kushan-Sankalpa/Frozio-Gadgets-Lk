@@ -9,12 +9,12 @@
         }
 
         @page {
-            margin: 20px;
+            margin: 20px 20px 54px 20px;
         }
 
         body {
             margin: 0;
-            padding: 0;
+            padding: 0 0 70px 0;
             font-family: DejaVu Sans, sans-serif;
             font-size: 12px;
             color: #0f172a;
@@ -26,15 +26,37 @@
             background: #ffffff;
         }
 
-        .top-bar,
-        .bottom-bar {
+        .top-bar {
             height: 8px;
             background: #1d4ed8;
             width: 100%;
         }
 
+        .bottom-bar-fixed {
+            position: fixed;
+            left: 20px;
+            right: 20px;
+            bottom: 0;
+            height: 8px;
+            background: #1d4ed8;
+        }
+
+        .footer-fixed {
+            position: fixed;
+            left: 20px;
+            right: 20px;
+            bottom: 14px;
+            padding-top: 8px;
+            border-top: 1px solid #bfdbfe;
+            text-align: center;
+            color: #1d4ed8;
+            font-size: 11px;
+            font-weight: bold;
+            background: #ffffff;
+        }
+
         .content {
-            padding: 18px 20px;
+            padding: 18px 20px 18px 20px;
         }
 
         table {
@@ -73,8 +95,8 @@
         }
 
         .logo-wrap img {
-            max-width: 240px;
-            max-height: 150px;
+            max-width: 260px;
+            max-height: 155px;
             width: auto;
             height: auto;
         }
@@ -188,7 +210,7 @@
         }
 
         .summary-box {
-            width: 380px;
+            width: 390px;
             margin-left: auto;
             border: 1px solid #bfdbfe;
             background: #f8fbff;
@@ -227,19 +249,30 @@
             border-radius: 6px;
             line-height: 1.5;
         }
-
-        .footer {
-            margin-top: 22px;
-            padding-top: 10px;
-            border-top: 1px solid #bfdbfe;
-            text-align: center;
-            color: #1d4ed8;
-            font-size: 11px;
-            font-weight: bold;
-        }
     </style>
 </head>
 <body>
+    @php
+        $deliveryMethodLabels = [
+            'cash_on_delivery' => 'Cash on Delivery',
+            'paid_delivery' => 'Paid Delivery',
+            'pickme_flash' => 'PickMe Flash',
+            'uber_flash' => 'Uber Flash',
+        ];
+
+        $deliveryAgentLabels = [
+            'domex' => 'Domex',
+            'pickme' => 'PickMe',
+        ];
+
+        $deliveryPaymentStatusLabels = [
+            'paid' => 'Paid',
+            'non_paid' => 'Non-Paid',
+        ];
+
+        $deliveryEnabled = (bool) ($invoice->delivery_enabled ?? false);
+    @endphp
+
     <div class="page">
         <div class="top-bar"></div>
 
@@ -317,16 +350,44 @@
                     </td>
 
                     <td width="50%" class="info-right">
-                        @if($invoice->sales_person)
-                            <div class="info-line"><span class="info-label">Sales Person:</span> {{ $invoice->sales_person }}</div>
-                        @endif
+                        @if($deliveryEnabled)
+                            @if($invoice->delivery_method)
+                                <div class="info-line">
+                                    <span class="info-label">Delivery Type:</span>
+                                    {{ $deliveryMethodLabels[$invoice->delivery_method] ?? ucfirst(str_replace('_', ' ', $invoice->delivery_method)) }}
+                                </div>
+                            @endif
 
-                        @if($invoice->ship_date)
-                            <div class="info-line"><span class="info-label">Ship Date:</span> {{ optional($invoice->ship_date)->format('Y-m-d') }}</div>
-                        @endif
+                            @if($invoice->delivery_agent)
+                                <div class="info-line">
+                                    <span class="info-label">Delivery Agent:</span>
+                                    {{ $deliveryAgentLabels[$invoice->delivery_agent] ?? ucfirst(str_replace('_', ' ', $invoice->delivery_agent)) }}
+                                </div>
+                            @endif
 
-                        @if($invoice->ship_via)
-                            <div class="info-line"><span class="info-label">Ship Via:</span> {{ $invoice->ship_via }}</div>
+                            @if($invoice->delivery_payment_status)
+                                <div class="info-line">
+                                    <span class="info-label">Payment Status:</span>
+                                    {{ $deliveryPaymentStatusLabels[$invoice->delivery_payment_status] ?? ucfirst(str_replace('_', ' ', $invoice->delivery_payment_status)) }}
+                                </div>
+                            @endif
+
+                            @if($invoice->tracking_id)
+                                <div class="info-line"><span class="info-label">Tracking ID:</span> {{ $invoice->tracking_id }}</div>
+                            @endif
+
+                            <div class="info-line">
+                                <span class="info-label">Delivery Amount:</span>
+                                {{ number_format((float) ($invoice->delivery_amount ?? 0), 2) }}
+                            </div>
+                        @else
+                            @if($invoice->ship_date)
+                                <div class="info-line"><span class="info-label">Ship Date:</span> {{ optional($invoice->ship_date)->format('Y-m-d') }}</div>
+                            @endif
+
+                            @if($invoice->ship_via)
+                                <div class="info-line"><span class="info-label">Ship Via:</span> {{ $invoice->ship_via }}</div>
+                            @endif
                         @endif
                     </td>
                 </tr>
@@ -399,6 +460,10 @@
                             <td>{{ number_format((float) $invoice->advance_amount, 2) }}</td>
                         </tr>
                         <tr>
+                            <td>Delivery Amount</td>
+                            <td>{{ number_format((float) ($invoice->delivery_amount ?? 0), 2) }}</td>
+                        </tr>
+                        <tr>
                             <td>Total Paid</td>
                             <td>{{ number_format((float) $invoice->paid_amount, 2) }}</td>
                         </tr>
@@ -419,13 +484,13 @@
                 <div class="section-title">Terms / Remarks</div>
                 <div class="note-box">{{ $invoice->terms }}</div>
             @endif
-
-            <div class="footer">
-                {{ $shop['website'] ?? 'www.froziohub.com' }}
-            </div>
         </div>
-
-        <div class="bottom-bar"></div>
     </div>
+
+    <div class="footer-fixed">
+        {{ $shop['website'] ?? 'www.froziohub.com' }}
+    </div>
+
+    <div class="bottom-bar-fixed"></div>
 </body>
 </html>

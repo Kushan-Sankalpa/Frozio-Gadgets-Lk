@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
 type TechProduct = {
@@ -60,6 +60,12 @@ type InvoicePayload = {
   sales_person?: string | null
   ship_date?: string | null
   ship_via?: string | null
+  delivery_enabled?: boolean
+  delivery_method?: string | null
+  delivery_payment_status?: string | null
+  tracking_id?: string | null
+  delivery_agent?: string | null
+  delivery_amount?: number
   payment_type?: string | null
   cash_paid: number
   card_paid: number
@@ -95,6 +101,27 @@ const props = defineProps<{
 
 const isEdit = computed(() => props.mode === 'edit' && !!props.invoice?.id)
 
+const deliveryMethodOptions = [
+  { value: 'cash_on_delivery', label: 'Cash on Delivery' },
+  { value: 'paid_delivery', label: 'Paid Delivery' },
+  { value: 'pickme_flash', label: 'PickMe Flash' },
+  { value: 'uber_flash', label: 'Uber Flash' },
+] as const
+
+const deliveryPaymentStatusOptions = [
+  { value: 'paid', label: 'Paid' },
+  { value: 'non_paid', label: 'Non-Paid' },
+] as const
+
+const deliveryAgentOptions = [
+  { value: 'domex', label: 'Domex' },
+  { value: 'pickme', label: 'PickMe' },
+] as const
+
+const deliveryMethodLabelMap = Object.fromEntries(deliveryMethodOptions.map((item) => [item.value, item.label]))
+const deliveryPaymentStatusLabelMap = Object.fromEntries(deliveryPaymentStatusOptions.map((item) => [item.value, item.label]))
+const deliveryAgentLabelMap = Object.fromEntries(deliveryAgentOptions.map((item) => [item.value, item.label]))
+
 const form = useForm({
   invoice_no: props.invoice?.invoice_no ?? props.nextInvoiceNo,
   invoice_date: props.invoice?.invoice_date ?? new Date().toISOString().slice(0, 10),
@@ -105,6 +132,12 @@ const form = useForm({
   sales_person: props.invoice?.sales_person ?? '',
   ship_date: props.invoice?.ship_date ?? '',
   ship_via: props.invoice?.ship_via ?? '',
+  delivery_enabled: props.invoice?.delivery_enabled ?? false,
+  delivery_method: props.invoice?.delivery_method ?? '',
+  delivery_payment_status: props.invoice?.delivery_payment_status ?? '',
+  tracking_id: props.invoice?.tracking_id ?? '',
+  delivery_agent: props.invoice?.delivery_agent ?? '',
+  delivery_amount: props.invoice?.delivery_amount ?? 0,
   cash_paid: props.invoice?.cash_paid ?? 0,
   card_paid: props.invoice?.card_paid ?? 0,
   advance_amount: props.invoice?.advance_amount ?? 0,
@@ -121,6 +154,7 @@ const form = useForm({
 
 const techSearch = reactive({ keyword: '' })
 const shoeSearch = reactive({ keyword: '' })
+const cardAutoSuggested = ref(!(props.invoice && Number(props.invoice.card_paid || 0) > 0))
 
 const draftItem = reactive<InvoiceItem>({
   item_no: 1,
@@ -175,6 +209,75 @@ const techStorages = computed(() => selectedTechProduct.value?.storages ?? [])
 const techColors = computed(() => selectedTechProduct.value?.colors ?? [])
 const shoeSizes = computed(() => selectedShoeProduct.value?.sizes ?? [])
 
+const deliveryAmountValue = computed(() =>
+  Number(form.delivery_enabled ? form.delivery_amount || 0 : 0)
+)
+
+const discountedItemsTotal = computed(() =>
+  Number(form.items.reduce((sum, item) => sum + Number(item.line_total || 0), 0).toFixed(2))
+)
+
+const subtotal = computed(() =>
+  Number((
+    form.items.reduce((sum, item) => sum + (Number(item.regular_price || 0) * Number(item.qty || 1)), 0) +
+    deliveryAmountValue.value
+  ).toFixed(2))
+)
+
+const totalDiscount = computed(() =>
+  Number((subtotal.value - (discountedItemsTotal.value + deliveryAmountValue.value)).toFixed(2))
+)
+
+const grandTotalBeforeTax = computed(() =>
+  Number((discountedItemsTotal.value + deliveryAmountValue.value).toFixed(2))
+)
+
+const grandTotal = computed(() =>
+  Number((grandTotalBeforeTax.value + Number(form.tax_amount || 0)).toFixed(2))
+)
+
+const totalPaid = computed(() =>
+  Number((
+    Number(form.cash_paid || 0) +
+    Number(form.card_paid || 0) +
+    Number(form.advance_amount || 0)
+  ).toFixed(2))
+)
+
+const balanceDue = computed(() =>
+  Number(Math.max(0, grandTotal.value - totalPaid.value).toFixed(2))
+)
+
+const remainingCardSuggestion = computed(() =>
+  Number(Math.max(0, grandTotal.value - Number(form.cash_paid || 0) - Number(form.advance_amount || 0)).toFixed(2))
+)
+
+const paymentTypeLabel = computed(() => {
+  const cash = Number(form.cash_paid || 0)
+  const card = Number(form.card_paid || 0)
+  const advance = Number(form.advance_amount || 0)
+
+  const count = [cash > 0, card > 0, advance > 0].filter(Boolean).length
+
+  if (count === 0) return 'Unpaid'
+  if (count > 1) return 'Mixed'
+  if (cash > 0) return 'Cash'
+  if (card > 0) return 'Card'
+  return 'Advance'
+})
+
+const deliveryMethodPreviewLabel = computed(() =>
+  deliveryMethodLabelMap[form.delivery_method as keyof typeof deliveryMethodLabelMap] ?? '-'
+)
+
+const deliveryPaymentStatusPreviewLabel = computed(() =>
+  deliveryPaymentStatusLabelMap[form.delivery_payment_status as keyof typeof deliveryPaymentStatusLabelMap] ?? '-'
+)
+
+const deliveryAgentPreviewLabel = computed(() =>
+  deliveryAgentLabelMap[form.delivery_agent as keyof typeof deliveryAgentLabelMap] ?? '-'
+)
+
 function resetDraftItem(type: 'tech' | 'shoe' = 'tech') {
   draftItem.item_no = form.items.length + 1
   draftItem.product_type = type
@@ -198,6 +301,31 @@ function resetDraftItem(type: 'tech' | 'shoe' = 'tech') {
 
 function onTypeChange(type: 'tech' | 'shoe') {
   resetDraftItem(type)
+}
+
+function syncSuggestedCardAmount() {
+  if (!cardAutoSuggested.value) return
+
+  const cash = Number(form.cash_paid || 0)
+  const advance = Number(form.advance_amount || 0)
+
+  if (cash > 0 || advance > 0) {
+    form.card_paid = remainingCardSuggestion.value
+    return
+  }
+
+  if (!isEdit.value) {
+    form.card_paid = 0
+  }
+}
+
+function onCardPaidManual() {
+  cardAutoSuggested.value = false
+}
+
+function useRemainingForCard() {
+  cardAutoSuggested.value = true
+  form.card_paid = remainingCardSuggestion.value
 }
 
 watch(
@@ -246,6 +374,32 @@ watch(
   ],
   () => recalcDraft(),
   { deep: true }
+)
+
+watch(
+  () => [Number(form.cash_paid || 0), Number(form.advance_amount || 0), grandTotal.value],
+  () => syncSuggestedCardAmount(),
+  { immediate: true }
+)
+
+watch(
+  () => form.delivery_enabled,
+  (enabled) => {
+    if (!enabled) {
+      form.delivery_method = ''
+      form.delivery_payment_status = ''
+      form.tracking_id = ''
+      form.delivery_agent = ''
+      form.delivery_amount = 0
+    }
+
+    syncSuggestedCardAmount()
+  }
+)
+
+watch(
+  () => Number(form.delivery_amount || 0),
+  () => syncSuggestedCardAmount()
 )
 
 function recalcDraft() {
@@ -322,48 +476,6 @@ function syncItemNumbers() {
   }))
 }
 
-const subtotal = computed(() =>
-  form.items.reduce((sum, item) => sum + (Number(item.regular_price || 0) * Number(item.qty || 1)), 0)
-)
-
-const totalDiscount = computed(() =>
-  Number((subtotal.value - form.items.reduce((sum, item) => sum + Number(item.line_total || 0), 0)).toFixed(2))
-)
-
-const grandTotalBeforeTax = computed(() =>
-  Number(form.items.reduce((sum, item) => sum + Number(item.line_total || 0), 0).toFixed(2))
-)
-
-const grandTotal = computed(() =>
-  Number((grandTotalBeforeTax.value + Number(form.tax_amount || 0)).toFixed(2))
-)
-
-const totalPaid = computed(() =>
-  Number((
-    Number(form.cash_paid || 0) +
-    Number(form.card_paid || 0) +
-    Number(form.advance_amount || 0)
-  ).toFixed(2))
-)
-
-const balanceDue = computed(() =>
-  Number(Math.max(0, grandTotal.value - totalPaid.value).toFixed(2))
-)
-
-const paymentTypeLabel = computed(() => {
-  const cash = Number(form.cash_paid || 0)
-  const card = Number(form.card_paid || 0)
-  const advance = Number(form.advance_amount || 0)
-
-  const count = [cash > 0, card > 0, advance > 0].filter(Boolean).length
-
-  if (count === 0) return 'Unpaid'
-  if (count > 1) return 'Mixed'
-  if (cash > 0) return 'Cash'
-  if (card > 0) return 'Card'
-  return 'Advance'
-})
-
 function resetForm() {
   if (!confirm('Reset the invoice form?')) return
 
@@ -376,6 +488,12 @@ function resetForm() {
   form.sales_person = ''
   form.ship_date = ''
   form.ship_via = ''
+  form.delivery_enabled = false
+  form.delivery_method = ''
+  form.delivery_payment_status = ''
+  form.tracking_id = ''
+  form.delivery_agent = ''
+  form.delivery_amount = 0
   form.cash_paid = 0
   form.card_paid = 0
   form.advance_amount = 0
@@ -384,6 +502,7 @@ function resetForm() {
   form.terms = ''
   form.status = 'draft'
   form.items = []
+  cardAutoSuggested.value = true
   resetDraftItem('tech')
 }
 
@@ -393,6 +512,12 @@ function submit(action: 'draft' | 'finalize') {
 
   const payload = {
     ...form.data(),
+    delivery_enabled: Boolean(form.delivery_enabled),
+    delivery_method: form.delivery_enabled ? (form.delivery_method || null) : null,
+    delivery_payment_status: form.delivery_enabled ? (form.delivery_payment_status || null) : null,
+    tracking_id: form.delivery_enabled ? (form.tracking_id || null) : null,
+    delivery_agent: form.delivery_enabled ? (form.delivery_agent || null) : null,
+    delivery_amount: Number(form.delivery_enabled ? form.delivery_amount || 0 : 0),
     cash_paid: Number(form.cash_paid || 0),
     card_paid: Number(form.card_paid || 0),
     advance_amount: Number(form.advance_amount || 0),
@@ -494,16 +619,6 @@ function submit(action: 'draft' | 'finalize') {
               </div>
 
               <div>
-                <label class="mb-1 block text-sm font-medium text-neutral-700">Sales Person</label>
-                <input
-                  v-model="form.sales_person"
-                  type="text"
-                  placeholder="Sales person"
-                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
                 <label class="mb-1 block text-sm font-medium text-neutral-700">Ship Date</label>
                 <input
                   v-model="form.ship_date"
@@ -599,12 +714,23 @@ function submit(action: 'draft' | 'finalize') {
                   type="number"
                   min="0"
                   step="0.01"
+                  @input="onCardPaidManual"
                   class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
                 />
+                <div class="mt-1 flex items-center justify-between text-xs">
+                  <span class="text-neutral-500">Remaining suggestion: {{ remainingCardSuggestion.toFixed(2) }}</span>
+                  <button
+                    type="button"
+                    @click="useRemainingForCard"
+                    class="rounded-full border border-blue-200 px-3 py-1 font-medium text-blue-600 hover:bg-blue-50"
+                  >
+                    Use Remaining
+                  </button>
+                </div>
                 <p v-if="form.errors.card_paid" class="mt-1 text-sm text-red-600">{{ form.errors.card_paid }}</p>
               </div>
 
-              <div class="md:col-span-2">
+              <div>
                 <label class="mb-1 block text-sm font-medium text-neutral-700">Advance Amount</label>
                 <input
                   v-model="form.advance_amount"
@@ -615,6 +741,110 @@ function submit(action: 'draft' | 'finalize') {
                 />
                 <p v-if="form.errors.advance_amount" class="mt-1 text-sm text-red-600">{{ form.errors.advance_amount }}</p>
               </div>
+
+              <div class="rounded-xl border border-neutral-200 px-4 py-3">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <div class="text-sm font-medium text-neutral-800">Delivery</div>
+                    <div class="text-xs text-neutral-500">Enable delivery details for this invoice</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    @click="form.delivery_enabled = !form.delivery_enabled"
+                    :class="[
+                      'relative inline-flex h-7 w-14 items-center rounded-full transition',
+                      form.delivery_enabled ? 'bg-blue-600' : 'bg-neutral-300'
+                    ]"
+                  >
+                    <span
+                      :class="[
+                        'inline-block h-5 w-5 transform rounded-full bg-white transition',
+                        form.delivery_enabled ? 'translate-x-8' : 'translate-x-1'
+                      ]"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <template v-if="form.delivery_enabled">
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-neutral-700">Delivery Method</label>
+                  <select
+                    v-model="form.delivery_method"
+                    class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  >
+                    <option value="">Select delivery method</option>
+                    <option
+                      v-for="option in deliveryMethodOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                  <p v-if="form.errors.delivery_method" class="mt-1 text-sm text-red-600">{{ form.errors.delivery_method }}</p>
+                </div>
+
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-neutral-700">Payment Status</label>
+                  <select
+                    v-model="form.delivery_payment_status"
+                    class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  >
+                    <option value="">Select payment status</option>
+                    <option
+                      v-for="option in deliveryPaymentStatusOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                  <p v-if="form.errors.delivery_payment_status" class="mt-1 text-sm text-red-600">{{ form.errors.delivery_payment_status }}</p>
+                </div>
+
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-neutral-700">Tracking ID</label>
+                  <input
+                    v-model="form.tracking_id"
+                    type="text"
+                    placeholder="EC1234"
+                    class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  />
+                  <p v-if="form.errors.tracking_id" class="mt-1 text-sm text-red-600">{{ form.errors.tracking_id }}</p>
+                </div>
+
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-neutral-700">Delivery Agent</label>
+                  <select
+                    v-model="form.delivery_agent"
+                    class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  >
+                    <option value="">Select delivery agent</option>
+                    <option
+                      v-for="option in deliveryAgentOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                  <p v-if="form.errors.delivery_agent" class="mt-1 text-sm text-red-600">{{ form.errors.delivery_agent }}</p>
+                </div>
+
+                <div class="md:col-span-2">
+                  <label class="mb-1 block text-sm font-medium text-neutral-700">Delivery Amount</label>
+                  <input
+                    v-model="form.delivery_amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  />
+                  <p v-if="form.errors.delivery_amount" class="mt-1 text-sm text-red-600">{{ form.errors.delivery_amount }}</p>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -1000,10 +1230,14 @@ function submit(action: 'draft' | 'finalize') {
                 <div class="text-lg font-semibold text-neutral-800">{{ totalDiscount.toFixed(2) }}</div>
               </div>
               <div class="rounded-xl bg-neutral-50 px-4 py-3">
+                <div class="text-xs uppercase tracking-wide text-neutral-500">Delivery Amount</div>
+                <div class="text-lg font-semibold text-neutral-800">{{ deliveryAmountValue.toFixed(2) }}</div>
+              </div>
+              <div class="rounded-xl bg-neutral-50 px-4 py-3">
                 <div class="text-xs uppercase tracking-wide text-neutral-500">Total Paid</div>
                 <div class="text-lg font-semibold text-neutral-800">{{ totalPaid.toFixed(2) }}</div>
               </div>
-              <div class="rounded-xl bg-neutral-50 px-4 py-3">
+              <div class="rounded-xl bg-neutral-50 px-4 py-3 md:col-span-2">
                 <div class="text-xs uppercase tracking-wide text-neutral-500">Balance Due</div>
                 <div class="text-lg font-semibold text-neutral-800">{{ balanceDue.toFixed(2) }}</div>
               </div>
@@ -1048,169 +1282,183 @@ function submit(action: 'draft' | 'finalize') {
           </div>
 
           <div class="mx-auto max-w-[800px] overflow-hidden rounded-2xl border border-blue-200 bg-white text-sm text-slate-800 shadow-sm">
-  <div class="h-2 bg-blue-700" />
+            <div class="h-2 bg-blue-700" />
 
-  <div class="p-6">
-    <div class="grid grid-cols-3 gap-4 border-b-2 border-blue-100 pb-6">
-      <div>
-        <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
-          <div class="mb-2 text-base font-bold text-blue-900">{{ shop.name }}</div>
-          <div class="space-y-1 text-sm text-slate-700">
-            <div v-for="line in shop.address_lines" :key="line">{{ line }}</div>
-            <div v-if="shop.phone"><span class="font-medium text-slate-500">Phone:</span> {{ shop.phone }}</div>
-            <div v-if="shop.website"><span class="font-medium text-slate-500">Web:</span> {{ shop.website }}</div>
+            <div class="p-6">
+              <div class="grid grid-cols-3 gap-4 border-b-2 border-blue-100 pb-6">
+                <div>
+                  <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                    <div class="mb-2 text-base font-bold text-blue-900">{{ shop.name }}</div>
+                    <div class="space-y-1 text-sm text-slate-700">
+                      <div v-for="line in shop.address_lines" :key="line">{{ line }}</div>
+                      <div v-if="shop.phone"><span class="font-medium text-slate-500">Phone:</span> {{ shop.phone }}</div>
+                      <div v-if="shop.website"><span class="font-medium text-slate-500">Web:</span> {{ shop.website }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-start justify-center pt-1">
+                  <img
+                    v-if="shop.logo_url"
+                    :src="shop.logo_url"
+                    alt="Logo"
+                    class="max-h-[130px] max-w-[220px] object-contain"
+                  />
+                </div>
+
+                <div class="space-y-2 text-right">
+                  <div class="text-[30px] font-bold tracking-[0.12em] text-blue-700">INVOICE</div>
+                  <div class="space-y-1 text-sm">
+                    <div><span class="text-slate-500">Date:</span> <span class="font-semibold text-slate-800">{{ form.invoice_date || '-' }}</span></div>
+                    <div><span class="text-slate-500">Invoice No:</span> <span class="font-semibold text-slate-800">{{ form.invoice_no }}</span></div>
+                    <div><span class="text-slate-500">Payment Type:</span> <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span></div>
+                    <div><span class="text-slate-500">Status:</span> <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="py-5">
+                <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
+                  Bill To
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 rounded-xl border border-blue-100 bg-slate-50 p-4 md:grid-cols-2">
+                  <div class="space-y-1.5">
+                    <div><span class="font-semibold text-slate-500">Name:</span> {{ form.customer_name || '-' }}</div>
+                    <div><span class="font-semibold text-slate-500">Contact:</span> {{ form.customer_contact_number || '-' }}</div>
+                    <div v-if="form.customer_address"><span class="font-semibold text-slate-500">Address:</span> {{ form.customer_address }}</div>
+                    <div v-if="form.customer_email"><span class="font-semibold text-slate-500">Email:</span> {{ form.customer_email }}</div>
+                  </div>
+
+                  <div class="space-y-1.5 md:text-right">
+                    <template v-if="form.delivery_enabled">
+                      <div><span class="font-semibold text-slate-500">Delivery Type:</span> {{ deliveryMethodPreviewLabel }}</div>
+                      <div><span class="font-semibold text-slate-500">Delivery Agent:</span> {{ deliveryAgentPreviewLabel }}</div>
+                      <div><span class="font-semibold text-slate-500">Payment Status:</span> {{ deliveryPaymentStatusPreviewLabel }}</div>
+                      <div v-if="form.tracking_id"><span class="font-semibold text-slate-500">Tracking ID:</span> {{ form.tracking_id }}</div>
+                      <div><span class="font-semibold text-slate-500">Delivery Amount:</span> {{ deliveryAmountValue.toFixed(2) }}</div>
+                    </template>
+
+                    <template v-else>
+                      <div v-if="form.ship_date"><span class="font-semibold text-slate-500">Ship Date:</span> {{ form.ship_date }}</div>
+                      <div v-if="form.ship_via"><span class="font-semibold text-slate-500">Ship Via:</span> {{ form.ship_via }}</div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pb-5">
+                <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
+                  Items
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="min-w-full border-collapse text-sm">
+                    <thead>
+                      <tr>
+                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">ITEM</th>
+                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">DESCRIPTION</th>
+                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">QTY</th>
+                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">UNIT PRICE</th>
+                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">%</th>
+                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-if="!form.items.length">
+                        <td colspan="6" class="border border-blue-100 px-3 py-8 text-center text-slate-400">
+                          No invoice items added yet.
+                        </td>
+                      </tr>
+
+                      <tr
+                        v-for="(item, index) in form.items"
+                        :key="`preview-${index}`"
+                        class="odd:bg-white even:bg-slate-50"
+                      >
+                        <td class="border border-blue-100 px-3 py-2">{{ index + 1 }}</td>
+                        <td class="border border-blue-100 px-3 py-2">{{ item.description }}</td>
+                        <td class="border border-blue-100 px-3 py-2 text-center">{{ item.qty }}</td>
+                        <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.regular_price).toFixed(2) }}</td>
+                        <td class="border border-blue-100 px-3 py-2 text-center">
+                          {{ item.discount_type === 'percentage' ? (item.discount_percent_display ?? item.discount_value ?? 0) : '-' }}
+                        </td>
+                        <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.line_total).toFixed(2) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="ml-auto mt-2 w-full max-w-sm rounded-xl border border-blue-200 bg-slate-50 p-4">
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Subtotal</span>
+                  <span class="font-medium">{{ subtotal.toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Total Discount</span>
+                  <span class="font-medium">{{ totalDiscount.toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Tax</span>
+                  <span class="font-medium">{{ Number(form.tax_amount || 0).toFixed(2) }}</span>
+                </div>
+
+                <div class="my-2 flex items-center justify-between rounded-lg bg-blue-100 px-3 py-3 text-blue-900">
+                  <span class="font-bold">Grand Total</span>
+                  <span class="text-base font-bold">{{ grandTotal.toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Cash Paid</span>
+                  <span class="font-medium">{{ Number(form.cash_paid || 0).toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Card Paid</span>
+                  <span class="font-medium">{{ Number(form.card_paid || 0).toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Advance Amount</span>
+                  <span class="font-medium">{{ Number(form.advance_amount || 0).toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Delivery Amount</span>
+                  <span class="font-medium">{{ deliveryAmountValue.toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-blue-100 py-2">
+                  <span class="text-slate-500">Total Paid</span>
+                  <span class="font-medium">{{ totalPaid.toFixed(2) }}</span>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 text-base font-bold text-slate-900">
+                  <span>Balance Due</span>
+                  <span>{{ balanceDue.toFixed(2) }}</span>
+                </div>
+              </div>
+
+              <div v-if="form.notes" class="mt-6 rounded-xl border border-blue-100 bg-slate-50 p-4">
+                <div class="mb-1 font-semibold text-blue-900">Notes</div>
+                <div class="text-slate-700">{{ form.notes }}</div>
+              </div>
+
+              <div v-if="form.terms" class="mt-4 rounded-xl border border-blue-100 bg-slate-50 p-4">
+                <div class="mb-1 font-semibold text-blue-900">Terms / Remarks</div>
+                <div class="text-slate-700">{{ form.terms }}</div>
+              </div>
+
+              <div class="mt-8 border-t border-blue-100 pt-4 text-center text-xs font-semibold text-blue-700">
+                {{ shop.website || 'www.froziohub.com' }}
+              </div>
+            </div>
+
+            <div class="h-2 bg-blue-700" />
           </div>
-        </div>
-      </div>
-
-      <div class="flex items-start justify-center pt-1">
-        <img
-          v-if="shop.logo_url"
-          :src="shop.logo_url"
-          alt="Logo"
-          class="max-h-[110px] max-w-[185px] object-contain"
-        />
-      </div>
-
-      <div class="space-y-2 text-right">
-        <div class="text-[30px] font-bold tracking-[0.12em] text-blue-700">INVOICE</div>
-        <div class="space-y-1 text-sm">
-          <div><span class="text-slate-500">Date:</span> <span class="font-semibold text-slate-800">{{ form.invoice_date || '-' }}</span></div>
-          <div><span class="text-slate-500">Invoice No:</span> <span class="font-semibold text-slate-800">{{ form.invoice_no }}</span></div>
-          <div><span class="text-slate-500">Payment Type:</span> <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span></div>
-          <div><span class="text-slate-500">Status:</span> <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="py-5">
-      <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
-        Bill To
-      </div>
-
-      <div class="grid grid-cols-1 gap-4 rounded-xl border border-blue-100 bg-slate-50 p-4 md:grid-cols-2">
-        <div class="space-y-1.5">
-          <div><span class="font-semibold text-slate-500">Name:</span> {{ form.customer_name || '-' }}</div>
-          <div><span class="font-semibold text-slate-500">Contact:</span> {{ form.customer_contact_number || '-' }}</div>
-          <div v-if="form.customer_address"><span class="font-semibold text-slate-500">Address:</span> {{ form.customer_address }}</div>
-          <div v-if="form.customer_email"><span class="font-semibold text-slate-500">Email:</span> {{ form.customer_email }}</div>
-        </div>
-
-        <div class="space-y-1.5 md:text-right">
-          <div v-if="form.sales_person"><span class="font-semibold text-slate-500">Sales Person:</span> {{ form.sales_person }}</div>
-          <div v-if="form.ship_date"><span class="font-semibold text-slate-500">Ship Date:</span> {{ form.ship_date }}</div>
-          <div v-if="form.ship_via"><span class="font-semibold text-slate-500">Ship Via:</span> {{ form.ship_via }}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="pb-5">
-      <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
-        Items
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="min-w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">ITEM</th>
-              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">DESCRIPTION</th>
-              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">QTY</th>
-              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">UNIT PRICE</th>
-              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">%</th>
-              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">TOTAL</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!form.items.length">
-              <td colspan="6" class="border border-blue-100 px-3 py-8 text-center text-slate-400">
-                No invoice items added yet.
-              </td>
-            </tr>
-
-            <tr
-              v-for="(item, index) in form.items"
-              :key="`preview-${index}`"
-              class="odd:bg-white even:bg-slate-50"
-            >
-              <td class="border border-blue-100 px-3 py-2">{{ index + 1 }}</td>
-              <td class="border border-blue-100 px-3 py-2">{{ item.description }}</td>
-              <td class="border border-blue-100 px-3 py-2 text-center">{{ item.qty }}</td>
-              <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.regular_price).toFixed(2) }}</td>
-              <td class="border border-blue-100 px-3 py-2 text-center">
-                {{ item.discount_type === 'percentage' ? (item.discount_percent_display ?? item.discount_value ?? 0) : '-' }}
-              </td>
-              <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.line_total).toFixed(2) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="ml-auto mt-2 w-full max-w-sm rounded-xl border border-blue-200 bg-slate-50 p-4">
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Subtotal</span>
-        <span class="font-medium">{{ subtotal.toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Total Discount</span>
-        <span class="font-medium">{{ totalDiscount.toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Tax</span>
-        <span class="font-medium">{{ Number(form.tax_amount || 0).toFixed(2) }}</span>
-      </div>
-
-      <div class="my-2 flex items-center justify-between rounded-lg bg-blue-100 px-3 py-3 text-blue-900">
-        <span class="font-bold">Grand Total</span>
-        <span class="text-base font-bold">{{ grandTotal.toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Cash Paid</span>
-        <span class="font-medium">{{ Number(form.cash_paid || 0).toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Card Paid</span>
-        <span class="font-medium">{{ Number(form.card_paid || 0).toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Advance Amount</span>
-        <span class="font-medium">{{ Number(form.advance_amount || 0).toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between border-b border-blue-100 py-2">
-        <span class="text-slate-500">Total Paid</span>
-        <span class="font-medium">{{ totalPaid.toFixed(2) }}</span>
-      </div>
-
-      <div class="flex items-center justify-between pt-3 text-base font-bold text-slate-900">
-        <span>Balance Due</span>
-        <span>{{ balanceDue.toFixed(2) }}</span>
-      </div>
-    </div>
-
-    <div v-if="form.notes" class="mt-6 rounded-xl border border-blue-100 bg-slate-50 p-4">
-      <div class="mb-1 font-semibold text-blue-900">Notes</div>
-      <div class="text-slate-700">{{ form.notes }}</div>
-    </div>
-
-    <div v-if="form.terms" class="mt-4 rounded-xl border border-blue-100 bg-slate-50 p-4">
-      <div class="mb-1 font-semibold text-blue-900">Terms / Remarks</div>
-      <div class="text-slate-700">{{ form.terms }}</div>
-    </div>
-
-    <div class="mt-8 border-t border-blue-100 pt-4 text-center text-xs font-semibold text-blue-700">
-      {{ shop.website || 'www.froziohub.com' }}
-    </div>
-  </div>
-
-  <div class="h-2 bg-blue-700" />
-</div>
         </div>
       </div>
     </div>

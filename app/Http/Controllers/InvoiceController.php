@@ -369,25 +369,32 @@ class InvoiceController extends Controller
     {
         $invoice->load('items');
 
-        if (!$invoice->pdf_path || !Storage::disk('public')->exists($invoice->pdf_path)) {
-            $path = $this->generateAndStorePdf($invoice);
-            $invoice->update(['pdf_path' => $path]);
+        if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
+            Storage::disk('public')->delete($invoice->pdf_path);
         }
 
-        return response()->file(storage_path('app/public/' . $invoice->pdf_path));
+        $path = $this->generateAndStorePdf($invoice);
+        $invoice->update(['pdf_path' => $path]);
+
+        return response()
+            ->file(storage_path('app/public/' . $path))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     public function download(Invoice $invoice)
     {
         $invoice->load('items');
 
-        if (!$invoice->pdf_path || !Storage::disk('public')->exists($invoice->pdf_path)) {
-            $path = $this->generateAndStorePdf($invoice);
-            $invoice->update(['pdf_path' => $path]);
+        if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
+            Storage::disk('public')->delete($invoice->pdf_path);
         }
 
+        $path = $this->generateAndStorePdf($invoice);
+        $invoice->update(['pdf_path' => $path]);
+
         return response()->download(
-            storage_path('app/public/' . $invoice->pdf_path),
+            storage_path('app/public/' . $path),
             $invoice->invoice_no . '.pdf'
         );
     }
@@ -559,9 +566,17 @@ class InvoiceController extends Controller
         $pdf = Pdf::loadView('pdf.invoice', [
             'invoice' => $invoice,
             'shop' => $shop,
-        ])->setPaper('a4', 'portrait');
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isRemoteEnabled' => true,
+                'isHtml5ParserEnabled' => true,
+                'dpi' => 120,
+            ]);
 
-        $path = 'invoices/' . $invoice->invoice_no . '.pdf';
+        $path = 'invoices/' . $invoice->invoice_no . '-' . now()->format('YmdHis') . '.pdf';
+
         Storage::disk('public')->put($path, $pdf->output());
 
         return $path;
@@ -569,6 +584,21 @@ class InvoiceController extends Controller
 
     protected function shopInfo(): array
     {
+        $logoFile = public_path('assets/images/froziohub-logo.png');
+        $logoBase64 = null;
+
+        if (file_exists($logoFile)) {
+            $extension = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
+
+            $mime = match ($extension) {
+                'jpg', 'jpeg' => 'image/jpeg',
+                'svg' => 'image/svg+xml',
+                default => 'image/png',
+            };
+
+            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
+        }
+
         return [
             'name' => 'Frozio Hub',
             'address_lines' => [
@@ -578,13 +608,10 @@ class InvoiceController extends Controller
             'phone' => '0765807548',
             'website' => 'www.froziohub.com',
             'logo_url' => asset('assets/images/froziohub-logo.png'),
-
+            'logo_path' => $logoFile,
+            'logo_base64' => $logoBase64,
         ];
-
-
-        
     }
-    
 
     protected function techProductsPayload()
     {

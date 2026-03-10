@@ -4,231 +4,428 @@
     <meta charset="UTF-8">
     <title>{{ $invoice->invoice_no }}</title>
     <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            color: #111827;
-            font-size: 12px;
-            margin: 24px;
+        * {
+            box-sizing: border-box;
         }
-        .header-table,
-        .meta-table,
-        .items-table,
-        .summary-table {
+
+        @page {
+            margin: 20px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 12px;
+            color: #0f172a;
+            background: #ffffff;
+        }
+
+        .page {
+            border: 1px solid #bfdbfe;
+            background: #ffffff;
+        }
+
+        .top-bar,
+        .bottom-bar {
+            height: 8px;
+            background: #1d4ed8;
+            width: 100%;
+        }
+
+        .content {
+            padding: 18px 20px;
+        }
+
+        table {
             width: 100%;
             border-collapse: collapse;
         }
+
         .header-table td {
             vertical-align: top;
         }
-        .logo-wrap {
-            text-align: center;
+
+        .company-box {
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            padding: 14px 16px;
+            border-radius: 6px;
         }
-        .logo-wrap img {
-            max-width: 150px;
-            max-height: 90px;
-        }
-        .invoice-title {
-            font-size: 26px;
-            font-weight: 700;
-            text-align: right;
+
+        .company-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1e40af;
             margin-bottom: 8px;
         }
-        .muted {
-            color: #6b7280;
+
+        .company-line {
+            margin-bottom: 5px;
+            color: #334155;
+            line-height: 1.5;
         }
-        .section-title {
-            font-size: 13px;
-            font-weight: 700;
-            margin: 18px 0 8px;
+
+        .logo-wrap {
+            text-align: center;
+            vertical-align: middle;
+            padding-top: 8px;
         }
-        .items-table th,
-        .items-table td {
-            border: 1px solid #d1d5db;
-            padding: 8px;
+
+        .logo-wrap img {
+            max-width: 240px;
+            max-height: 150px;
+            width: auto;
+            height: auto;
         }
-        .items-table th {
-            background: #f3f4f6;
-            text-align: left;
-            font-weight: 700;
-        }
-        .text-right {
+
+        .invoice-box {
             text-align: right;
         }
+
+        .invoice-title {
+            font-size: 30px;
+            line-height: 1;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #1d4ed8;
+            margin-bottom: 14px;
+        }
+
+        .meta-table {
+            margin-left: auto;
+            width: 100%;
+        }
+
+        .meta-table td {
+            padding: 3px 0;
+            vertical-align: top;
+        }
+
+        .meta-label {
+            color: #64748b;
+            text-align: right;
+            padding-right: 8px;
+            white-space: nowrap;
+        }
+
+        .meta-value {
+            text-align: right;
+            font-weight: bold;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+
+        .section-title {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #bfdbfe;
+            color: #1e40af;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .info-box {
+            border: 1px solid #bfdbfe;
+            background: #f8fbff;
+            border-radius: 6px;
+        }
+
+        .info-box td {
+            vertical-align: top;
+            padding: 14px 16px;
+        }
+
+        .info-line {
+            margin-bottom: 6px;
+            line-height: 1.45;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        .info-right {
+            text-align: right;
+        }
+
+        .items-table {
+            margin-top: 4px;
+        }
+
+        .items-table th,
+        .items-table td {
+            border: 1px solid #bfdbfe;
+            padding: 9px 10px;
+            vertical-align: top;
+        }
+
+        .items-table th {
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .items-table tbody tr:nth-child(even) td {
+            background: #f8fbff;
+        }
+
         .text-center {
             text-align: center;
         }
+
+        .text-right {
+            text-align: right;
+        }
+
         .summary-wrap {
-            margin-top: 14px;
+            margin-top: 18px;
             width: 100%;
         }
-        .summary-table {
-            width: 360px;
+
+        .summary-box {
+            width: 380px;
             margin-left: auto;
+            border: 1px solid #bfdbfe;
+            background: #f8fbff;
+            padding: 12px 14px;
+            border-radius: 6px;
         }
+
         .summary-table td {
-            padding: 6px 8px;
-            border-bottom: 1px solid #e5e7eb;
+            padding: 8px 0;
+            border-bottom: 1px solid #dbeafe;
         }
-        .summary-table tr:last-child td {
-            font-weight: 700;
+
+        .summary-table td:first-child {
+            color: #475569;
+        }
+
+        .summary-table td:last-child {
+            text-align: right;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .grand-total td {
+            background: #dbeafe;
+            color: #1e40af !important;
+            font-weight: bold !important;
             font-size: 13px;
+            padding: 10px 12px;
+            border-bottom: none;
         }
+
+        .note-box {
+            border: 1px solid #bfdbfe;
+            background: #f8fbff;
+            padding: 12px 14px;
+            border-radius: 6px;
+            line-height: 1.5;
+        }
+
         .footer {
-            margin-top: 30px;
+            margin-top: 22px;
+            padding-top: 10px;
+            border-top: 1px solid #bfdbfe;
             text-align: center;
+            color: #1d4ed8;
             font-size: 11px;
-            color: #6b7280;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <table class="header-table">
-        <tr>
-            <td width="34%">
-                <div>{{ $shop['name'] ?? 'Frozio Hub' }}</div>
-                @foreach(($shop['address_lines'] ?? []) as $line)
-                    <div>{{ $line }}</div>
-                @endforeach
-                @if(!empty($shop['phone']))
-                    <div>Phone: {{ $shop['phone'] }}</div>
-                @endif
-            </td>
+    <div class="page">
+        <div class="top-bar"></div>
 
-            <td width="32%" class="logo-wrap">
-                @if(!empty($shop['logo_url']))
-                    <img src="{{ $shop['logo_url'] }}" alt="Logo">
-                @endif
-            </td>
-
-            <td width="34%">
-                <div class="invoice-title">INVOICE</div>
-                <table class="meta-table">
-                    <tr>
-                        <td class="muted">Date</td>
-                        <td class="text-right">{{ optional($invoice->invoice_date)->format('Y-m-d') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="muted">Invoice No</td>
-                        <td class="text-right">{{ $invoice->invoice_no }}</td>
-                    </tr>
-                    <tr>
-                        <td class="muted">Payment Type</td>
-                        <td class="text-right">{{ ucfirst(str_replace('_', ' ', $invoice->payment_type ?? 'unpaid')) }}</td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-
-    <div class="section-title">Bill To</div>
-    <table class="meta-table">
-        <tr>
-            <td width="50%">
-                <div><strong>Name:</strong> {{ $invoice->customer_name }}</div>
-                <div><strong>Contact:</strong> {{ $invoice->customer_contact_number }}</div>
-                @if($invoice->customer_address)
-                    <div><strong>Address:</strong> {{ $invoice->customer_address }}</div>
-                @endif
-                @if($invoice->customer_email)
-                    <div><strong>Email:</strong> {{ $invoice->customer_email }}</div>
-                @endif
-            </td>
-            <td width="50%">
-                @if($invoice->sales_person)
-                    <div><strong>Sales Person:</strong> {{ $invoice->sales_person }}</div>
-                @endif
-                @if($invoice->ship_date)
-                    <div><strong>Ship Date:</strong> {{ optional($invoice->ship_date)->format('Y-m-d') }}</div>
-                @endif
-                @if($invoice->ship_via)
-                    <div><strong>Ship Via:</strong> {{ $invoice->ship_via }}</div>
-                @endif
-            </td>
-        </tr>
-    </table>
-
-    <div class="section-title">Items</div>
-    <table class="items-table">
-        <thead>
-            <tr>
-                <th width="7%">ITEM</th>
-                <th width="47%">DESCRIPTION</th>
-                <th width="8%" class="text-center">QTY</th>
-                <th width="14%" class="text-right">UNIT PRICE</th>
-                <th width="8%" class="text-center">%</th>
-                <th width="16%" class="text-right">TOTAL</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($invoice->items as $item)
+        <div class="content">
+            <table class="header-table">
                 <tr>
-                    <td class="text-center">{{ $item->item_no }}</td>
-                    <td>{{ $item->description }}</td>
-                    <td class="text-center">{{ $item->qty }}</td>
-                    <td class="text-right">{{ number_format((float) $item->regular_price, 2) }}</td>
-                    <td class="text-center">
-                        {{ $item->discount_type === 'percentage' ? rtrim(rtrim(number_format((float) ($item->discount_percent_display ?? $item->discount_value), 2), '0'), '.') : '-' }}
+                    <td width="31%">
+                        <div class="company-box">
+                            <div class="company-name">{{ $shop['name'] ?? 'Frozio Hub' }}</div>
+
+                            @foreach(($shop['address_lines'] ?? []) as $line)
+                                <div class="company-line">{{ $line }}</div>
+                            @endforeach
+
+                            @if(!empty($shop['phone']))
+                                <div class="company-line"><strong>Phone:</strong> {{ $shop['phone'] }}</div>
+                            @endif
+
+                            @if(!empty($shop['website']))
+                                <div class="company-line"><strong>Web:</strong> {{ $shop['website'] }}</div>
+                            @endif
+                        </div>
                     </td>
-                    <td class="text-right">{{ number_format((float) $item->line_total, 2) }}</td>
+
+                    <td width="29%" class="logo-wrap">
+                        @if(!empty($shop['logo_base64']))
+                            <img src="{{ $shop['logo_base64'] }}" alt="Logo">
+                        @elseif(!empty($shop['logo_path']))
+                            <img src="{{ $shop['logo_path'] }}" alt="Logo">
+                        @endif
+                    </td>
+
+                    <td width="40%">
+                        <div class="invoice-box">
+                            <div class="invoice-title">INVOICE</div>
+
+                            <table class="meta-table">
+                                <tr>
+                                    <td class="meta-label">Date:</td>
+                                    <td class="meta-value">{{ optional($invoice->invoice_date)->format('Y-m-d') }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="meta-label">Invoice No:</td>
+                                    <td class="meta-value">{{ $invoice->invoice_no }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="meta-label">Payment Type:</td>
+                                    <td class="meta-value">{{ ucfirst(str_replace('_', ' ', $invoice->payment_type ?? 'unpaid')) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="meta-label">Status:</td>
+                                    <td class="meta-value">{{ ucfirst($invoice->status ?? 'draft') }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </table>
 
-    <div class="summary-wrap">
-        <table class="summary-table">
-            <tr>
-                <td>Subtotal</td>
-                <td class="text-right">{{ number_format((float) $invoice->subtotal, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Total Discount</td>
-                <td class="text-right">{{ number_format((float) $invoice->total_discount, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Tax</td>
-                <td class="text-right">{{ number_format((float) $invoice->tax_amount, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Grand Total</td>
-                <td class="text-right">{{ number_format((float) $invoice->grand_total, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Cash Paid</td>
-                <td class="text-right">{{ number_format((float) $invoice->cash_paid, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Card Paid</td>
-                <td class="text-right">{{ number_format((float) $invoice->card_paid, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Advance Amount</td>
-                <td class="text-right">{{ number_format((float) $invoice->advance_amount, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Total Paid</td>
-                <td class="text-right">{{ number_format((float) $invoice->paid_amount, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Balance Due</td>
-                <td class="text-right">{{ number_format((float) $invoice->balance_due, 2) }}</td>
-            </tr>
-        </table>
-    </div>
+            <div class="section-title">Bill To</div>
 
-    @if($invoice->notes)
-        <div class="section-title">Notes</div>
-        <div>{{ $invoice->notes }}</div>
-    @endif
+            <table class="info-box">
+                <tr>
+                    <td width="50%">
+                        <div class="info-line"><span class="info-label">Name:</span> {{ $invoice->customer_name }}</div>
+                        <div class="info-line"><span class="info-label">Contact:</span> {{ $invoice->customer_contact_number }}</div>
 
-    @if($invoice->terms)
-        <div class="section-title">Terms / Remarks</div>
-        <div>{{ $invoice->terms }}</div>
-    @endif
+                        @if($invoice->customer_address)
+                            <div class="info-line"><span class="info-label">Address:</span> {{ $invoice->customer_address }}</div>
+                        @endif
 
-    <div class="footer">
-        {{ $shop['website'] ?? 'www.froziohub.com' }}
+                        @if($invoice->customer_email)
+                            <div class="info-line"><span class="info-label">Email:</span> {{ $invoice->customer_email }}</div>
+                        @endif
+                    </td>
+
+                    <td width="50%" class="info-right">
+                        @if($invoice->sales_person)
+                            <div class="info-line"><span class="info-label">Sales Person:</span> {{ $invoice->sales_person }}</div>
+                        @endif
+
+                        @if($invoice->ship_date)
+                            <div class="info-line"><span class="info-label">Ship Date:</span> {{ optional($invoice->ship_date)->format('Y-m-d') }}</div>
+                        @endif
+
+                        @if($invoice->ship_via)
+                            <div class="info-line"><span class="info-label">Ship Via:</span> {{ $invoice->ship_via }}</div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+
+            <div class="section-title">Items</div>
+
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th width="7%">ITEM</th>
+                        <th width="47%">DESCRIPTION</th>
+                        <th width="8%" class="text-center">QTY</th>
+                        <th width="14%" class="text-right">UNIT PRICE</th>
+                        <th width="8%" class="text-center">%</th>
+                        <th width="16%" class="text-right">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($invoice->items as $item)
+                        <tr>
+                            <td class="text-center">{{ $item->item_no }}</td>
+                            <td>{{ $item->description }}</td>
+                            <td class="text-center">{{ $item->qty }}</td>
+                            <td class="text-right">{{ number_format((float) $item->regular_price, 2) }}</td>
+                            <td class="text-center">
+                                {{ $item->discount_type === 'percentage'
+                                    ? rtrim(rtrim(number_format((float) ($item->discount_percent_display ?? $item->discount_value), 2), '0'), '.')
+                                    : '-' }}
+                            </td>
+                            <td class="text-right">{{ number_format((float) $item->line_total, 2) }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center">No invoice items added.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+
+            <div class="summary-wrap">
+                <div class="summary-box">
+                    <table class="summary-table">
+                        <tr>
+                            <td>Subtotal</td>
+                            <td>{{ number_format((float) $invoice->subtotal, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Discount</td>
+                            <td>{{ number_format((float) $invoice->total_discount, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Tax</td>
+                            <td>{{ number_format((float) $invoice->tax_amount, 2) }}</td>
+                        </tr>
+                        <tr class="grand-total">
+                            <td>Grand Total</td>
+                            <td>{{ number_format((float) $invoice->grand_total, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Cash Paid</td>
+                            <td>{{ number_format((float) $invoice->cash_paid, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Card Paid</td>
+                            <td>{{ number_format((float) $invoice->card_paid, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Advance Amount</td>
+                            <td>{{ number_format((float) $invoice->advance_amount, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Paid</td>
+                            <td>{{ number_format((float) $invoice->paid_amount, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Balance Due</td>
+                            <td>{{ number_format((float) $invoice->balance_due, 2) }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            @if($invoice->notes)
+                <div class="section-title">Notes</div>
+                <div class="note-box">{{ $invoice->notes }}</div>
+            @endif
+
+            @if($invoice->terms)
+                <div class="section-title">Terms / Remarks</div>
+                <div class="note-box">{{ $invoice->terms }}</div>
+            @endif
+
+            <div class="footer">
+                {{ $shop['website'] ?? 'www.froziohub.com' }}
+            </div>
+        </div>
+
+        <div class="bottom-bar"></div>
     </div>
 </body>
 </html>

@@ -1047,133 +1047,170 @@ function submit(action: 'draft' | 'finalize') {
             </span>
           </div>
 
-          <div class="mx-auto max-w-[800px] rounded-xl border border-neutral-200 bg-white p-6 text-sm text-neutral-800">
-            <div class="grid grid-cols-3 gap-4 border-b border-neutral-200 pb-6">
-              <div class="space-y-1 text-sm">
-                <div class="font-semibold">{{ shop.name }}</div>
-                <div v-for="line in shop.address_lines" :key="line">{{ line }}</div>
-                <div v-if="shop.phone">Phone: {{ shop.phone }}</div>
-              </div>
+          <div class="mx-auto max-w-[800px] overflow-hidden rounded-2xl border border-blue-200 bg-white text-sm text-slate-800 shadow-sm">
+  <div class="h-2 bg-blue-700" />
 
-              <div class="flex items-start justify-center">
-                <img
-                  v-if="shop.logo_url"
-                  :src="shop.logo_url"
-                  alt="Logo"
-                  class="max-h-24 max-w-[160px] object-contain"
-                />
-              </div>
-
-              <div class="space-y-1 text-right">
-                <div class="text-2xl font-bold tracking-wide">INVOICE</div>
-                <div><span class="text-neutral-500">Date:</span> {{ form.invoice_date || '-' }}</div>
-                <div><span class="text-neutral-500">Invoice No:</span> {{ form.invoice_no }}</div>
-                <div><span class="text-neutral-500">Payment Type:</span> {{ paymentTypeLabel }}</div>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 border-b border-neutral-200 py-5 md:grid-cols-2">
-              <div>
-                <div class="mb-2 font-semibold">Bill To</div>
-                <div><span class="text-neutral-500">Name:</span> {{ form.customer_name || '-' }}</div>
-                <div><span class="text-neutral-500">Contact:</span> {{ form.customer_contact_number || '-' }}</div>
-                <div v-if="form.customer_address"><span class="text-neutral-500">Address:</span> {{ form.customer_address }}</div>
-                <div v-if="form.customer_email"><span class="text-neutral-500">Email:</span> {{ form.customer_email }}</div>
-              </div>
-
-              <div class="md:text-right">
-                <div v-if="form.sales_person"><span class="text-neutral-500">Sales Person:</span> {{ form.sales_person }}</div>
-                <div v-if="form.ship_date"><span class="text-neutral-500">Ship Date:</span> {{ form.ship_date }}</div>
-                <div v-if="form.ship_via"><span class="text-neutral-500">Ship Via:</span> {{ form.ship_via }}</div>
-              </div>
-            </div>
-
-            <div class="overflow-x-auto py-5">
-              <table class="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr>
-                    <th class="border border-neutral-200 bg-neutral-50 px-3 py-2 text-left">ITEM</th>
-                    <th class="border border-neutral-200 bg-neutral-50 px-3 py-2 text-left">DESCRIPTION</th>
-                    <th class="border border-neutral-200 bg-neutral-50 px-3 py-2 text-center">QTY</th>
-                    <th class="border border-neutral-200 bg-neutral-50 px-3 py-2 text-right">UNIT PRICE</th>
-                    <th class="border border-neutral-200 bg-neutral-50 px-3 py-2 text-center">%</th>
-                    <th class="border border-neutral-200 bg-neutral-50 px-3 py-2 text-right">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="!form.items.length">
-                    <td colspan="6" class="border border-neutral-200 px-3 py-8 text-center text-neutral-400">
-                      No invoice items added yet.
-                    </td>
-                  </tr>
-
-                  <tr v-for="(item, index) in form.items" :key="`preview-${index}`">
-                    <td class="border border-neutral-200 px-3 py-2">{{ index + 1 }}</td>
-                    <td class="border border-neutral-200 px-3 py-2">{{ item.description }}</td>
-                    <td class="border border-neutral-200 px-3 py-2 text-center">{{ item.qty }}</td>
-                    <td class="border border-neutral-200 px-3 py-2 text-right">{{ Number(item.regular_price).toFixed(2) }}</td>
-                    <td class="border border-neutral-200 px-3 py-2 text-center">
-                      {{ item.discount_type === 'percentage' ? (item.discount_percent_display ?? item.discount_value ?? 0) : '-' }}
-                    </td>
-                    <td class="border border-neutral-200 px-3 py-2 text-right">{{ Number(item.line_total).toFixed(2) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="ml-auto mt-2 w-full max-w-sm space-y-2">
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Subtotal</span>
-                <span class="font-medium">{{ subtotal.toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Total Discount</span>
-                <span class="font-medium">{{ totalDiscount.toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Tax</span>
-                <span class="font-medium">{{ Number(form.tax_amount || 0).toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Grand Total</span>
-                <span class="font-semibold">{{ grandTotal.toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Cash Paid</span>
-                <span class="font-medium">{{ Number(form.cash_paid || 0).toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Card Paid</span>
-                <span class="font-medium">{{ Number(form.card_paid || 0).toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Advance Amount</span>
-                <span class="font-medium">{{ Number(form.advance_amount || 0).toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between border-b border-neutral-200 py-2">
-                <span class="text-neutral-500">Total Paid</span>
-                <span class="font-medium">{{ totalPaid.toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center justify-between py-2 text-base font-bold">
-                <span>Balance Due</span>
-                <span>{{ balanceDue.toFixed(2) }}</span>
-              </div>
-            </div>
-
-            <div v-if="form.notes" class="mt-6 border-t border-neutral-200 pt-4">
-              <div class="mb-1 font-semibold">Notes</div>
-              <div class="text-neutral-700">{{ form.notes }}</div>
-            </div>
-
-            <div v-if="form.terms" class="mt-4">
-              <div class="mb-1 font-semibold">Terms / Remarks</div>
-              <div class="text-neutral-700">{{ form.terms }}</div>
-            </div>
-
-            <div class="mt-8 border-t border-neutral-200 pt-4 text-center text-xs text-neutral-500">
-              {{ shop.website || 'www.froziohub.com' }}
-            </div>
+  <div class="p-6">
+    <div class="grid grid-cols-3 gap-4 border-b-2 border-blue-100 pb-6">
+      <div>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <div class="mb-2 text-base font-bold text-blue-900">{{ shop.name }}</div>
+          <div class="space-y-1 text-sm text-slate-700">
+            <div v-for="line in shop.address_lines" :key="line">{{ line }}</div>
+            <div v-if="shop.phone"><span class="font-medium text-slate-500">Phone:</span> {{ shop.phone }}</div>
+            <div v-if="shop.website"><span class="font-medium text-slate-500">Web:</span> {{ shop.website }}</div>
           </div>
+        </div>
+      </div>
+
+      <div class="flex items-start justify-center pt-1">
+        <img
+          v-if="shop.logo_url"
+          :src="shop.logo_url"
+          alt="Logo"
+          class="max-h-[110px] max-w-[185px] object-contain"
+        />
+      </div>
+
+      <div class="space-y-2 text-right">
+        <div class="text-[30px] font-bold tracking-[0.12em] text-blue-700">INVOICE</div>
+        <div class="space-y-1 text-sm">
+          <div><span class="text-slate-500">Date:</span> <span class="font-semibold text-slate-800">{{ form.invoice_date || '-' }}</span></div>
+          <div><span class="text-slate-500">Invoice No:</span> <span class="font-semibold text-slate-800">{{ form.invoice_no }}</span></div>
+          <div><span class="text-slate-500">Payment Type:</span> <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span></div>
+          <div><span class="text-slate-500">Status:</span> <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-5">
+      <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
+        Bill To
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 rounded-xl border border-blue-100 bg-slate-50 p-4 md:grid-cols-2">
+        <div class="space-y-1.5">
+          <div><span class="font-semibold text-slate-500">Name:</span> {{ form.customer_name || '-' }}</div>
+          <div><span class="font-semibold text-slate-500">Contact:</span> {{ form.customer_contact_number || '-' }}</div>
+          <div v-if="form.customer_address"><span class="font-semibold text-slate-500">Address:</span> {{ form.customer_address }}</div>
+          <div v-if="form.customer_email"><span class="font-semibold text-slate-500">Email:</span> {{ form.customer_email }}</div>
+        </div>
+
+        <div class="space-y-1.5 md:text-right">
+          <div v-if="form.sales_person"><span class="font-semibold text-slate-500">Sales Person:</span> {{ form.sales_person }}</div>
+          <div v-if="form.ship_date"><span class="font-semibold text-slate-500">Ship Date:</span> {{ form.ship_date }}</div>
+          <div v-if="form.ship_via"><span class="font-semibold text-slate-500">Ship Via:</span> {{ form.ship_via }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pb-5">
+      <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
+        Items
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">ITEM</th>
+              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">DESCRIPTION</th>
+              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">QTY</th>
+              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">UNIT PRICE</th>
+              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">%</th>
+              <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!form.items.length">
+              <td colspan="6" class="border border-blue-100 px-3 py-8 text-center text-slate-400">
+                No invoice items added yet.
+              </td>
+            </tr>
+
+            <tr
+              v-for="(item, index) in form.items"
+              :key="`preview-${index}`"
+              class="odd:bg-white even:bg-slate-50"
+            >
+              <td class="border border-blue-100 px-3 py-2">{{ index + 1 }}</td>
+              <td class="border border-blue-100 px-3 py-2">{{ item.description }}</td>
+              <td class="border border-blue-100 px-3 py-2 text-center">{{ item.qty }}</td>
+              <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.regular_price).toFixed(2) }}</td>
+              <td class="border border-blue-100 px-3 py-2 text-center">
+                {{ item.discount_type === 'percentage' ? (item.discount_percent_display ?? item.discount_value ?? 0) : '-' }}
+              </td>
+              <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.line_total).toFixed(2) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="ml-auto mt-2 w-full max-w-sm rounded-xl border border-blue-200 bg-slate-50 p-4">
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Subtotal</span>
+        <span class="font-medium">{{ subtotal.toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Total Discount</span>
+        <span class="font-medium">{{ totalDiscount.toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Tax</span>
+        <span class="font-medium">{{ Number(form.tax_amount || 0).toFixed(2) }}</span>
+      </div>
+
+      <div class="my-2 flex items-center justify-between rounded-lg bg-blue-100 px-3 py-3 text-blue-900">
+        <span class="font-bold">Grand Total</span>
+        <span class="text-base font-bold">{{ grandTotal.toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Cash Paid</span>
+        <span class="font-medium">{{ Number(form.cash_paid || 0).toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Card Paid</span>
+        <span class="font-medium">{{ Number(form.card_paid || 0).toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Advance Amount</span>
+        <span class="font-medium">{{ Number(form.advance_amount || 0).toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between border-b border-blue-100 py-2">
+        <span class="text-slate-500">Total Paid</span>
+        <span class="font-medium">{{ totalPaid.toFixed(2) }}</span>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 text-base font-bold text-slate-900">
+        <span>Balance Due</span>
+        <span>{{ balanceDue.toFixed(2) }}</span>
+      </div>
+    </div>
+
+    <div v-if="form.notes" class="mt-6 rounded-xl border border-blue-100 bg-slate-50 p-4">
+      <div class="mb-1 font-semibold text-blue-900">Notes</div>
+      <div class="text-slate-700">{{ form.notes }}</div>
+    </div>
+
+    <div v-if="form.terms" class="mt-4 rounded-xl border border-blue-100 bg-slate-50 p-4">
+      <div class="mb-1 font-semibold text-blue-900">Terms / Remarks</div>
+      <div class="text-slate-700">{{ form.terms }}</div>
+    </div>
+
+    <div class="mt-8 border-t border-blue-100 pt-4 text-center text-xs font-semibold text-blue-700">
+      {{ shop.website || 'www.froziohub.com' }}
+    </div>
+  </div>
+
+  <div class="h-2 bg-blue-700" />
+</div>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import Product from './Product.vue'
 import HomeBanner from './HomeBanner.vue'
 import TechCategories from './techcategories.vue'
 import ThreeDPhone from '../../components/3dphone.vue'
+import ThreeDShoe from '../../components/3dshoe.vue'
 
 defineOptions({
   layout: AppLayout,
@@ -37,5 +38,12 @@ defineProps<{
     height="700px"
   />
 
+  
+
   <Product :products="products" :activeCategory="activeCategory" />
+
+  <ThreeDShoe
+    model-path="/models/air_jordan_1.glb"
+    height="680px"
+  />
 </template>

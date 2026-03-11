@@ -33,8 +33,8 @@ const isActive = (key: string) => {
       <div class="flex h-16 items-center justify-between">
         <!-- Logo -->
         <Link :href="route('frontend.root')" class="flex items-center gap-2">
-          <img src="/assets/images/main-logo.png" alt="Logo" class="h-9 w-auto" />
-          <span class="text-lg font-semibold text-gray-900">Store</span>
+          <img src="/assets/images/froziohub-logo.png" alt="Logo" class="h-9 w-auto" />
+         
         </Link>
 
         <!-- Desktop Nav -->

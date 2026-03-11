@@ -380,11 +380,11 @@ onBeforeUnmount(() => {
             New Arrival
           </div>
 
-          <h2
-            class="mt-5 max-w-[11ch] text-[36px] font-semibold leading-[0.92] tracking-[-0.05em] text-slate-900 sm:text-[48px] lg:text-[58px] xl:text-[72px]"
-          >
-            Introducing Air Jordan 1
-          </h2>
+         <h2
+  class="mt-5 max-w-[11ch] text-[44px] font-semibold leading-[0.92] tracking-[-0.05em] text-slate-900 sm:text-[56px] lg:text-[70px] xl:text-[86px]"
+>
+  Introducing Air Jordan 1
+</h2>
 
           <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-slate-600 sm:text-base sm:leading-8">
             Step into an iconic silhouette reimagined for a bold modern statement. The Air Jordan 1

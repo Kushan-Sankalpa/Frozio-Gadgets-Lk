@@ -16,27 +16,54 @@ const props = defineProps<{
 const visibleCategories = computed(() => (props.categories ?? []).slice(0, 4))
 
 const cardClass = (index: number) => {
-  if (index < 2) {
-    return 'min-h-[380px] sm:min-h-[460px] xl:row-span-2'
+  switch (index) {
+    case 0:
+      return 'col-start-1 row-start-1 row-span-2 min-h-[280px] sm:min-h-[380px] xl:min-h-[460px]'
+    case 1:
+      return 'col-start-2 row-start-1 row-span-2 min-h-[280px] sm:min-h-[380px] xl:min-h-[460px]'
+    case 2:
+      return 'col-start-3 row-start-1 min-h-[132px] sm:min-h-[182px] xl:min-h-[220px]'
+    case 3:
+      return 'col-start-3 row-start-2 min-h-[132px] sm:min-h-[182px] xl:min-h-[220px]'
+    default:
+      return ''
   }
-
-  return 'min-h-[270px] sm:min-h-[300px]'
 }
 
 const titleClass = (index: number) => {
-  return index < 2 ? 'text-[30px] sm:text-[36px]' : 'text-[24px] sm:text-[28px]'
+  return index < 2
+    ? 'text-[14px] leading-[0.95] sm:text-[24px] xl:text-[36px]'
+    : 'text-[11px] leading-[1] sm:text-[16px] xl:text-[28px]'
+}
+
+const descriptionClass = (index: number) => {
+  return index < 2
+    ? 'mt-2 max-w-[96%] text-[9px] leading-3 text-white/80 sm:mt-3 sm:max-w-[82%] sm:text-[12px] sm:leading-5 xl:mt-4 xl:max-w-[75%] xl:text-[15px] xl:leading-6'
+    : 'mt-1.5 max-w-[98%] text-[8px] leading-3 text-white/78 sm:mt-2 sm:max-w-[90%] sm:text-[10px] sm:leading-4 xl:mt-3 xl:max-w-[82%] xl:text-[14px] xl:leading-5'
+}
+
+const contentClass = (index: number) => {
+  return index < 2
+    ? 'p-3 sm:p-5 xl:p-8'
+    : 'p-2.5 sm:p-4 xl:p-6'
+}
+
+const buttonClass = (index: number) => {
+  return index < 2
+    ? 'px-2 py-1 text-[7px] tracking-[0.14em] sm:px-3 sm:py-1.5 sm:text-[9px] sm:tracking-[0.18em] xl:px-5 xl:py-2.5 xl:text-[12px] xl:tracking-[0.24em]'
+    : 'px-1.5 py-1 text-[6px] tracking-[0.12em] sm:px-2.5 sm:py-1.5 sm:text-[8px] sm:tracking-[0.14em] xl:px-4 xl:py-2 xl:text-[11px] xl:tracking-[0.18em]'
 }
 </script>
 
 <template>
-  <section v-if="visibleCategories.length" class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-    <div class="mb-6 sm:mb-8">
-      <h2 class="text-3xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
+  <section v-if="visibleCategories.length" class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-14 lg:px-8">
+    <div class="mb-5 sm:mb-8">
+      <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
         Tech Categories
       </h2>
     </div>
 
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 xl:grid-rows-2">
+    <div class="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-4 xl:gap-5">
       <Link
         v-for="(category, index) in visibleCategories"
         :key="category.id"
@@ -45,7 +72,7 @@ const titleClass = (index: number) => {
         :class="[cardClass(index), { 'tech-card--no-image': !category.image_url }]"
         :style="{
           '--card-delay': `${index * 120}ms`,
-          '--float-duration': `${6 + (index % 3) * 0.7}s`,
+          '--float-duration': `${5 + (index % 3) * 0.6}s`,
         }"
       >
         <div
@@ -56,31 +83,32 @@ const titleClass = (index: number) => {
         <div class="tech-card__overlay" />
         <div class="tech-card__glow" />
 
-        <div class="relative z-10 flex h-full flex-col justify-between p-7 sm:p-8">
+        <div class="relative z-10 flex h-full flex-col justify-between" :class="contentClass(index)">
           <div>
             <h3
-              class="max-w-[82%] font-semibold leading-none tracking-[-0.04em] text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.38)]"
+              class="max-w-[98%] font-semibold tracking-[-0.04em] text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.38)] sm:max-w-[88%] xl:max-w-[82%]"
               :class="titleClass(index)"
             >
               {{ category.name }}
             </h3>
 
-            <p class="mt-4 max-w-[75%] text-sm leading-6 text-white/80 sm:text-[15px]">
+            <!-- <p :class="descriptionClass(index)">
               Explore the latest products, accessories, and top picks in this category.
-            </p>
+            </p> -->
           </div>
 
-          <div class="mt-10 flex items-end justify-between gap-4">
+          <div class="mt-3 flex items-end justify-between gap-1.5 sm:mt-6 sm:gap-2 xl:mt-10">
             <div
-              class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-white backdrop-blur-[6px]"
+              class="inline-flex max-w-full items-center gap-1 rounded-full border border-white/20 bg-white/10 font-semibold uppercase text-white backdrop-blur-[6px] sm:gap-1.5 xl:gap-2"
+              :class="buttonClass(index)"
             >
-              <span>View All</span>
-              <span class="tech-card__arrow text-base leading-none">›</span>
+              <span class="truncate">View All</span>
+              <span class="tech-card__arrow text-[10px] leading-none sm:text-xs xl:text-base">›</span>
             </div>
 
             <div
               v-if="!category.image_url"
-              class="rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/80 backdrop-blur"
+              class="rounded-full border border-white/16 bg-white/10 px-1.5 py-1 text-[6px] font-semibold uppercase tracking-[0.1em] text-white/80 backdrop-blur sm:px-2 sm:text-[7px] xl:px-3 xl:py-1.5 xl:text-[10px] xl:tracking-[0.2em]"
             >
               No Image
             </div>
@@ -95,17 +123,18 @@ const titleClass = (index: number) => {
 .tech-card {
   position: relative;
   overflow: hidden;
-  border-radius: 32px;
+  border-radius: 18px;
   background: #0f172a;
   isolation: isolate;
   translate: 0 0;
+  min-width: 0;
   box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
   transition:
     transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   animation:
     fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both,
-    floatCard var(--float-duration, 6.4s) ease-in-out infinite;
+    floatCard var(--float-duration, 5.5s) ease-in-out infinite;
   animation-delay:
     var(--card-delay, 0ms),
     calc(var(--card-delay, 0ms) + 0.85s);
@@ -122,7 +151,7 @@ const titleClass = (index: number) => {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.58;
+  opacity: 0.64;
   transform: scale(1);
   filter: saturate(1.08);
   transition:
@@ -137,10 +166,10 @@ const titleClass = (index: number) => {
   background:
     linear-gradient(
       180deg,
-      rgba(15, 23, 42, 0.22) 0%,
-      rgba(15, 23, 42, 0.14) 30%,
-      rgba(15, 23, 42, 0.34) 68%,
-      rgba(15, 23, 42, 0.48) 100%
+      rgba(15, 23, 42, 0.16) 0%,
+      rgba(15, 23, 42, 0.12) 28%,
+      rgba(15, 23, 42, 0.3) 68%,
+      rgba(15, 23, 42, 0.52) 100%
     );
 }
 
@@ -168,7 +197,7 @@ const titleClass = (index: number) => {
 
 .tech-card:hover .tech-card__bg {
   transform: scale(1.08);
-  opacity: 0.7;
+  opacity: 0.74;
   filter: saturate(1.14);
 }
 
@@ -194,6 +223,35 @@ const titleClass = (index: number) => {
   }
   50% {
     translate: 0 -15px;
+  }
+}
+
+@media (min-width: 640px) {
+  .tech-card {
+    border-radius: 26px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .tech-card {
+    border-radius: 32px;
+  }
+}
+
+@media (max-width: 420px) {
+  .tech-card__bg {
+    opacity: 0.68;
+  }
+
+  .tech-card__overlay {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(15, 23, 42, 0.2) 0%,
+        rgba(15, 23, 42, 0.14) 30%,
+        rgba(15, 23, 42, 0.35) 68%,
+        rgba(15, 23, 42, 0.58) 100%
+      );
   }
 }
 

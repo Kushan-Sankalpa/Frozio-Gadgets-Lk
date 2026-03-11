@@ -30,13 +30,12 @@ defineProps<{
 <template>
   <HomeBanner :banners="banners" />
 
-  <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-    <ThreeDPhone
-      model-path="/models/iphone_17_pro_max.glb"
-      height="650px"
-    />
-  </section>
-
   <TechCategories :categories="categories" />
+
+  <ThreeDPhone
+    model-path="/models/iphone_17_pro_max.glb"
+    height="700px"
+  />
+
   <Product :products="products" :activeCategory="activeCategory" />
 </template>

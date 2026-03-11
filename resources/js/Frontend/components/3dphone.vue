@@ -12,7 +12,7 @@ const props = withDefaults(
   }>(),
   {
     modelPath: '/models/iphone_17_pro_max.glb',
-    height: '680px',
+    height: '700px',
     autoRotate: true,
   },
 )
@@ -29,6 +29,10 @@ let modelRoot: THREE.Group | null = null
 let frameId = 0
 let resizeObserver: ResizeObserver | null = null
 let resumeRotateTimer: number | null = null
+let meshTargets: THREE.Object3D[] = []
+
+const raycaster = new THREE.Raycaster()
+const pointer = new THREE.Vector2()
 
 const clearResumeTimer = () => {
   if (resumeRotateTimer !== null) {
@@ -37,25 +41,32 @@ const clearResumeTimer = () => {
   }
 }
 
+const setCanvasIdleState = () => {
+  if (!renderer?.domElement) return
+  renderer.domElement.style.cursor = 'grab'
+  renderer.domElement.style.touchAction = 'pan-y'
+}
+
+const setCanvasDragState = () => {
+  if (!renderer?.domElement) return
+  renderer.domElement.style.cursor = 'grabbing'
+  renderer.domElement.style.touchAction = 'none'
+}
+
 const pauseAutoRotate = () => {
   clearResumeTimer()
-
   if (controls) {
     controls.autoRotate = false
   }
-
-  if (renderer?.domElement) {
-    renderer.domElement.style.cursor = 'grabbing'
-  }
+  setCanvasDragState()
 }
 
 const resumeAutoRotate = () => {
   clearResumeTimer()
 
+  setCanvasIdleState()
+
   if (!props.autoRotate) {
-    if (renderer?.domElement) {
-      renderer.domElement.style.cursor = 'grab'
-    }
     return
   }
 
@@ -63,11 +74,43 @@ const resumeAutoRotate = () => {
     if (controls) {
       controls.autoRotate = true
     }
-
-    if (renderer?.domElement) {
-      renderer.domElement.style.cursor = 'grab'
-    }
+    setCanvasIdleState()
   }, 900)
+}
+
+const getIntersections = (event: PointerEvent) => {
+  if (!renderer || !camera || !meshTargets.length) {
+    return []
+  }
+
+  const rect = renderer.domElement.getBoundingClientRect()
+
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+  raycaster.setFromCamera(pointer, camera)
+
+  return raycaster.intersectObjects(meshTargets, true)
+}
+
+const handlePointerDown = (event: PointerEvent) => {
+  if (!controls) return
+
+  const hitModel = getIntersections(event).length > 0
+
+  if (hitModel) {
+    controls.enabled = true
+    pauseAutoRotate()
+  } else {
+    controls.enabled = false
+    setCanvasIdleState()
+  }
+}
+
+const handlePointerEnd = () => {
+  if (!controls) return
+  controls.enabled = true
+  resumeAutoRotate()
 }
 
 const fitCameraToObject = (object: THREE.Object3D) => {
@@ -81,9 +124,11 @@ const fitCameraToObject = (object: THREE.Object3D) => {
 
   const maxDim = Math.max(size.x, size.y, size.z)
   const fov = (camera.fov * Math.PI) / 180
-  const cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.65
+  const mobileView = window.innerWidth < 768
+  const distanceFactor = mobileView ? 1.22 : 1.55
+  const cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * distanceFactor
 
-  camera.position.set(cameraZ * 0.22, cameraZ * 0.03, cameraZ)
+  camera.position.set(cameraZ * 0.14, cameraZ * 0.02, cameraZ)
   camera.near = Math.max(0.01, maxDim / 100)
   camera.far = Math.max(1000, maxDim * 25)
   camera.updateProjectionMatrix()
@@ -97,27 +142,27 @@ const fitCameraToObject = (object: THREE.Object3D) => {
 const createLights = () => {
   if (!scene) return
 
-  const ambient = new THREE.AmbientLight(0xffffff, 1.45)
+  const ambient = new THREE.AmbientLight(0xffffff, 1.55)
   scene.add(ambient)
 
-  const hemisphere = new THREE.HemisphereLight(0xffffff, 0x05070b, 1.3)
-  hemisphere.position.set(0, 18, 0)
-  scene.add(hemisphere)
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x020202, 1.25)
+  hemi.position.set(0, 20, 0)
+  scene.add(hemi)
 
-  const key = new THREE.DirectionalLight(0xffffff, 2.4)
-  key.position.set(5.5, 7.5, 9.5)
+  const key = new THREE.DirectionalLight(0xffffff, 2.5)
+  key.position.set(6, 8, 10)
   scene.add(key)
 
-  const fill = new THREE.DirectionalLight(0x9ec5ff, 1.15)
-  fill.position.set(-7, 2.5, 6)
+  const fill = new THREE.DirectionalLight(0xbfd7ff, 1.1)
+  fill.position.set(-7, 3, 6)
   scene.add(fill)
 
-  const rim = new THREE.DirectionalLight(0xffffff, 1.6)
+  const rim = new THREE.DirectionalLight(0xffffff, 1.5)
   rim.position.set(0, 7, -10)
   scene.add(rim)
 
-  const low = new THREE.DirectionalLight(0xffffff, 0.65)
-  low.position.set(0, -3, 6)
+  const low = new THREE.DirectionalLight(0xffffff, 0.6)
+  low.position.set(0, -3, 5)
   scene.add(low)
 }
 
@@ -151,12 +196,15 @@ const disposeScene = () => {
     frameId = 0
   }
 
-  if (controls) {
-    controls.removeEventListener('start', pauseAutoRotate)
-    controls.removeEventListener('end', resumeAutoRotate)
-    controls.dispose()
-    controls = null
+  if (renderer?.domElement) {
+    renderer.domElement.removeEventListener('pointerdown', handlePointerDown)
   }
+
+  window.removeEventListener('pointerup', handlePointerEnd)
+  window.removeEventListener('pointercancel', handlePointerEnd)
+
+  controls?.dispose()
+  controls = null
 
   if (modelRoot) {
     modelRoot.traverse((child) => {
@@ -178,6 +226,7 @@ const disposeScene = () => {
   }
 
   modelRoot = null
+  meshTargets = []
 
   renderer?.dispose()
   renderer = null
@@ -198,7 +247,7 @@ onMounted(() => {
   scene = new THREE.Scene()
 
   camera = new THREE.PerspectiveCamera(34, 1, 0.1, 1000)
-  camera.position.set(0, 0.12, 4)
+  camera.position.set(0, 0.1, 4)
 
   renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -213,31 +262,35 @@ onMounted(() => {
   renderer.domElement.style.display = 'block'
   renderer.domElement.style.width = '100%'
   renderer.domElement.style.height = '100%'
-  renderer.domElement.style.cursor = 'grab'
 
   stageRef.value.appendChild(renderer.domElement)
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.075
-  controls.rotateSpeed = 0.75
+  controls.rotateSpeed = 0.72
   controls.enableZoom = false
   controls.enablePan = false
   controls.autoRotate = props.autoRotate
-  controls.autoRotateSpeed = 1.35
+  controls.autoRotateSpeed = 1.15
   controls.minPolarAngle = Math.PI / 2 - 0.62
   controls.maxPolarAngle = Math.PI / 2 + 0.62
   controls.minAzimuthAngle = -Infinity
   controls.maxAzimuthAngle = Infinity
 
-  controls.addEventListener('start', pauseAutoRotate)
-  controls.addEventListener('end', resumeAutoRotate)
-
+  setCanvasIdleState()
   createLights()
   resize()
 
+  renderer.domElement.addEventListener('pointerdown', handlePointerDown)
+  window.addEventListener('pointerup', handlePointerEnd)
+  window.addEventListener('pointercancel', handlePointerEnd)
+
   resizeObserver = new ResizeObserver(() => {
     resize()
+    if (modelRoot) {
+      fitCameraToObject(modelRoot)
+    }
   })
   resizeObserver.observe(stageRef.value)
 
@@ -249,14 +302,18 @@ onMounted(() => {
       if (!scene) return
 
       modelRoot = gltf.scene
-      modelRoot.rotation.y = -0.45
-      modelRoot.rotation.x = 0.05
+      modelRoot.rotation.y = -0.48
+      modelRoot.rotation.x = 0.04
+
+      meshTargets = []
 
       modelRoot.traverse((child) => {
         const mesh = child as THREE.Mesh
+
         if (mesh.isMesh) {
           mesh.castShadow = false
           mesh.receiveShadow = false
+          meshTargets.push(mesh)
         }
       })
 
@@ -282,102 +339,61 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+    class="phone-showcase relative w-full overflow-hidden bg-black text-white"
     :style="{ '--phone-stage-height': height }"
   >
-    <div class="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-stretch">
-      <div
-        class="relative overflow-hidden rounded-[28px] border border-white/10 bg-black px-5 py-6 text-white shadow-[0_30px_80px_rgba(0,0,0,0.35)] sm:px-7 sm:py-8 xl:px-10 xl:py-10"
-      >
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.04),transparent_36%)]" />
+    <div class="pointer-events-none absolute inset-0">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(255,255,255,0.06),transparent_28%)]" />
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(255,255,255,0.05),transparent_26%)]" />
+      <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%,transparent_82%,rgba(255,255,255,0.02))]" />
+    </div>
 
-        <div class="relative z-10">
+    <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-1">
+      <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
+        <div class="order-2 lg:order-1">
           <div
-            class="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/72 sm:text-xs"
+            class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
           >
-            3D Product View
+            Pre-Order Available
           </div>
 
           <h2
-            class="mt-5 max-w-[14ch] text-[32px] font-semibold leading-[0.92] tracking-[-0.05em] text-white sm:text-[44px] xl:text-[56px]"
-          >
-            Explore the phone in full 360°
-          </h2>
+  class="mt-5 max-w-[11ch] text-[42px] font-semibold leading-[0.9] tracking-[-0.05em] text-white sm:text-[58px] lg:text-[68px] xl:text-[84px]"
+>
+  Introducing iPhone 17 Pro Max
+</h2>
 
-          <p class="mt-5 max-w-[58ch] text-sm leading-7 text-white/72 sm:text-[15px] xl:text-base">
-            Smooth automatic rotation, touch-friendly control, and premium product presentation.
-            Touch or drag the phone to rotate it. When you stop, the automatic spin starts again.
+          <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-white/72 sm:text-base sm:leading-8">
+            Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look
+            premium from every angle, it brings a refined silhouette, a striking pro finish, and a
+            powerful first impression that belongs at the center of your next upgrade.
           </p>
-
-          <div class="mt-7 grid gap-3 sm:grid-cols-3">
-            <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/46">
-                Interaction
-              </div>
-              <div class="mt-2 text-sm font-medium text-white">Drag to rotate</div>
-            </div>
-
-            <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/46">
-                Mobile
-              </div>
-              <div class="mt-2 text-sm font-medium text-white">Touch supported</div>
-            </div>
-
-            <div class="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/46">
-                Motion
-              </div>
-              <div class="mt-2 text-sm font-medium text-white">Auto rotates</div>
-            </div>
-          </div>
-
-          <div class="mt-8 flex flex-wrap items-center gap-3">
-            <div
-              class="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/76"
-            >
-              No zoom
-            </div>
-            <div
-              class="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/76"
-            >
-              Cursor + touch
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        class="relative overflow-hidden rounded-[28px] border border-white/10 bg-black shadow-[0_30px_80px_rgba(0,0,0,0.35)]"
-      >
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.09),transparent_24%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.04),transparent_38%)]" />
-
-        <div class="phone-3d__shell relative z-10">
-          <div ref="stageRef" class="phone-3d__stage" />
-
-          <div
-            v-if="loading"
-            class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
-          >
-            <div class="rounded-full border border-white/14 bg-white/8 px-4 py-2 text-sm font-medium text-white">
-              Loading 3D Model...
-            </div>
-          </div>
-
-          <div
-            v-if="error"
-            class="absolute inset-0 z-30 flex items-center justify-center px-6 text-center"
-          >
-            <div class="rounded-2xl border border-red-300/25 bg-red-500/15 px-5 py-4 text-sm text-white">
-              {{ error }}
-            </div>
-          </div>
         </div>
 
-        <div
-          class="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/12 bg-white/[0.06] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70"
-        >
-          Drag or touch the phone
+        <div class="order-1 lg:order-2">
+          <div class="phone-showcase__stage-wrap relative ml-auto w-full">
+            <div ref="stageRef" class="phone-showcase__stage" />
+
+            <div
+              v-if="loading"
+              class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+            >
+              <div class="rounded-full border border-white/12 bg-white/[0.08] px-4 py-2 text-sm font-medium text-white">
+                Loading 3D Model...
+              </div>
+            </div>
+
+            <div
+              v-if="error"
+              class="absolute inset-0 z-30 flex items-center justify-center px-6 text-center"
+            >
+              <div class="rounded-2xl border border-red-300/25 bg-red-500/15 px-5 py-4 text-sm text-white">
+                {{ error }}
+              </div>
+            </div>
+
+           
+          </div>
         </div>
       </div>
     </div>
@@ -385,41 +401,37 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.phone-3d__shell {
-  min-height: clamp(340px, 74vw, var(--phone-stage-height));
-  padding: 18px;
+.phone-showcase__stage-wrap {
+  width: 100%;
+  max-width: 100%;
 }
 
-.phone-3d__stage {
+.phone-showcase__stage {
   position: relative;
   width: 100%;
-  height: clamp(304px, 68vw, calc(var(--phone-stage-height) - 36px));
-  max-width: 100%;
-  border-radius: 24px;
+   height: clamp(400px, 96vw, 640px);
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.04), transparent 28%),
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.05), transparent 24%),
+    radial-gradient(circle at 50% 84%, rgba(255, 255, 255, 0.03), transparent 26%),
     #000;
 }
 
-.phone-3d__stage :deep(canvas) {
+.phone-showcase__stage :deep(canvas) {
   display: block;
   width: 100% !important;
   height: 100% !important;
   outline: none;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 @media (min-width: 1024px) {
-  .phone-3d__shell {
-    min-height: var(--phone-stage-height);
-    height: var(--phone-stage-height);
-    padding: 24px;
+  .phone-showcase__stage-wrap {
+    max-width: 760px;
   }
 
-  .phone-3d__stage {
-    height: 100%;
-    max-width: 100%;
+  .phone-showcase__stage {
+    height: var(--phone-stage-height);
   }
 }
 </style>

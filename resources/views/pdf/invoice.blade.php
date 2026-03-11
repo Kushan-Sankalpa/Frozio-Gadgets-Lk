@@ -28,7 +28,7 @@
 
         .top-bar {
             height: 8px;
-            background: #1d4ed8;
+            background: #012d62;
             width: 100%;
         }
 
@@ -38,7 +38,7 @@
             right: 20px;
             bottom: 0;
             height: 8px;
-            background: #1d4ed8;
+            background: #012d62;
         }
 
         .footer-fixed {
@@ -49,7 +49,7 @@
             padding-top: 8px;
             border-top: 1px solid #bfdbfe;
             text-align: center;
-            color: #1d4ed8;
+            color: #012d62;
             font-size: 11px;
             font-weight: bold;
             background: #ffffff;
@@ -64,41 +64,53 @@
             border-collapse: collapse;
         }
 
+        .header-table {
+            width: 100%;
+        }
+
         .header-table td {
             vertical-align: top;
         }
 
-        .company-box {
-            border: 1px solid #bfdbfe;
-            background: #eff6ff;
-            padding: 14px 16px;
-            border-radius: 6px;
+        .header-left {
+            width: 55%;
         }
 
-        .company-name {
-            font-size: 16px;
+        .header-right {
+            width: 45%;
+            text-align: right;
+        }
+
+        .header-logo {
+            margin-bottom: 12px;
+        }
+
+        .header-logo img {
+    max-width: 230px;
+    max-height: 70px;
+    width: auto;
+    height: auto;
+}
+
+        .company-fallback {
+            font-size: 30px;
             font-weight: bold;
-            color: #1e40af;
-            margin-bottom: 8px;
+            color: #012d62;
+            margin-bottom: 12px;
         }
 
-        .company-line {
-            margin-bottom: 5px;
+        .company-details {
             color: #334155;
-            line-height: 1.5;
+            font-size: 14px;
+            line-height: 1.8;
         }
 
-        .logo-wrap {
-            text-align: center;
-            vertical-align: middle;
-            padding-top: 8px;
+        .company-details div {
+            margin-bottom: 2px;
         }
 
-        .logo-wrap img {
-            max-width: 260px;
-            max-height: 155px;
-            width: auto;
-            height: auto;
+        .company-details strong {
+            color: #0f172a;
         }
 
         .invoice-box {
@@ -106,44 +118,48 @@
         }
 
         .invoice-title {
-            font-size: 30px;
-            line-height: 1;
-            font-weight: bold;
-            letter-spacing: 2px;
-            color: #1d4ed8;
-            margin-bottom: 14px;
-        }
+    font-size: 30px;
+    line-height: 1;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #012d62;
+    margin-bottom: 24px;
+    margin-top:20px;
+}
 
         .meta-table {
             margin-left: auto;
-            width: 100%;
+            width: 280px;
         }
 
         .meta-table td {
-            padding: 3px 0;
-            vertical-align: top;
-        }
+    padding: 1px 0;
+    vertical-align: top;
+    font-size: 14px;
+    line-height: 1.6;
+}
 
-        .meta-label {
-            color: #64748b;
-            text-align: right;
-            padding-right: 8px;
-            white-space: nowrap;
-        }
+.meta-label {
+    color: #64748b;
+    text-align: left;
+    padding-right: 12px;
+    white-space: nowrap;
+    font-size: 14px;
+}
 
-        .meta-value {
-            text-align: right;
-            font-weight: bold;
-            color: #0f172a;
-            white-space: nowrap;
-        }
-
+.meta-value {
+    text-align: right;
+    font-weight: bold;
+    color: #0f172a;
+    white-space: nowrap;
+    font-size: 14px;
+}
         .section-title {
             margin-top: 20px;
             margin-bottom: 10px;
             padding-bottom: 6px;
             border-bottom: 2px solid #bfdbfe;
-            color: #1e40af;
+            color: #012d62;
             font-size: 13px;
             font-weight: bold;
             text-transform: uppercase;
@@ -187,7 +203,7 @@
 
         .items-table th {
             background: #dbeafe;
-            color: #1e40af;
+            color: #012d62;
             font-weight: bold;
             text-align: left;
         }
@@ -235,7 +251,7 @@
 
         .grand-total td {
             background: #dbeafe;
-            color: #1e40af !important;
+            color: #012d62 !important;
             font-weight: bold !important;
             font-size: 13px;
             padding: 10px 12px;
@@ -279,33 +295,33 @@
         <div class="content">
             <table class="header-table">
                 <tr>
-                    <td width="31%">
-                        <div class="company-box">
-                            <div class="company-name">{{ $shop['name'] ?? 'Frozio Hub' }}</div>
+                    <td class="header-left">
+                        <div class="header-logo">
+                            @if(!empty($shop['logo_base64']))
+                                <img src="{{ $shop['logo_base64'] }}" alt="Logo">
+                            @elseif(!empty($shop['logo_path']))
+                                <img src="{{ $shop['logo_path'] }}" alt="Logo">
+                            @else
+                                <div class="company-fallback">{{ $shop['name'] ?? 'Frozio Hub' }}</div>
+                            @endif
+                        </div>
 
+                        <div class="company-details">
                             @foreach(($shop['address_lines'] ?? []) as $line)
-                                <div class="company-line">{{ $line }}</div>
+                                <div>{{ $line }}</div>
                             @endforeach
 
                             @if(!empty($shop['phone']))
-                                <div class="company-line"><strong>Phone:</strong> {{ $shop['phone'] }}</div>
+                                <div><strong>Phone:</strong> {{ $shop['phone'] }}</div>
                             @endif
 
                             @if(!empty($shop['website']))
-                                <div class="company-line"><strong>Web:</strong> {{ $shop['website'] }}</div>
+                                <div><strong>Web:</strong> {{ $shop['website'] }}</div>
                             @endif
                         </div>
                     </td>
 
-                    <td width="29%" class="logo-wrap">
-                        @if(!empty($shop['logo_base64']))
-                            <img src="{{ $shop['logo_base64'] }}" alt="Logo">
-                        @elseif(!empty($shop['logo_path']))
-                            <img src="{{ $shop['logo_path'] }}" alt="Logo">
-                        @endif
-                    </td>
-
-                    <td width="40%">
+                    <td class="header-right">
                         <div class="invoice-box">
                             <div class="invoice-title">INVOICE</div>
 

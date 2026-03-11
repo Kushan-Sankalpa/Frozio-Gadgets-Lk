@@ -1281,48 +1281,74 @@ function submit(action: 'draft' | 'finalize') {
             </span>
           </div>
 
-          <div class="mx-auto max-w-[800px] overflow-hidden rounded-2xl border border-blue-200 bg-white text-sm text-slate-800 shadow-sm">
-            <div class="h-2 bg-blue-700" />
+          <div class="mx-auto max-w-[800px] overflow-hidden rounded-2xl border border-[#012d62]/20 bg-white text-sm text-slate-800 shadow-sm">
+  <div class="h-2 bg-[#012d62]" />
 
             <div class="p-6">
-              <div class="grid grid-cols-3 gap-4 border-b-2 border-blue-100 pb-6">
-                <div>
-                  <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                    <div class="mb-2 text-base font-bold text-blue-900">{{ shop.name }}</div>
-                    <div class="space-y-1 text-sm text-slate-700">
-                      <div v-for="line in shop.address_lines" :key="line">{{ line }}</div>
-                      <div v-if="shop.phone"><span class="font-medium text-slate-500">Phone:</span> {{ shop.phone }}</div>
-                      <div v-if="shop.website"><span class="font-medium text-slate-500">Web:</span> {{ shop.website }}</div>
+              <div class="border-b-2 border-[#012d62]/15 pb-6">
+                <div class="grid grid-cols-2 items-start gap-8">
+                  <div>
+                    <div class="mb-4">
+                     <img
+                        v-if="shop.logo_url"
+                        :src="shop.logo_url"
+                        alt="Logo"
+                        class="max-h-[62px] max-w-[220px] object-contain object-left"
+                      />
+                      <div v-else class="text-[34px] font-bold text-[#012d62]">
+  {{ shop.name }}
+</div>
+                    </div>
+
+                    <div class="space-y-1 text-[15px] leading-7 text-slate-700">
+                      <div v-for="line in shop.address_lines" :key="line">
+                        {{ line }}
+                      </div>
+                      <div v-if="shop.phone">
+                        <span class="font-semibold text-slate-900">Phone:</span> {{ shop.phone }}
+                      </div>
+                      <div v-if="shop.website">
+                        <span class="font-semibold text-slate-900">Web:</span> {{ shop.website }}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div class="flex items-start justify-center pt-1">
-                  <img
-                    v-if="shop.logo_url"
-                    :src="shop.logo_url"
-                    alt="Logo"
-                    class="max-h-[130px] max-w-[220px] object-contain"
-                  />
-                </div>
+                  <div class="text-right">
+                    <div class="text-[30px] font-bold leading-none tracking-[0.05em] text-[#012d62]">
+  INVOICE
+</div>
 
-                <div class="space-y-2 text-right">
-                  <div class="text-[30px] font-bold tracking-[0.12em] text-blue-700">INVOICE</div>
-                  <div class="space-y-1 text-sm">
-                    <div><span class="text-slate-500">Date:</span> <span class="font-semibold text-slate-800">{{ form.invoice_date || '-' }}</span></div>
-                    <div><span class="text-slate-500">Invoice No:</span> <span class="font-semibold text-slate-800">{{ form.invoice_no }}</span></div>
-                    <div><span class="text-slate-500">Payment Type:</span> <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span></div>
-                    <div><span class="text-slate-500">Status:</span> <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span></div>
+                   <div class="mt-10 ml-auto w-full max-w-[280px] space-y-1 text-[15px] leading-7">
+                      <div class="flex items-start justify-between gap-4">
+                        <span class="text-slate-500">Date:</span>
+                        <span class="font-semibold text-slate-800">{{ form.invoice_date || '-' }}</span>
+                      </div>
+
+                      <div class="flex items-start justify-between gap-4">
+                        <span class="text-slate-500">Invoice No:</span>
+                        <span class="font-semibold text-slate-800">{{ form.invoice_no }}</span>
+                      </div>
+
+                      <div class="flex items-start justify-between gap-4">
+                        <span class="text-slate-500">Payment Type:</span>
+                        <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span>
+                      </div>
+
+                      <div class="flex items-start justify-between gap-4">
+                        <span class="text-slate-500">Status:</span>
+                        <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div class="py-5">
-                <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
+                <div class="mb-3 border-b-2 border-[#012d62]/15 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
                   Bill To
                 </div>
 
-                <div class="grid grid-cols-1 gap-4 rounded-xl border border-blue-100 bg-slate-50 p-4 md:grid-cols-2">
+                <div class="grid grid-cols-1 items-start gap-4 rounded-xl border border-[#012d62]/15 bg-slate-50 p-4 md:grid-cols-2">
                   <div class="space-y-1.5">
                     <div><span class="font-semibold text-slate-500">Name:</span> {{ form.customer_name || '-' }}</div>
                     <div><span class="font-semibold text-slate-500">Contact:</span> {{ form.customer_contact_number || '-' }}</div>
@@ -1348,7 +1374,7 @@ function submit(action: 'draft' | 'finalize') {
               </div>
 
               <div class="pb-5">
-                <div class="mb-3 border-b-2 border-blue-100 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
+                <div class="mb-3 border-b-2 border-[#012d62]/15 pb-2 text-sm font-bold uppercase tracking-wide text-blue-900">
                   Items
                 </div>
 
@@ -1356,12 +1382,12 @@ function submit(action: 'draft' | 'finalize') {
                   <table class="min-w-full border-collapse text-sm">
                     <thead>
                       <tr>
-                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">ITEM</th>
-                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">DESCRIPTION</th>
-                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">QTY</th>
-                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">UNIT PRICE</th>
-                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">%</th>
-                        <th class="border border-blue-100 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">TOTAL</th>
+                        <th class="border border-[#012d62]/15 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">ITEM</th>
+                        <th class="border border-[#012d62]/15 bg-blue-50 px-3 py-2 text-left font-bold text-blue-900">DESCRIPTION</th>
+                        <th class="border border-[#012d62]/15 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">QTY</th>
+                        <th class="border border-[#012d62]/15 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">UNIT PRICE</th>
+                        <th class="border border-[#012d62]/15 bg-blue-50 px-3 py-2 text-center font-bold text-blue-900">%</th>
+                        <th class="border border-[#012d62]/15 bg-blue-50 px-3 py-2 text-right font-bold text-blue-900">TOTAL</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1376,8 +1402,8 @@ function submit(action: 'draft' | 'finalize') {
                         :key="`preview-${index}`"
                         class="odd:bg-white even:bg-slate-50"
                       >
-                        <td class="border border-blue-100 px-3 py-2">{{ index + 1 }}</td>
-                        <td class="border border-blue-100 px-3 py-2">{{ item.description }}</td>
+                        <td class="border border-[#012d62]/15 px-3 py-2">{{ index + 1 }}</td>
+                        <td class="border border-[#012d62]/15 px-3 py-2">{{ item.description }}</td>
                         <td class="border border-blue-100 px-3 py-2 text-center">{{ item.qty }}</td>
                         <td class="border border-blue-100 px-3 py-2 text-right">{{ Number(item.regular_price).toFixed(2) }}</td>
                         <td class="border border-blue-100 px-3 py-2 text-center">
@@ -1390,7 +1416,7 @@ function submit(action: 'draft' | 'finalize') {
                 </div>
               </div>
 
-              <div class="ml-auto mt-2 w-full max-w-sm rounded-xl border border-blue-200 bg-slate-50 p-4">
+              <div class="ml-auto mt-2 w-full max-w-sm rounded-xl border border-[#012d62]/20 bg-slate-50 p-4">
                 <div class="flex items-center justify-between border-b border-blue-100 py-2">
                   <span class="text-slate-500">Subtotal</span>
                   <span class="font-medium">{{ subtotal.toFixed(2) }}</span>
@@ -1452,12 +1478,12 @@ function submit(action: 'draft' | 'finalize') {
                 <div class="text-slate-700">{{ form.terms }}</div>
               </div>
 
-              <div class="mt-8 border-t border-blue-100 pt-4 text-center text-xs font-semibold text-blue-700">
+              <div class="mt-8 border-t border-blue-100 pt-4 text-center text-xs font-semibold text-[#012d62]">
                 {{ shop.website || 'www.froziohub.com' }}
               </div>
             </div>
 
-            <div class="h-2 bg-blue-700" />
+            <div class="h-2 bg-[#012d62]" />
           </div>
         </div>
       </div>

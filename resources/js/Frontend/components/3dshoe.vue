@@ -336,7 +336,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-  class="shoe-showcase relative w-full text-[#111827]"
+  class=""
   :style="{ '--shoe-stage-height': height }"
 >
     <div class="pointer-events-none absolute inset-0">

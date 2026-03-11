@@ -11,36 +11,37 @@ use App\Models\StorageOption;
 use App\Models\WarrantyOption;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class ProductController extends Controller
 {
     public function index()
     {
-        $brands = Brand::with('categories:id')->get()->map(fn($b) => [
+        $brands = Brand::with('categories:id')->get()->map(fn ($b) => [
             'id' => $b->id,
             'name' => $b->name,
             'category_ids' => $b->categories->pluck('id')->values(),
         ]);
 
         return Inertia::render('Products/index', [
-            'categories' => Category::select('id','name')->orderBy('name')->get(),
+            'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
-           'colors' => ColorOption::select('id', 'name', 'image_path')
-    ->orderBy('name')
-    ->get()
-    ->map(fn($c) => [
-        'id' => $c->id,
-        'name' => $c->name,
-        'image_url' => $c->image_url,
-    ]),
-            'warranties' => WarrantyOption::select('id','name')->orderBy('name')->get(),
+            'colors' => ColorOption::select('id', 'name', 'image_path')
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'image_url' => $c->image_url,
+                ]),
+            'warranties' => WarrantyOption::select('id', 'name')->orderBy('name')->get(),
         ]);
     }
 
     public function create()
     {
-        $brands = Brand::with('categories:id')->get()->map(fn($b) => [
+        $brands = Brand::with('categories:id')->get()->map(fn ($b) => [
             'id' => $b->id,
             'name' => $b->name,
             'category_ids' => $b->categories->pluck('id')->values(),
@@ -49,22 +50,22 @@ class ProductController extends Controller
         return Inertia::render('Products/CreateUpdate', [
             'mode' => 'create',
             'product' => null,
-            'categories' => Category::select('id','name')->orderBy('name')->get(),
+            'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
-           'colors' => ColorOption::select('id', 'name', 'image_path')
-    ->orderBy('name')
-    ->get()
-    ->map(fn($c) => [
-        'id' => $c->id,
-        'name' => $c->name,
-        'image_url' => $c->image_url,
-    ]),
-            'warranties' => WarrantyOption::select('id','name')->orderBy('name')->get(),
-            'storages' => StorageOption::orderBy('value')->get()->map(fn($s) => [
+            'colors' => ColorOption::select('id', 'name', 'image_path')
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'image_url' => $c->image_url,
+                ]),
+            'warranties' => WarrantyOption::select('id', 'name')->orderBy('name')->get(),
+            'storages' => StorageOption::orderBy('value')->get()->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => trim($s->value . ' ' . $s->unit),
             ]),
-            'rams' => RamOption::orderBy('value')->get()->map(fn($r) => [
+            'rams' => RamOption::orderBy('value')->get()->map(fn ($r) => [
                 'id' => $r->id,
                 'label' => trim($r->value . ' ' . ($r->unit ?? 'GB')),
             ]),
@@ -75,20 +76,19 @@ class ProductController extends Controller
     {
         $product->load(['colors:id', 'category:id,name', 'brand:id,name']);
 
-        $brands = Brand::with('categories:id')->get()->map(fn($b) => [
+        $brands = Brand::with('categories:id')->get()->map(fn ($b) => [
             'id' => $b->id,
             'name' => $b->name,
             'category_ids' => $b->categories->pluck('id')->values(),
         ]);
 
-        // ✅ legacy fallback for old single values
         $storageIds = is_array($product->storage_option_ids) && count($product->storage_option_ids)
             ? $product->storage_option_ids
-            : ($product->storage_option_id ? [(int)$product->storage_option_id] : []);
+            : ($product->storage_option_id ? [(int) $product->storage_option_id] : []);
 
         $ramIds = is_array($product->ram_option_ids) && count($product->ram_option_ids)
             ? $product->ram_option_ids
-            : ($product->ram_option_id ? [(int)$product->ram_option_id] : []);
+            : ($product->ram_option_id ? [(int) $product->ram_option_id] : []);
 
         return Inertia::render('Products/CreateUpdate', [
             'mode' => 'edit',
@@ -96,26 +96,34 @@ class ProductController extends Controller
                 'id' => $product->id,
                 'category_id' => $product->category_id,
                 'brand_id' => $product->brand_id,
+                'sku' => $product->sku,
                 'model' => $product->model,
                 'device_status' => $product->device_status,
                 'price_lkr' => (float) $product->price_lkr,
 
                 'discount_type' => $product->discount_type,
                 'discount_value' => $product->discount_value,
+
                 'in_stock' => (bool) $product->in_stock,
                 'stock_count' => $product->stock_count,
+                'low_stock_alert_quantity' => $product->low_stock_alert_quantity,
+
                 'status' => $product->status,
                 'is_featured' => (bool) $product->is_featured,
+                'is_best_seller' => (bool) $product->is_best_seller,
+                'is_top_rated' => (bool) $product->is_top_rated,
+                'is_pre_order' => (bool) $product->is_pre_order,
+                'is_deal_of_the_day' => (bool) $product->is_deal_of_the_day,
+                'is_coming_soon' => (bool) $product->is_coming_soon,
+
                 'warranty_option_id' => $product->warranty_option_id,
                 'warranty_period' => $product->warranty_period,
 
                 'os' => $product->os,
 
-                // ✅ multi
                 'storage_option_ids' => array_values(array_map('intval', $storageIds)),
                 'ram_option_ids' => array_values(array_map('intval', $ramIds)),
 
-                // legacy (optional, kept for safety)
                 'storage_option_id' => $product->storage_option_id,
                 'ram_option_id' => $product->ram_option_id,
 
@@ -130,31 +138,34 @@ class ProductController extends Controller
                 'short_description' => $product->short_description,
                 'long_description' => $product->long_description,
 
-             'color_ids' => collect(
-    !empty($product->color_ids)
-        ? $product->color_ids
-        : $product->colors->pluck('id')->all()
-)->map(fn ($v) => (int) $v)->values()->all(),
+                'product_video_url' => $product->product_video_url,
+
+                'color_ids' => collect(
+                    !empty($product->color_ids)
+                        ? $product->color_ids
+                        : $product->colors->pluck('id')->all()
+                )->map(fn ($v) => (int) $v)->values()->all(),
 
                 'main_image_url' => $product->main_image_url,
+                'hover_image_url' => $product->hover_image_url,
                 'gallery_urls' => $product->gallery_urls,
             ],
-            'categories' => Category::select('id','name')->orderBy('name')->get(),
+            'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
-          'colors' => ColorOption::select('id', 'name', 'image_path')
-    ->orderBy('name')
-    ->get()
-    ->map(fn($c) => [
-        'id' => $c->id,
-        'name' => $c->name,
-        'image_url' => $c->image_url,
-    ]),
-            'warranties' => WarrantyOption::select('id','name')->orderBy('name')->get(),
-            'storages' => StorageOption::orderBy('value')->get()->map(fn($s) => [
+            'colors' => ColorOption::select('id', 'name', 'image_path')
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'image_url' => $c->image_url,
+                ]),
+            'warranties' => WarrantyOption::select('id', 'name')->orderBy('name')->get(),
+            'storages' => StorageOption::orderBy('value')->get()->map(fn ($s) => [
                 'id' => $s->id,
                 'label' => trim($s->value . ' ' . $s->unit),
             ]),
-            'rams' => RamOption::orderBy('value')->get()->map(fn($r) => [
+            'rams' => RamOption::orderBy('value')->get()->map(fn ($r) => [
                 'id' => $r->id,
                 'label' => trim($r->value . ' ' . ($r->unit ?? 'GB')),
             ]),
@@ -164,16 +175,22 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $request->merge([
-    'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
-    'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
-    'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
-]);
+            'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
+            'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
+            'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
+        ]);
 
-$validated = $this->validateProduct($request);
+        $validated = $this->validateProduct($request);
+        $validated['sku'] = $this->resolveUniqueSku($validated);
 
         $mainPath = null;
         if ($request->hasFile('main_image')) {
             $mainPath = $request->file('main_image')->store('products', 'public');
+        }
+
+        $hoverPath = null;
+        if ($request->hasFile('hover_image')) {
+            $hoverPath = $request->file('hover_image')->store('products/hover', 'public');
         }
 
         $galleryPaths = [];
@@ -183,17 +200,14 @@ $validated = $this->validateProduct($request);
             }
         }
 
-        $p = Product::create([
-    ...$validated,
-    'color_ids' => $validated['color_ids'] ?? [],
-    'main_image_path' => $mainPath,
-    'gallery_image_paths' => $galleryPaths ?: null,
-    'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
-]);
-
-// No pivot sync - colors saved as JSON
-
-        // $p->colors()->sync($request->input('color_ids', []));
+        Product::create([
+            ...$validated,
+            'color_ids' => $validated['color_ids'] ?? [],
+            'main_image_path' => $mainPath,
+            'hover_image_path' => $hoverPath,
+            'gallery_image_paths' => $galleryPaths ?: null,
+            'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
+        ]);
 
         return redirect()->route('products.index')->with('success', 'Product created.');
     }
@@ -201,12 +215,13 @@ $validated = $this->validateProduct($request);
     public function update(Request $request, Product $product)
     {
         $request->merge([
-    'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
-    'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
-    'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
-]);
+            'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
+            'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
+            'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
+        ]);
 
-$validated = $this->validateProduct($request, $product->id);
+        $validated = $this->validateProduct($request, $product->id);
+        $validated['sku'] = $this->resolveUniqueSku($validated, $product->id);
 
         if ($request->hasFile('main_image')) {
             if ($product->main_image_path && Storage::disk('public')->exists($product->main_image_path)) {
@@ -215,18 +230,29 @@ $validated = $this->validateProduct($request, $product->id);
             $product->main_image_path = $request->file('main_image')->store('products', 'public');
         }
 
+        if ($request->hasFile('hover_image')) {
+            if ($product->hover_image_path && Storage::disk('public')->exists($product->hover_image_path)) {
+                Storage::disk('public')->delete($product->hover_image_path);
+            }
+            $product->hover_image_path = $request->file('hover_image')->store('products/hover', 'public');
+        }
+
         $clearGallery = (bool) $request->input('clear_gallery', false);
 
         if ($clearGallery) {
             foreach (($product->gallery_image_paths ?: []) as $p) {
-                if ($p && Storage::disk('public')->exists($p)) Storage::disk('public')->delete($p);
+                if ($p && Storage::disk('public')->exists($p)) {
+                    Storage::disk('public')->delete($p);
+                }
             }
             $product->gallery_image_paths = null;
         }
 
         if ($request->hasFile('gallery_images')) {
             foreach (($product->gallery_image_paths ?: []) as $p) {
-                if ($p && Storage::disk('public')->exists($p)) Storage::disk('public')->delete($p);
+                if ($p && Storage::disk('public')->exists($p)) {
+                    Storage::disk('public')->delete($p);
+                }
             }
 
             $paths = [];
@@ -236,16 +262,13 @@ $validated = $this->validateProduct($request, $product->id);
             $product->gallery_image_paths = $paths;
         }
 
-  $product->fill([
-    ...$validated,
-    'color_ids' => $validated['color_ids'] ?? [],
-    'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
-]);
+        $product->fill([
+            ...$validated,
+            'color_ids' => $validated['color_ids'] ?? [],
+            'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
+        ]);
 
-$product->save();
-
-// No pivot sync - colors saved as JSON
-
+        $product->save();
 
         return redirect()->route('products.index')->with('success', 'Product updated.');
     }
@@ -256,8 +279,14 @@ $product->save();
             Storage::disk('public')->delete($product->main_image_path);
         }
 
+        if ($product->hover_image_path && Storage::disk('public')->exists($product->hover_image_path)) {
+            Storage::disk('public')->delete($product->hover_image_path);
+        }
+
         foreach (($product->gallery_image_paths ?: []) as $p) {
-            if ($p && Storage::disk('public')->exists($p)) Storage::disk('public')->delete($p);
+            if ($p && Storage::disk('public')->exists($p)) {
+                Storage::disk('public')->delete($p);
+            }
         }
 
         $product->delete();
@@ -265,78 +294,71 @@ $product->save();
         return redirect()->route('products.index')->with('success', 'Product deleted.');
     }
 
-    /**
-     * DataTables server-side JSON
-     */
     public function data(Request $request)
     {
-        $draw   = (int) $request->input('draw', 1);
-        $start  = (int) $request->input('start', 0);
+        $draw = (int) $request->input('draw', 1);
+        $start = (int) $request->input('start', 0);
         $length = (int) $request->input('length', 10);
 
         $searchValue = $request->input('search.value');
 
-        // Filters
         $categoryId = $request->input('category_id');
         $brandId = $request->input('brand_id');
         $warrantyOptionId = $request->input('warranty_option_id');
-       $colorIds = $request->input('color_ids')
-    ? array_values(array_filter(array_map('intval', explode(',', $request->input('color_ids')))))
-    : null;
+        $colorIds = $request->input('color_ids')
+            ? array_values(array_filter(array_map('intval', explode(',', $request->input('color_ids')))))
+            : null;
 
-
-      $baseQuery = Product::with(['category:id,name', 'brand:id,name'])
-
+        $baseQuery = Product::with(['category:id,name', 'brand:id,name'])
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
             ->select('products.*', 'categories.name as category_name', 'brands.name as brand_name');
 
-        // Apply filters
         if ($categoryId) {
             $baseQuery->where('category_id', $categoryId);
         }
+
         if ($brandId) {
             $baseQuery->where('brand_id', $brandId);
         }
+
         if ($warrantyOptionId) {
             $baseQuery->where('warranty_option_id', $warrantyOptionId);
         }
-     if ($colorIds) {
-    $baseQuery->where(function ($q) use ($colorIds) {
-        foreach ($colorIds as $cid) {
-            $q->orWhereJsonContains('products.color_ids', (int) $cid);
-        }
-    });
-}
 
+        if ($colorIds) {
+            $baseQuery->where(function ($q) use ($colorIds) {
+                foreach ($colorIds as $cid) {
+                    $q->orWhereJsonContains('products.color_ids', (int) $cid);
+                }
+            });
+        }
 
         $recordsTotal = (clone $baseQuery)->count();
 
-        // Search
         if ($searchValue) {
             $baseQuery->where(function ($q) use ($searchValue) {
-                $q->where('model', 'like', "%{$searchValue}%")
-                  ->orWhereHas('category', function ($cq) use ($searchValue) {
-                      $cq->where('name', 'like', "%{$searchValue}%");
-                  })
-                  ->orWhereHas('brand', function ($bq) use ($searchValue) {
-                      $bq->where('name', 'like', "%{$searchValue}%");
-                  });
+                $q->where('products.model', 'like', "%{$searchValue}%")
+                    ->orWhere('products.sku', 'like', "%{$searchValue}%")
+                    ->orWhereHas('category', function ($cq) use ($searchValue) {
+                        $cq->where('name', 'like', "%{$searchValue}%");
+                    })
+                    ->orWhereHas('brand', function ($bq) use ($searchValue) {
+                        $bq->where('name', 'like', "%{$searchValue}%");
+                    });
             });
         }
 
         $recordsFiltered = (clone $baseQuery)->count();
 
-        // Ordering
         $orderColIndex = (int) $request->input('order.0.column', 0);
-        $orderDir      = $request->input('order.0.dir', 'desc');
+        $orderDir = $request->input('order.0.dir', 'desc');
 
-        // columns mapping based on frontend columns
         $columns = [
             0 => 'products.id',
             1 => 'products.model',
-            2 => 'categories.name', // category_name
-            3 => 'brands.name',    // brand_name
+            2 => 'categories.name',
+            3 => 'brands.name',
             4 => 'products.price_lkr',
         ];
 
@@ -349,20 +371,21 @@ $product->save();
             ->get();
 
         $data = $rows->map(function (Product $p) {
-            $stockBadge = $p->in_stock
-                ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">In Stock</span>'
-                : '<span class="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Out of Stock</span>';
+            if (!$p->in_stock) {
+                $stockBadge = '<span class="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Out of Stock</span>';
+            } elseif (
+                $p->low_stock_alert_quantity !== null &&
+                $p->stock_count !== null &&
+                $p->stock_count <= $p->low_stock_alert_quantity
+            ) {
+                $stockBadge = '<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Low Stock</span>';
+            } else {
+                $stockBadge = '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">In Stock</span>';
+            }
 
             $statusBadge = $p->status === 'active'
                 ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
                 : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
-
-            $payload = htmlspecialchars(json_encode([
-                'id' => $p->id,
-                'model' => $p->model,
-                'category_name' => $p->category?->name,
-                'brand_name' => $p->brand?->name,
-            ]), ENT_QUOTES, 'UTF-8');
 
             $actions = '
               <div class="flex items-center gap-2">
@@ -412,6 +435,7 @@ $product->save();
         return $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
             'brand_id' => ['required', 'exists:brands,id'],
+            'sku' => ['nullable', 'string', 'max:255'],
             'model' => ['required', 'string', 'max:255'],
             'device_status' => ['required', 'in:used,brandnew'],
             'price_lkr' => ['required', 'numeric', 'min:0'],
@@ -421,16 +445,21 @@ $product->save();
 
             'in_stock' => ['nullable', 'boolean'],
             'stock_count' => ['nullable', 'integer', 'min:0'],
+            'low_stock_alert_quantity' => ['nullable', 'integer', 'min:0'],
 
             'status' => ['nullable', 'in:active,inactive'],
             'is_featured' => ['nullable', 'boolean'],
+            'is_best_seller' => ['nullable', 'boolean'],
+            'is_top_rated' => ['nullable', 'boolean'],
+            'is_pre_order' => ['nullable', 'boolean'],
+            'is_deal_of_the_day' => ['nullable', 'boolean'],
+            'is_coming_soon' => ['nullable', 'boolean'],
 
             'warranty_option_id' => ['nullable', 'exists:warranty_options,id'],
             'warranty_period' => ['nullable', 'string', 'max:100'],
 
             'os' => ['nullable', 'string', 'max:255'],
 
-            // ✅ NEW (multi)
             'storage_option_ids' => ['nullable', 'array'],
             'storage_option_ids.*' => ['integer', 'exists:storage_options,id'],
 
@@ -448,10 +477,13 @@ $product->save();
             'short_description' => ['nullable', 'string'],
             'long_description' => ['nullable', 'string'],
 
+            'product_video_url' => ['nullable', 'url', 'max:2048'],
+
             'color_ids' => ['nullable', 'array'],
             'color_ids.*' => ['integer', 'exists:color_options,id'],
 
             'main_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'hover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'gallery_images' => ['nullable', 'array'],
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'clear_gallery' => ['nullable', 'boolean'],
@@ -459,23 +491,53 @@ $product->save();
     }
 
     private function normalizeIdArray($value): array
-{
-    if (is_string($value)) {
-        $decoded = json_decode($value, true);
-        if (json_last_error() === JSON_ERROR_NONE) {
-            $value = $decoded;
-        } else {
-            $value = [$value];
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $value = $decoded;
+            } else {
+                $value = [$value];
+            }
         }
+
+        return collect((array) $value)
+            ->flatten()
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->map(fn ($v) => (int) $v)
+            ->filter(fn ($v) => $v > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
-    return collect((array) $value)
-        ->flatten()
-        ->filter(fn ($v) => $v !== null && $v !== '')
-        ->map(fn ($v) => (int) $v)
-        ->filter(fn ($v) => $v > 0)
-        ->unique()
-        ->values()
-        ->all();
-}
+    private function resolveUniqueSku(array $validated, ?int $ignoreId = null): string
+    {
+        $rawSku = trim((string) ($validated['sku'] ?? ''));
+
+        if ($rawSku === '') {
+            $brandName = Brand::query()->whereKey($validated['brand_id'] ?? null)->value('name') ?? 'PRODUCT';
+            $model = $validated['model'] ?? 'ITEM';
+            $rawSku = $brandName . ' ' . $model . ' ' . now()->format('YmdHis');
+        }
+
+        $base = Str::upper(Str::slug($rawSku, '-'));
+        $base = $base !== '' ? substr($base, 0, 180) : 'SKU-' . now()->format('YmdHis');
+
+        $candidate = $base;
+        $counter = 1;
+
+        while (
+            Product::query()
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->where('sku', $candidate)
+                ->exists()
+        ) {
+            $candidate = substr($base, 0, 170) . '-' . $counter;
+            $counter++;
+        }
+
+        return $candidate;
+    }
 }

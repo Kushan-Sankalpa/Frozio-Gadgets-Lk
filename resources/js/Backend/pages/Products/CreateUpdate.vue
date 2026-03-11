@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
-import { computed, ref, watch, defineComponent } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
-// components
 import MultiSelect from '@/Backend/components/MultiSelect.vue'
 import SelectInputComponent from '@/Backend/components/SelectInputComponent.vue'
 
@@ -19,6 +18,7 @@ type ProductPayload = {
   id: number
   category_id: number
   brand_id: number
+  sku?: string | null
   model: string
   device_status: 'used' | 'brandnew'
   price_lkr: number
@@ -27,17 +27,23 @@ type ProductPayload = {
   discount_value?: number | null
   in_stock?: boolean
   stock_count?: number | null
+  low_stock_alert_quantity?: number | null
+
   status?: 'active' | 'inactive'
   is_featured?: boolean
+  is_best_seller?: boolean
+  is_top_rated?: boolean
+  is_pre_order?: boolean
+  is_deal_of_the_day?: boolean
+  is_coming_soon?: boolean
+
   warranty_option_id?: number | null
   warranty_period?: string | null
 
   os?: string | null
-  // ✅ multi
   storage_option_ids?: number[]
   ram_option_ids?: number[]
 
-  // legacy fallback (if old data exists)
   storage_option_id?: number | null
   ram_option_id?: number | null
 
@@ -53,7 +59,11 @@ type ProductPayload = {
   long_description?: string | null
 
   color_ids?: number[]
+
+  product_video_url?: string | null
+
   main_image_url?: string | null
+  hover_image_url?: string | null
   gallery_urls?: string[]
 }
 
@@ -74,10 +84,10 @@ const props = defineProps<{
 const isEdit = computed(() => props.mode === 'edit' && !!props.product?.id)
 
 const mainPreview = ref<string | null>(props.product?.main_image_url ?? null)
+const hoverPreview = ref<string | null>(props.product?.hover_image_url ?? null)
 const galleryPreview = ref<string[]>(props.product?.gallery_urls ?? [])
 const galleryNewPreview = ref<string[]>([])
 
-// legacy -> multi fallback for edit
 const initialStorageIds =
   props.product?.storage_option_ids?.length
     ? props.product.storage_option_ids
@@ -93,26 +103,31 @@ const initialRamIds =
       : []
 
 const form = useForm({
-  // required
   category_id: props.product?.category_id ?? (categories.value[0]?.id ?? null),
   brand_id: props.product?.brand_id ?? null,
+  sku: props.product?.sku ?? '',
   model: props.product?.model ?? '',
   device_status: props.product?.device_status ?? 'brandnew',
   price_lkr: props.product?.price_lkr ?? '',
 
-  // optional common
   discount_type: props.product?.discount_type ?? null,
   discount_value: props.product?.discount_value ?? null,
   in_stock: props.product?.in_stock ?? true,
   stock_count: props.product?.stock_count ?? null,
+  low_stock_alert_quantity: props.product?.low_stock_alert_quantity ?? null,
+
   status: props.product?.status ?? 'active',
   is_featured: props.product?.is_featured ?? false,
+  is_best_seller: props.product?.is_best_seller ?? false,
+  is_top_rated: props.product?.is_top_rated ?? false,
+  is_pre_order: props.product?.is_pre_order ?? false,
+  is_deal_of_the_day: props.product?.is_deal_of_the_day ?? false,
+  is_coming_soon: props.product?.is_coming_soon ?? false,
+
   warranty_option_id: props.product?.warranty_option_id ?? null,
   warranty_period: props.product?.warranty_period ?? '',
 
-  // optional specs
   os: props.product?.os ?? '',
-  // ✅ multi
   storage_option_ids: initialStorageIds as number[],
   ram_option_ids: initialRamIds as number[],
   display_size: props.product?.display_size ?? '',
@@ -123,15 +138,15 @@ const form = useForm({
   connectivity: props.product?.connectivity ?? '',
   battery_mah: props.product?.battery_mah ?? '',
 
-  // descriptions
   short_description: props.product?.short_description ?? '',
   long_description: props.product?.long_description ?? '',
 
-  // relations
   color_ids: props.product?.color_ids ?? [],
 
-  // images
+  product_video_url: props.product?.product_video_url ?? '',
+
   main_image: null as File | null,
+  hover_image: null as File | null,
   gallery_images: [] as File[],
   clear_gallery: false,
 })
@@ -141,14 +156,46 @@ const brandsFiltered = computed(() => {
   return brandsAll.value.filter(b => (b.category_ids || []).includes(Number(form.category_id)))
 })
 
+const skuManuallyEdited = ref(!!props.product?.sku)
+
+function normalizeSku(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+}
+
+function generateSku() {
+  const brandName = brandsAll.value.find(b => Number(b.id) === Number(form.brand_id))?.name || 'PRODUCT'
+  const categoryName = categories.value.find(c => Number(c.id) === Number(form.category_id))?.name || ''
+  const modelName = String(form.model || '').trim()
+
+  const left = normalizeSku(`${brandName}-${modelName || categoryName || 'ITEM'}`)
+  const uniquePart = new Date().toISOString().replace(/\D/g, '').slice(2, 14)
+
+  form.sku = `${left || 'PRODUCT-ITEM'}-${uniquePart}`
+}
+
+function onSkuInput() {
+  skuManuallyEdited.value = true
+  form.sku = normalizeSku(form.sku)
+}
+
 watch(
-  () => form.category_id,
+  () => [form.category_id, form.brand_id, form.model],
   () => {
     const b = brandsAll.value.find(x => x.id === Number(form.brand_id))
     if (form.brand_id && b && !(b.category_ids || []).includes(Number(form.category_id))) {
       form.brand_id = null
     }
-  }
+
+    if (!isEdit.value && !skuManuallyEdited.value) {
+      generateSku()
+    }
+  },
+  { immediate: true }
 )
 
 watch(
@@ -165,6 +212,13 @@ function onMainImageChange(e: Event) {
   if (file) mainPreview.value = URL.createObjectURL(file)
 }
 
+function onHoverImageChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0] || null
+  form.hover_image = file
+  if (file) hoverPreview.value = URL.createObjectURL(file)
+}
+
 function onGalleryChange(e: Event) {
   const input = e.target as HTMLInputElement
   const files = input.files ? Array.from(input.files) : []
@@ -177,6 +231,7 @@ function submit() {
 
   const payloadTransform = (data: any) => ({
     ...data,
+    sku: normalizeSku(data.sku),
     color_ids: (data.color_ids || []).map((id: any) => Number(id)),
     storage_option_ids: (data.storage_option_ids || []).map((id: any) => Number(id)),
     ram_option_ids: (data.ram_option_ids || []).map((id: any) => Number(id)),
@@ -194,7 +249,6 @@ function submit() {
     return
   }
 
-
   form
     .transform((data: any) => ({
       ...payloadTransform(data),
@@ -206,68 +260,6 @@ function submit() {
       onFinish: () => form.transform((d: any) => d),
     })
 }
-
-/** color multi select with image circle */
-// const ColorMultiSelect = defineComponent({
-//   props: {
-//     options: { type: Array as any, required: true },
-//     modelValue: { type: Array as any, required: true },
-//   },
-//   emits: ['update:modelValue'],
-//   setup(props, { emit }) {
-//     const open = ref(false)
-
-//     const selected = computed<number[]>({
-//       get: () => props.modelValue,
-//       set: (v) => emit('update:modelValue', v),
-//     })
-
-//     function toggle(id: number) {
-//       const s = new Set(selected.value)
-//       if (s.has(id)) s.delete(id)
-//       else s.add(id)
-//       selected.value = Array.from(s)
-//     }
-
-//     const selectedObjects = computed(() => {
-//       const map = new Map((props.options as any[]).map(o => [o.id, o]))
-//       return selected.value.map(id => map.get(id)).filter(Boolean)
-//     })
-
-//     return { open, selected, toggle, selectedObjects }
-//   },
-//   template: `
-//     <div class="relative">
-//       <button type="button"
-//         class="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm text-left outline-none hover:bg-neutral-50"
-//         @click="open = !open">
-//         <span v-if="selected.length === 0" class="text-neutral-400">Select colors</span>
-//         <span v-else class="text-neutral-700">{{ selected.length }} selected</span>
-//       </button>
-
-//       <div v-if="open" class="absolute z-50 mt-2 w-full rounded-xl border border-neutral-200 bg-white shadow-lg p-2 max-h-72 overflow-auto">
-//         <div v-for="c in options" :key="c.id"
-//           class="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-neutral-50 cursor-pointer"
-//           @click="toggle(c.id)">
-//           <div class="h-6 w-6 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50">
-//             <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
-//           </div>
-//           <div class="text-sm text-neutral-700">{{ c.name }}</div>
-//           <div class="ml-auto text-xs text-neutral-500" v-if="selected.includes(c.id)">✓</div>
-//         </div>
-//       </div>
-
-//       <div v-if="selectedObjects.length" class="mt-2 flex flex-wrap gap-2">
-//         <div v-for="c in selectedObjects" :key="c.id" class="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1 text-xs">
-//           <div class="h-4 w-4 rounded-full overflow-hidden border border-neutral-200 bg-neutral-50">
-//             <img v-if="c.image_url" :src="c.image_url" class="h-full w-full object-cover" />
-//           </div>
-//           <span class="text-neutral-700">{{ c.name }}</span>
-//         </div>
-//       </div>
-//     </div>
-//   `,
-// })
 
 const deviceStatusOptions = [
   { id: 'brandnew', name: 'Brand New' },
@@ -312,7 +304,6 @@ const statusOptions = [
 
       <form @submit.prevent="submit" class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm space-y-6">
 
-        <!-- REQUIRED -->
         <div>
           <h2 class="text-base font-semibold text-neutral-900 mb-3">Required</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -357,6 +348,28 @@ const statusOptions = [
             </div>
 
             <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1">SKU</label>
+              <div class="flex gap-2">
+                <input
+                  :value="form.sku"
+                  @input="onSkuInput"
+                  type="text"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  placeholder="Auto generated SKU"
+                />
+                <button
+                  type="button"
+                  @click="generateSku"
+                  class="shrink-0 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                >
+                  Generate
+                </button>
+              </div>
+              <p class="mt-1 text-xs text-neutral-500">A unique SKU will also be enforced by the backend.</p>
+              <p v-if="form.errors.sku" class="mt-1 text-sm text-red-600">{{ form.errors.sku }}</p>
+            </div>
+
+            <div>
               <SelectInputComponent
                 id="device_status"
                 label="Device Status"
@@ -385,9 +398,8 @@ const statusOptions = [
           </div>
         </div>
 
-        <!-- COMMON OPTIONAL -->
         <div>
-          <h2 class="text-base font-semibold text-neutral-900 mb-3">Common Optional</h2>
+          <h2 class="text-base font-semibold text-neutral-900 mb-3">Stock and Status</h2>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -446,6 +458,19 @@ const statusOptions = [
             </div>
 
             <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1">Low Stock Alert Quantity</label>
+              <input
+                v-model="form.low_stock_alert_quantity"
+                type="number"
+                step="1"
+                min="0"
+                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                placeholder="e.g. 5"
+              />
+              <p v-if="form.errors.low_stock_alert_quantity" class="mt-1 text-sm text-red-600">{{ form.errors.low_stock_alert_quantity }}</p>
+            </div>
+
+            <div>
               <SelectInputComponent
                 id="status"
                 label="Status"
@@ -458,12 +483,49 @@ const statusOptions = [
                 placeholder="Select status"
               />
             </div>
+          </div>
+        </div>
 
-            <div class="flex items-center gap-3 mt-6">
-              <input id="featured" type="checkbox" v-model="form.is_featured" class="h-4 w-4" />
-              <label for="featured" class="text-sm font-medium text-neutral-700">Is Featured</label>
-            </div>
+        <div>
+          <h2 class="text-base font-semibold text-neutral-900 mb-3">Product Labels / Marketing Flags</h2>
 
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <label class="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
+              <input type="checkbox" v-model="form.is_featured" class="h-4 w-4" />
+              <span class="text-sm font-medium text-neutral-700">Featured</span>
+            </label>
+
+            <label class="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
+              <input type="checkbox" v-model="form.is_best_seller" class="h-4 w-4" />
+              <span class="text-sm font-medium text-neutral-700">Best Seller</span>
+            </label>
+
+            <label class="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
+              <input type="checkbox" v-model="form.is_top_rated" class="h-4 w-4" />
+              <span class="text-sm font-medium text-neutral-700">Top Rated</span>
+            </label>
+
+            <label class="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
+              <input type="checkbox" v-model="form.is_pre_order" class="h-4 w-4" />
+              <span class="text-sm font-medium text-neutral-700">Pre Order</span>
+            </label>
+
+            <label class="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
+              <input type="checkbox" v-model="form.is_deal_of_the_day" class="h-4 w-4" />
+              <span class="text-sm font-medium text-neutral-700">Deal of the Day</span>
+            </label>
+
+            <label class="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3">
+              <input type="checkbox" v-model="form.is_coming_soon" class="h-4 w-4" />
+              <span class="text-sm font-medium text-neutral-700">Coming Soon</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <h2 class="text-base font-semibold text-neutral-900 mb-3">Warranty</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <SelectInputComponent
                 id="warranty_option_id"
@@ -491,7 +553,6 @@ const statusOptions = [
           </div>
         </div>
 
-        <!-- SPECS OPTIONAL -->
         <div>
           <h2 class="text-base font-semibold text-neutral-900 mb-3">Optional Specifications</h2>
 
@@ -506,7 +567,6 @@ const statusOptions = [
               <input v-model="form.connectivity" type="text" class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500" placeholder="e.g. 5G, WiFi 6" />
             </div>
 
-            <!-- ✅ STORAGE MULTI -->
             <div>
               <MultiSelect
                 id="storage_option_ids"
@@ -522,7 +582,6 @@ const statusOptions = [
               <p v-if="form.errors['storage_option_ids.0']" class="mt-1 text-sm text-red-600">{{ form.errors['storage_option_ids.0'] }}</p>
             </div>
 
-            <!-- ✅ RAM MULTI -->
             <div>
               <MultiSelect
                 id="ram_option_ids"
@@ -569,44 +628,47 @@ const statusOptions = [
             </div>
 
             <div class="md:col-span-2">
-  <MultiSelect
-    id="color_ids"
-    label="Colors (multi select)"
-    placeholder="Pick colors"
-    :options="colors"
-    v-model="form.color_ids"
-    valueKey="id"
-    labelKey="name"
-    imageKey="image_url"
-    :required="false"
-    :error="form.errors.color_ids"
-  />
-</div>
-
+              <MultiSelect
+                id="color_ids"
+                label="Colors (multi select)"
+                placeholder="Pick colors"
+                :options="colors"
+                v-model="form.color_ids"
+                valueKey="id"
+                labelKey="name"
+                imageKey="image_url"
+                :required="false"
+                :error="form.errors.color_ids"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- DESCRIPTIONS -->
         <div>
           <h2 class="text-base font-semibold text-neutral-900 mb-3">Descriptions</h2>
           <div class="grid grid-cols-1 gap-4">
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">Short Description</label>
-              <textarea v-model="form.short_description" rows="3"
-                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"></textarea>
+              <textarea
+                v-model="form.short_description"
+                rows="3"
+                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+              ></textarea>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-neutral-700 mb-1">Long Description</label>
-              <textarea v-model="form.long_description" rows="6"
-                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"></textarea>
+              <textarea
+                v-model="form.long_description"
+                rows="6"
+                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+              ></textarea>
             </div>
           </div>
         </div>
 
-        <!-- IMAGES -->
         <div>
-          <h2 class="text-base font-semibold text-neutral-900 mb-3">Images</h2>
+          <h2 class="text-base font-semibold text-neutral-900 mb-3">Media</h2>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -618,17 +680,57 @@ const statusOptions = [
                 </div>
 
                 <div class="flex-1">
-                  <input type="file" accept="image/*" @change="onMainImageChange"
-                    class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    @change="onMainImageChange"
+                    class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
+                  />
                   <p v-if="form.errors.main_image" class="mt-1 text-sm text-red-600">{{ form.errors.main_image }}</p>
                 </div>
               </div>
             </div>
 
             <div>
+              <label class="block text-sm font-medium text-neutral-700 mb-1">Hover Image</label>
+              <div class="flex items-center gap-4">
+                <div class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center">
+                  <img v-if="hoverPreview" :src="hoverPreview" class="h-full w-full object-cover" />
+                  <span v-else class="text-xs text-neutral-400">No Image</span>
+                </div>
+
+                <div class="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    @change="onHoverImageChange"
+                    class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
+                  />
+                  <p v-if="form.errors.hover_image" class="mt-1 text-sm text-red-600">{{ form.errors.hover_image }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-neutral-700 mb-1">Product Video URL</label>
+              <input
+                v-model="form.product_video_url"
+                type="url"
+                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+              <p v-if="form.errors.product_video_url" class="mt-1 text-sm text-red-600">{{ form.errors.product_video_url }}</p>
+            </div>
+
+            <div class="md:col-span-2">
               <label class="block text-sm font-medium text-neutral-700 mb-1">Gallery Images</label>
-              <input type="file" accept="image/*" multiple @change="onGalleryChange"
-                class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200" />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                @change="onGalleryChange"
+                class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
+              />
               <p v-if="form.errors.gallery_images" class="mt-1 text-sm text-red-600">{{ form.errors.gallery_images }}</p>
 
               <div v-if="isEdit" class="mt-2 flex items-center gap-2">
@@ -651,7 +753,6 @@ const statusOptions = [
           </div>
         </div>
 
-        <!-- ACTIONS -->
         <div class="flex flex-col sm:flex-row gap-2 sm:justify-end pt-2">
           <Link
             :href="route('products.index')"

@@ -336,16 +336,16 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="shoe-showcase relative w-full overflow-hidden bg-white text-[#111827]"
-    :style="{ '--shoe-stage-height': height }"
-  >
+  class="shoe-showcase relative w-full text-[#111827]"
+  :style="{ '--shoe-stage-height': height }"
+>
     <div class="pointer-events-none absolute inset-0">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(17,24,39,0.04),transparent_28%)]" />
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(17,24,39,0.035),transparent_26%)]" />
       <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.02),transparent_18%,transparent_82%,rgba(17,24,39,0.02))]" />
     </div>
 
-    <div class="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
+   <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-1 lg:px-8 lg:py-1">
       <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
         <div class="order-1">
           <div class="shoe-showcase__stage-wrap relative mr-auto w-full">
@@ -355,9 +355,9 @@ onBeforeUnmount(() => {
               v-if="loading"
               class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
             >
-              <div class="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm">
-                Loading 3D Model...
-              </div>
+              <div class="px-4 py-2 text-sm font-medium text-slate-600">
+  Loading 3D Model...
+</div>
             </div>
 
             <div
@@ -426,8 +426,8 @@ onBeforeUnmount(() => {
 .shoe-showcase__stage {
   position: relative;
   width: 100%;
-  height: clamp(420px, 104vw, 700px);
-  overflow: hidden;
+  height: clamp(380px, 96vw, 620px);
+  overflow: visible;
   border-radius: 0;
   border: 0;
   background: transparent;
@@ -442,8 +442,8 @@ onBeforeUnmount(() => {
 }
 
 @media (min-width: 1024px) {
-  .shoe-showcase__stage-wrap {
-    max-width: 760px;
+   .shoe-showcase__stage-wrap {
+    max-width: 900px;
   }
 
   .shoe-showcase__stage {

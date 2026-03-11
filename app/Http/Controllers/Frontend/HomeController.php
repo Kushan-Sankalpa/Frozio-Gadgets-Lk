@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
+use App\Models\Category;
 use App\Models\HomeBanner;
+use App\Models\Product;
 use Inertia\Inertia;
 
 class HomeController extends Controller
 {
     public function index()
     {
-        $activeCategory = request('category'); // used by navbar + UI (no filtering yet)
+        $activeCategory = request('category');
+        $normalizedCategory = filled($activeCategory)
+            ? mb_strtolower(trim((string) $activeCategory))
+            : null;
 
         $banners = HomeBanner::query()
             ->latest()
@@ -21,15 +25,37 @@ class HomeController extends Controller
                     'id' => $b->id,
                     'name' => $b->name,
                     'description' => $b->description,
-                    'video_url' => $b->video_url, // from accessor
+                    'video_url' => $b->video_url,
+                ];
+            })
+            ->values();
+
+        $categories = Category::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->take(4)
+            ->get()
+            ->map(function (Category $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
                 ];
             })
             ->values();
 
         $products = Product::query()
+            ->with('category:id,name')
+            ->when($normalizedCategory, function ($query, $normalizedCategory) {
+                $query->whereHas('category', function ($categoryQuery) use ($normalizedCategory) {
+                    $categoryQuery->whereRaw('LOWER(name) = ?', [$normalizedCategory]);
+                });
+            })
             ->latest()
             ->paginate(12)
-            ->through(function ($product) {
+            ->withQueryString()
+            ->through(function (Product $product) {
                 $image = $product->main_image_url
                     ?? ($product->main_image_path ? asset('storage/' . $product->main_image_path) : null);
 
@@ -42,10 +68,11 @@ class HomeController extends Controller
                 ];
             });
 
-        return Inertia::render('Frontend/Home/Index', [
+        return Inertia::render('Frontend/Home/index', [
             'products' => $products,
             'activeCategory' => $activeCategory,
             'banners' => $banners,
+            'categories' => $categories,
         ]);
     }
 }

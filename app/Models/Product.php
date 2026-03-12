@@ -104,6 +104,11 @@ class Product extends Model
         return $this->belongsToMany(ColorOption::class, 'color_option_product', 'product_id', 'color_option_id');
     }
 
+    public function variants()
+{
+    return $this->hasMany(ProductVariant::class);
+}
+
     public function getMainImageUrlAttribute(): ?string
     {
         if (!$this->main_image_path) {

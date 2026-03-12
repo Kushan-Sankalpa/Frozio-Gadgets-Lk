@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
 type TechCategory = {
@@ -24,12 +24,21 @@ type ShoeCategory = {
 }
 
 const page = usePage()
+const navRef = ref<HTMLElement | null>(null)
 
+const scrolled = ref(false)
 const openMobileMenu = ref(false)
 const openMobileTech = ref(false)
 const openMobileShoe = ref(false)
 const openMobileShoeCategoryId = ref<number | string | null>(null)
+
+const activeDropdown = ref<'tech' | 'shoes' | null>(null)
+const activeShoeSubMenu = ref<number | string | null>(null)
+
+const searchOpen = ref(false)
 const searchQuery = ref('')
+
+let dropdownCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 const techCategories = computed<TechCategory[]>(() => {
   return Array.isArray(page.props.categories) ? (page.props.categories as TechCategory[]) : []
@@ -50,6 +59,13 @@ const currentShoeCategory = computed(() => currentParams.value.get('shoe_categor
 const currentShoeSubcategory = computed(() => currentParams.value.get('shoe_subcategory') || '')
 const currentSearch = computed(() => currentParams.value.get('search') || '')
 
+const isHomeActive = computed(() => {
+  return !currentCategory.value && !currentShoeCategory.value && !currentShoeSubcategory.value
+})
+
+const isTechMenuActive = computed(() => !!currentCategory.value)
+const isShoeMenuActive = computed(() => !!currentShoeCategory.value || !!currentShoeSubcategory.value)
+
 watch(
   () => page.url,
   () => {
@@ -57,10 +73,17 @@ watch(
     openMobileTech.value = false
     openMobileShoe.value = false
     openMobileShoeCategoryId.value = null
+    activeDropdown.value = null
+    activeShoeSubMenu.value = null
+    searchOpen.value = false
     searchQuery.value = currentSearch.value
   },
   { immediate: true }
 )
+
+watch(openMobileMenu, (value) => {
+  document.body.style.overflow = value ? 'hidden' : ''
+})
 
 function normalize(value: string | null | undefined) {
   return String(value ?? '').trim().toLowerCase()
@@ -76,6 +99,31 @@ function isShoeCategoryActive(name?: string | null) {
 
 function isShoeSubcategoryActive(name?: string | null) {
   return normalize(currentShoeSubcategory.value) === normalize(name)
+}
+
+function clearDropdownTimer() {
+  if (dropdownCloseTimer) {
+    clearTimeout(dropdownCloseTimer)
+    dropdownCloseTimer = null
+  }
+}
+
+function handleDropdownEnter(name: 'tech' | 'shoes') {
+  clearDropdownTimer()
+  activeDropdown.value = name
+}
+
+function handleDropdownLeave() {
+  clearDropdownTimer()
+  dropdownCloseTimer = setTimeout(() => {
+    activeDropdown.value = null
+    activeShoeSubMenu.value = null
+  }, 140)
+}
+
+function openShoeSubMenu(id: number | string | null) {
+  clearDropdownTimer()
+  activeShoeSubMenu.value = id
 }
 
 function submitSearch() {
@@ -102,42 +150,130 @@ function clearSearch() {
 function toggleMobileShoeCategory(id: number | string) {
   openMobileShoeCategoryId.value = openMobileShoeCategoryId.value === id ? null : id
 }
+
+function handleScroll() {
+  scrolled.value = window.scrollY > 28
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    activeDropdown.value = null
+    activeShoeSubMenu.value = null
+    openMobileMenu.value = false
+    searchOpen.value = false
+  }
+}
+
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as Node | null
+  if (!target || !navRef.value) return
+
+  if (!navRef.value.contains(target)) {
+    activeDropdown.value = null
+    activeShoeSubMenu.value = null
+    searchOpen.value = false
+  }
+}
+
+onMounted(() => {
+  handleScroll()
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('keydown', handleKeydown)
+  document.addEventListener('mousedown', handleClickOutside)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('mousedown', handleClickOutside)
+  document.body.style.overflow = ''
+  clearDropdownTimer()
+})
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 w-full border-b border-white/10 bg-black text-white shadow-[0_8px_30px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+  <header
+    ref="navRef"
+    class="sticky top-0 z-50 w-full transition-all duration-500 ease-out"
+    :class="
+      scrolled
+        ? 'border-b border-black/10 bg-white/70 text-black shadow-sm backdrop-blur-2xl'
+        : 'border-b border-white/10 bg-black text-white shadow-[0_10px_30px_rgba(0,0,0,0.28)]'
+    "
+  >
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="flex h-18 items-center justify-between gap-3 py-3">
+      <div class="flex h-[72px] items-center justify-between">
         <Link :href="route('frontend.root')" class="flex shrink-0 items-center gap-3">
           <img src="/assets/images/froziohub-logo.png" alt="Logo" class="h-10 w-auto sm:h-11" />
         </Link>
 
-        <nav class="hidden xl:flex items-center gap-2">
+        <nav class="hidden xl:flex items-center gap-8">
           <Link
             :href="route('frontend.root')"
-            class="nav-pill"
-            :class="!currentCategory && !currentShoeCategory && !currentShoeSubcategory ? 'nav-pill--active' : ''"
+            class="nav-link"
+            :class="[
+              scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+              isHomeActive ? 'nav-link--active' : '',
+            ]"
           >
-            Home
+            <span>Home</span>
+            <span
+              class="nav-link-indicator"
+              :class="[
+                isHomeActive ? 'nav-link-indicator--active' : '',
+                scrolled ? 'bg-black' : 'bg-white',
+              ]"
+            />
           </Link>
 
-          <div class="relative group">
-            <button type="button" class="nav-pill inline-flex items-center gap-2">
+          <div
+            class="relative"
+            @mouseenter="handleDropdownEnter('tech')"
+            @mouseleave="handleDropdownLeave"
+          >
+            <button
+              type="button"
+              class="nav-link inline-flex items-center gap-1.5"
+              :class="[
+                scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+                isTechMenuActive ? 'nav-link--active' : '',
+              ]"
+            >
               <span>Tech Products</span>
-              <svg class="h-4 w-4 transition group-hover:rotate-180" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+              <svg
+                class="h-3.5 w-3.5 transition-transform duration-300"
+                :class="activeDropdown === 'tech' ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
               </svg>
+
+              <span
+                class="nav-link-indicator"
+                :class="[
+                  isTechMenuActive ? 'nav-link-indicator--active' : '',
+                  scrolled ? 'bg-black' : 'bg-white',
+                ]"
+              />
             </button>
 
-            <div class="dropdown-panel min-w-[280px]">
-              <div class="px-3 py-3">
-                <div class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/50">
-                  Tech Categories
-                </div>
+            <Transition name="dropdown-fade">
+              <div
+                v-if="activeDropdown === 'tech'"
+                class="dropdown-panel left-0 min-w-[280px]"
+              >
+                <div class="px-2 py-2">
+                  <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                    Tech Categories
+                  </div>
 
-                <div class="space-y-1">
                   <Link
-                    :href="route('frontend.root')"
+                    :href="route('frontend.root', { search: currentSearch || undefined })"
                     class="dropdown-link"
                     :class="!currentCategory ? 'dropdown-link--active' : ''"
                   >
@@ -147,7 +283,10 @@ function toggleMobileShoeCategory(id: number | string) {
                   <Link
                     v-for="category in techCategories"
                     :key="category.id"
-                    :href="route('frontend.root', { category: category.name, search: currentSearch || undefined })"
+                    :href="route('frontend.root', {
+                      category: category.name,
+                      search: currentSearch || undefined,
+                    })"
                     class="dropdown-link"
                     :class="isTechActive(category.name) ? 'dropdown-link--active' : ''"
                   >
@@ -155,24 +294,55 @@ function toggleMobileShoeCategory(id: number | string) {
                   </Link>
                 </div>
               </div>
-            </div>
+            </Transition>
           </div>
 
-          <div class="relative group">
-            <button type="button" class="nav-pill inline-flex items-center gap-2">
+          <div
+            class="relative"
+            @mouseenter="handleDropdownEnter('shoes')"
+            @mouseleave="handleDropdownLeave"
+          >
+            <button
+              type="button"
+              class="nav-link inline-flex items-center gap-1.5"
+              :class="[
+                scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+                isShoeMenuActive ? 'nav-link--active' : '',
+              ]"
+            >
               <span>Shoe Products</span>
-              <svg class="h-4 w-4 transition group-hover:rotate-180" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+              <svg
+                class="h-3.5 w-3.5 transition-transform duration-300"
+                :class="activeDropdown === 'shoes' ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
               </svg>
+
+              <span
+                class="nav-link-indicator"
+                :class="[
+                  isShoeMenuActive ? 'nav-link-indicator--active' : '',
+                  scrolled ? 'bg-black' : 'bg-white',
+                ]"
+              />
             </button>
 
-            <div class="dropdown-panel min-w-[320px] overflow-visible">
-              <div class="px-3 py-3">
-                <div class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/50">
-                  Shoe Categories
-                </div>
+            <Transition name="dropdown-fade">
+              <div
+                v-if="activeDropdown === 'shoes'"
+                class="dropdown-panel left-0 min-w-[320px] overflow-visible"
+              >
+                <div class="px-2 py-2">
+                  <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                    Shoe Categories
+                  </div>
 
-                <div class="space-y-1">
                   <Link
                     :href="route('frontend.root', { search: currentSearch || undefined })"
                     class="dropdown-link"
@@ -184,9 +354,10 @@ function toggleMobileShoeCategory(id: number | string) {
                   <div
                     v-for="category in shoeCategories"
                     :key="category.id"
-                    class="relative group/sub"
+                    class="relative"
+                    @mouseenter="openShoeSubMenu(category.subcategories?.length ? category.id : null)"
                   >
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center">
                       <Link
                         :href="route('frontend.root', {
                           shoe_category: category.name,
@@ -200,22 +371,28 @@ function toggleMobileShoeCategory(id: number | string) {
 
                       <span
                         v-if="category.subcategories?.length"
-                        class="pointer-events-none pr-2 text-white/40 transition group-hover/sub:text-white"
+                        class="pointer-events-none pr-3 text-white/35"
                       >
-                        ›
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path
+                            fill-rule="evenodd"
+                            d="M7.21 14.77a.75.75 0 010-1.06L10.94 10 7.21 6.29a.75.75 0 111.06-1.06l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06 0z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
                       </span>
                     </div>
 
-                    <div
-                      v-if="category.subcategories?.length"
-                      class="submenu-panel"
-                    >
-                      <div class="px-3 py-3">
-                        <div class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/50">
-                          {{ category.name }}
-                        </div>
+                    <Transition name="submenu-fade">
+                      <div
+                        v-if="category.subcategories?.length && activeShoeSubMenu === category.id && activeDropdown === 'shoes'"
+                        class="submenu-panel"
+                      >
+                        <div class="px-2 py-2">
+                          <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                            {{ category.name }}
+                          </div>
 
-                        <div class="space-y-1">
                           <Link
                             :href="route('frontend.root', {
                               shoe_category: category.name,
@@ -228,7 +405,7 @@ function toggleMobileShoeCategory(id: number | string) {
                           </Link>
 
                           <Link
-                            v-for="subcategory in category.subcategories"
+                            v-for="subcategory in category.subcategories || []"
                             :key="subcategory.id"
                             :href="route('frontend.root', {
                               shoe_category: category.name,
@@ -242,57 +419,118 @@ function toggleMobileShoeCategory(id: number | string) {
                           </Link>
                         </div>
                       </div>
-                    </div>
+                    </Transition>
                   </div>
                 </div>
               </div>
-            </div>
+            </Transition>
           </div>
 
-          <Link :href="`${route('frontend.root')}#about-us`" class="nav-pill">
-            About Us
+          <Link
+            :href="`${route('frontend.root')}#about-us`"
+            class="nav-link"
+            :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
+          >
+            <span>About Us</span>
+            <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
           </Link>
 
-          <Link :href="`${route('frontend.root')}#contact-us`" class="nav-pill">
-            Contact Us
+          <Link
+            :href="`${route('frontend.root')}#contact-us`"
+            class="nav-link"
+            :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
+          >
+            <span>Contact Us</span>
+            <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
           </Link>
         </nav>
 
-        <div class="hidden xl:flex items-center gap-3">
-          <form @submit.prevent="submitSearch" class="relative">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search products..."
-              class="w-[230px] rounded-full border border-white/12 bg-white/8 py-2.5 pl-11 pr-11 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-white/30 focus:bg-transparent"
-            />
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/50">
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z" clip-rule="evenodd" />
-              </svg>
-            </span>
+        <div class="hidden xl:flex items-center gap-2.5">
+          <Transition name="search-expand" mode="out-in">
+            <div v-if="searchOpen" key="search-open" class="relative w-[240px]">
+              <form @submit.prevent="submitSearch">
+                <input
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search products..."
+                  class="w-full rounded-full border py-2.5 pl-10 pr-10 text-sm outline-none transition-all duration-500"
+                  :class="
+                    scrolled
+                      ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
+                      : 'border-white/10 bg-white/8 text-white placeholder:text-white/45 focus:border-white/25'
+                  "
+                />
+              </form>
+
+              <span
+                class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
+                :class="scrolled ? 'text-black/45' : 'text-white/45'"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </span>
+
+              <button
+                type="button"
+                @click="clearSearch"
+                class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                :class="scrolled ? 'text-black/45 hover:text-black' : 'text-white/45 hover:text-white'"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
 
             <button
-              v-if="searchQuery"
+              v-else
+              key="search-closed"
               type="button"
-              @click="clearSearch"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-white/45 transition hover:text-white"
+              aria-label="Search"
+              class="navbar-icon-btn"
+              :class="
+                scrolled
+                  ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+                  : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+              "
+              @click="searchOpen = true"
             >
-              ✕
+              <svg class="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fill-rule="evenodd"
+                  d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                  clip-rule="evenodd"
+                />
+              </svg>
             </button>
-          </form>
+          </Transition>
 
           <button
             type="button"
-            class="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white transition hover:border-white/25 hover:bg-transparent"
             aria-label="Cart"
+            class="navbar-icon-btn relative"
+            :class="
+              scrolled
+                ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+                : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+            "
           >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+            <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.4 10.2a1 1 0 00.98.8H18.8a1 1 0 00.97-.76L21 7H7" />
               <circle cx="10" cy="20" r="1.5" />
               <circle cx="18" cy="20" r="1.5" />
             </svg>
-            <span class="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-black">
+
+            <span class="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#f04f45] px-1 text-[10px] font-bold text-white">
               0
             </span>
           </button>
@@ -300,7 +538,12 @@ function toggleMobileShoeCategory(id: number | string) {
 
         <button
           type="button"
-          class="xl:hidden inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/8 text-white transition hover:border-white/25 hover:bg-transparent"
+          class="xl:hidden navbar-icon-btn"
+          :class="
+            scrolled
+              ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+              : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+          "
           @click="openMobileMenu = !openMobileMenu"
           :aria-expanded="openMobileMenu ? 'true' : 'false'"
           aria-label="Toggle menu"
@@ -329,265 +572,293 @@ function toggleMobileShoeCategory(id: number | string) {
         </button>
       </div>
     </div>
+  </header>
 
-    <Transition name="mobile-menu">
+  <Teleport to="body">
+    <Transition name="overlay-fade">
       <div
         v-if="openMobileMenu"
-        class="xl:hidden border-t border-white/10 bg-black/95 backdrop-blur-2xl"
+        class="fixed inset-0 top-[72px] z-[70] bg-black/60 backdrop-blur-sm xl:hidden"
+        @click="openMobileMenu = false"
+      />
+    </Transition>
+
+    <Transition name="panel-slide">
+      <div
+        v-if="openMobileMenu"
+        class="fixed bottom-0 right-0 top-[72px] z-[80] w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black text-white xl:hidden"
+        @click.stop
       >
-        <div class="mx-auto max-w-7xl px-4 pb-5 pt-4 sm:px-6">
+        <div class="p-5 space-y-2">
           <form @submit.prevent="submitSearch" class="relative mb-4">
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search products..."
-              class="w-full rounded-2xl border border-white/12 bg-white/8 py-3 pl-11 pr-11 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-white/30 focus:bg-transparent"
+              class="w-full rounded-2xl border border-white/10 bg-white/8 py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/45 outline-none"
             />
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/50">
+            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/45">
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z" clip-rule="evenodd" />
+                <path
+                  fill-rule="evenodd"
+                  d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                  clip-rule="evenodd"
+                />
               </svg>
             </span>
           </form>
 
-          <div class="flex flex-col gap-2">
-            <Link
-              :href="route('frontend.root')"
-              class="mobile-link"
-              @click="openMobileMenu = false"
-            >
-              Home
-            </Link>
+          <Link
+            :href="route('frontend.root')"
+            class="mobile-link"
+            @click="openMobileMenu = false"
+          >
+            Home
+          </Link>
 
-            <div class="rounded-2xl border border-white/10 bg-white/[0.04]">
-              <button
-                type="button"
-                class="mobile-accordion"
-                @click="openMobileTech = !openMobileTech"
-              >
-                <span>Tech Products</span>
-                <span class="transition" :class="openMobileTech ? 'rotate-180' : ''">⌄</span>
-              </button>
-
-              <Transition name="accordion">
-                <div v-if="openMobileTech" class="px-3 pb-3">
-                  <div class="space-y-1 rounded-2xl border border-white/8 bg-black/20 p-2">
-                    <Link
-                      :href="route('frontend.root')"
-                      class="mobile-sub-link"
-                      @click="openMobileMenu = false"
-                    >
-                      All Tech Products
-                    </Link>
-
-                    <Link
-                      v-for="category in techCategories"
-                      :key="category.id"
-                      :href="route('frontend.root', { category: category.name, search: currentSearch || undefined })"
-                      class="mobile-sub-link"
-                      @click="openMobileMenu = false"
-                    >
-                      {{ category.name }}
-                    </Link>
-                  </div>
-                </div>
-              </Transition>
-            </div>
-
-            <div class="rounded-2xl border border-white/10 bg-white/[0.04]">
-              <button
-                type="button"
-                class="mobile-accordion"
-                @click="openMobileShoe = !openMobileShoe"
-              >
-                <span>Shoe Products</span>
-                <span class="transition" :class="openMobileShoe ? 'rotate-180' : ''">⌄</span>
-              </button>
-
-              <Transition name="accordion">
-                <div v-if="openMobileShoe" class="px-3 pb-3">
-                  <div class="space-y-2 rounded-2xl border border-white/8 bg-black/20 p-2">
-                    <Link
-                      :href="route('frontend.root', { search: currentSearch || undefined })"
-                      class="mobile-sub-link"
-                      @click="openMobileMenu = false"
-                    >
-                      All Shoe Products
-                    </Link>
-
-                    <div
-                      v-for="category in shoeCategories"
-                      :key="category.id"
-                      class="rounded-xl border border-white/8 bg-white/[0.03]"
-                    >
-                      <button
-                        type="button"
-                        class="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-white"
-                        @click="toggleMobileShoeCategory(category.id)"
-                      >
-                        <span>{{ category.name }}</span>
-                        <span class="transition" :class="openMobileShoeCategoryId === category.id ? 'rotate-180' : ''">⌄</span>
-                      </button>
-
-                      <Transition name="accordion">
-                        <div
-                          v-if="openMobileShoeCategoryId === category.id"
-                          class="px-3 pb-3"
-                        >
-                          <div class="space-y-1 rounded-xl border border-white/8 bg-black/25 p-2">
-                            <Link
-                              :href="route('frontend.root', {
-                                shoe_category: category.name,
-                                search: currentSearch || undefined,
-                              })"
-                              class="mobile-sub-link"
-                              @click="openMobileMenu = false"
-                            >
-                              View All
-                            </Link>
-
-                            <Link
-                              v-for="subcategory in category.subcategories || []"
-                              :key="subcategory.id"
-                              :href="route('frontend.root', {
-                                shoe_category: category.name,
-                                shoe_subcategory: subcategory.name,
-                                search: currentSearch || undefined,
-                              })"
-                              class="mobile-sub-link"
-                              @click="openMobileMenu = false"
-                            >
-                              {{ subcategory.name }}
-                            </Link>
-                          </div>
-                        </div>
-                      </Transition>
-                    </div>
-                  </div>
-                </div>
-              </Transition>
-            </div>
-
-            <Link
-              :href="`${route('frontend.root')}#about-us`"
-              class="mobile-link"
-              @click="openMobileMenu = false"
-            >
-              About Us
-            </Link>
-
-            <Link
-              :href="`${route('frontend.root')}#contact-us`"
-              class="mobile-link"
-              @click="openMobileMenu = false"
-            >
-              Contact Us
-            </Link>
-
+          <div class="mobile-group">
             <button
               type="button"
-              class="mt-2 inline-flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition hover:bg-transparent"
+              class="mobile-accordion"
+              @click="openMobileTech = !openMobileTech"
             >
-              <span class="inline-flex items-center gap-3">
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.4 10.2a1 1 0 00.98.8H18.8a1 1 0 00.97-.76L21 7H7" />
-                  <circle cx="10" cy="20" r="1.5" />
-                  <circle cx="18" cy="20" r="1.5" />
-                </svg>
-                Cart
-              </span>
-
-              <span class="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-black">
-                0
-              </span>
+              <span>Tech Products</span>
+              <svg
+                class="h-4 w-4 transition-transform duration-300"
+                :class="openMobileTech ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
+              </svg>
             </button>
+
+            <Transition name="accordion">
+              <div v-if="openMobileTech" class="overflow-hidden px-3 pb-3">
+                <div class="rounded-2xl border border-white/8 bg-black/20 p-2 space-y-1">
+                  <Link
+                    :href="route('frontend.root', { search: currentSearch || undefined })"
+                    class="mobile-sub-link"
+                    @click="openMobileMenu = false"
+                  >
+                    All Tech Products
+                  </Link>
+
+                  <Link
+                    v-for="category in techCategories"
+                    :key="category.id"
+                    :href="route('frontend.root', { category: category.name, search: currentSearch || undefined })"
+                    class="mobile-sub-link"
+                    @click="openMobileMenu = false"
+                  >
+                    {{ category.name }}
+                  </Link>
+                </div>
+              </div>
+            </Transition>
           </div>
+
+          <div class="mobile-group">
+            <button
+              type="button"
+              class="mobile-accordion"
+              @click="openMobileShoe = !openMobileShoe"
+            >
+              <span>Shoe Products</span>
+              <svg
+                class="h-4 w-4 transition-transform duration-300"
+                :class="openMobileShoe ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+
+            <Transition name="accordion">
+              <div v-if="openMobileShoe" class="overflow-hidden px-3 pb-3">
+                <div class="rounded-2xl border border-white/8 bg-black/20 p-2 space-y-2">
+                  <Link
+                    :href="route('frontend.root', { search: currentSearch || undefined })"
+                    class="mobile-sub-link"
+                    @click="openMobileMenu = false"
+                  >
+                    All Shoe Products
+                  </Link>
+
+                  <div
+                    v-for="category in shoeCategories"
+                    :key="category.id"
+                    class="rounded-xl border border-white/8 bg-white/[0.03]"
+                  >
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-white"
+                      @click="toggleMobileShoeCategory(category.id)"
+                    >
+                      <span>{{ category.name }}</span>
+                      <svg
+                        class="h-4 w-4 transition-transform duration-300"
+                        :class="openMobileShoeCategoryId === category.id ? 'rotate-180' : ''"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+
+                    <Transition name="accordion">
+                      <div
+                        v-if="openMobileShoeCategoryId === category.id"
+                        class="overflow-hidden px-3 pb-3"
+                      >
+                        <div class="rounded-xl border border-white/8 bg-black/25 p-2 space-y-1">
+                          <Link
+                            :href="route('frontend.root', {
+                              shoe_category: category.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="mobile-sub-link"
+                            @click="openMobileMenu = false"
+                          >
+                            View All
+                          </Link>
+
+                          <Link
+                            v-for="subcategory in category.subcategories || []"
+                            :key="subcategory.id"
+                            :href="route('frontend.root', {
+                              shoe_category: category.name,
+                              shoe_subcategory: subcategory.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="mobile-sub-link"
+                            @click="openMobileMenu = false"
+                          >
+                            {{ subcategory.name }}
+                          </Link>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <Link
+            :href="`${route('frontend.root')}#about-us`"
+            class="mobile-link"
+            @click="openMobileMenu = false"
+          >
+            About Us
+          </Link>
+
+          <Link
+            :href="`${route('frontend.root')}#contact-us`"
+            class="mobile-link"
+            @click="openMobileMenu = false"
+          >
+            Contact Us
+          </Link>
+
+          <button
+            type="button"
+            class="mt-3 inline-flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-transparent"
+          >
+            <span class="inline-flex items-center gap-3">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.4 10.2a1 1 0 00.98.8H18.8a1 1 0 00.97-.76L21 7H7" />
+                <circle cx="10" cy="20" r="1.5" />
+                <circle cx="18" cy="20" r="1.5" />
+              </svg>
+              Cart
+            </span>
+
+            <span class="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#f04f45] px-1 text-[11px] font-bold text-white">
+              0
+            </span>
+          </button>
         </div>
       </div>
     </Transition>
-  </header>
+  </Teleport>
 </template>
 
 <style scoped>
-.nav-pill {
+.nav-link {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 42px;
-  border-radius: 9999px;
-  border: 1px solid transparent;
-  padding: 0 16px;
-  font-size: 0.92rem;
+  height: 48px;
+  padding: 0;
+  font-size: 0.96rem;
   font-weight: 600;
-  color: white;
-  background: transparent;
   transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    transform 220ms ease,
-    opacity 220ms ease;
+    color 260ms ease,
+    opacity 260ms ease,
+    transform 260ms ease;
 }
 
-.nav-pill:hover {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.2);
+.nav-link:hover {
   transform: translateY(-1px);
 }
 
-.nav-pill--active {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.16);
+.nav-link-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 9px;
+  height: 2px;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: center;
+  border-radius: 9999px;
+  opacity: 0.9;
+  transition:
+    transform 240ms ease,
+    opacity 240ms ease;
+}
+
+.nav-link:hover .nav-link-indicator,
+.nav-link--active .nav-link-indicator,
+.nav-link-indicator--active {
+  transform: scaleX(1);
 }
 
 .dropdown-panel {
   position: absolute;
-  left: 0;
-  top: calc(100% + 12px);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(10, 10, 10, 0.96);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(18px);
-  transition:
-    opacity 220ms ease,
-    transform 220ms ease,
-    visibility 220ms ease;
+  top: calc(100% + 14px);
   z-index: 60;
-}
-
-.group:hover > .dropdown-panel {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(9, 9, 11, 0.96);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
 }
 
 .submenu-panel {
   position: absolute;
-  left: calc(100% + 12px);
+  left: calc(100% + 14px);
   top: 0;
-  min-width: 240px;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(6px);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(10, 10, 10, 0.96);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(18px);
-  transition:
-    opacity 220ms ease,
-    transform 220ms ease,
-    visibility 220ms ease;
   z-index: 70;
-}
-
-.group\/sub:hover > .submenu-panel {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  min-width: 240px;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(9, 9, 11, 0.96);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
 }
 
 .dropdown-link {
@@ -616,6 +887,25 @@ function toggleMobileShoeCategory(id: number | string) {
   color: white;
 }
 
+.navbar-icon-btn {
+  display: inline-flex;
+  height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border-width: 1px;
+  transition:
+    background-color 240ms ease,
+    border-color 240ms ease,
+    color 240ms ease,
+    transform 240ms ease;
+}
+
+.navbar-icon-btn:hover {
+  transform: translateY(-1px);
+}
+
 .mobile-link {
   display: flex;
   align-items: center;
@@ -637,6 +927,13 @@ function toggleMobileShoeCategory(id: number | string) {
   background: transparent;
   border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
+}
+
+.mobile-group {
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .mobile-accordion {
@@ -670,31 +967,61 @@ function toggleMobileShoeCategory(id: number | string) {
   transform: translateX(2px);
 }
 
-.mobile-menu-enter-active,
-.mobile-menu-leave-active {
-  transition:
-    opacity 240ms ease,
-    transform 240ms ease;
-  transform-origin: top;
-}
-
-.mobile-menu-enter-from,
-.mobile-menu-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active,
+.submenu-fade-enter-active,
+.submenu-fade-leave-active,
+.overlay-fade-enter-active,
+.overlay-fade-leave-active,
+.search-expand-enter-active,
+.search-expand-leave-active,
+.panel-slide-enter-active,
+.panel-slide-leave-active,
 .accordion-enter-active,
 .accordion-leave-active {
-  transition:
-    opacity 220ms ease,
-    transform 220ms ease;
-  transform-origin: top;
+  transition: all 240ms ease;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.submenu-fade-enter-from,
+.submenu-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+.overlay-fade-enter-from,
+.overlay-fade-leave-to {
+  opacity: 0;
+}
+
+.search-expand-enter-from,
+.search-expand-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.panel-slide-enter-from,
+.panel-slide-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
 }
 
 .accordion-enter-from,
 .accordion-leave-to {
   opacity: 0;
   transform: translateY(-6px);
+  max-height: 0;
+}
+
+.accordion-enter-to,
+.accordion-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 500px;
 }
 </style>

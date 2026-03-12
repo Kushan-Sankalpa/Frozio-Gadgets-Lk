@@ -67,10 +67,12 @@ defineProps<{
 
   <ShoeCategories :categories="shoeCategories" />
 
-  <ShoeFeaturedProducts :products="featuredShoes" />
-
-  <ThreeDShoe
+    <ThreeDShoe
     model-path="/models/air_jordan_1.glb"
     height="680px"
   />
+
+  <ShoeFeaturedProducts :products="featuredShoes" />
+
+
 </template>

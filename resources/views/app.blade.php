@@ -33,8 +33,8 @@
 
         <title inertia>{{ config('app.name', 'Drift Barber') }}</title>
 
-        <link rel="icon" href="/assets/images/baber_romove_bg.png" sizes="any">
-        <link rel="icon" href="/assets/images/baber_romove_bg.png" type="image/svg+xml">
+        <link rel="icon" href="/assets/images/.png" sizes="any">
+        <link rel="icon" href="/assets/images/.png" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         <link rel="preconnect" href="https://fonts.bunny.net">

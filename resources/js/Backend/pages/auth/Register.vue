@@ -5,7 +5,7 @@ import { Button } from '@/Backend/components/ui/button';
 import { Input } from '@/Backend/components/ui/input';
 import { Label } from '@/Backend/components/ui/label';
 import AuthBase from '@/Backend/layouts/AuthLayout.vue';
-import { login } from '@/routes';
+import { login } from '@/routes/admin';
 import { store } from '@/routes/register';
 import { Form, Head } from '@inertiajs/vue3';
 import { LoaderCircle } from 'lucide-vue-next';

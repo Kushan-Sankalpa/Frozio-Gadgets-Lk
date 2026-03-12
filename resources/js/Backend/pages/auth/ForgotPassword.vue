@@ -6,7 +6,7 @@ import { Input } from '@/Backend/components/ui/input'
 import { Label } from '@/Backend/components/ui/label'
 import { Head, Form } from '@inertiajs/vue3'
 import { LoaderCircle, Mail } from 'lucide-vue-next'
-import { login } from '@/routes'
+import { login } from '@/routes/admin'
 import { email } from '@/routes/password'
 
 defineProps<{ status?: string }>()

@@ -13,8 +13,8 @@ import AppLogoIcon from '@/Backend/components/AppLogoIcon.vue'
        <h1
     class="brand-neon font-extrabold uppercase tracking-wider leading-none
            font-['Orbitron',sans-serif] whitespace-nowrap truncate">
-    D<span>r</span>if<span>t</span>
-    Ba<span>r</span>b<span>e</span>r
+    F<span>r</span>OZIO<span></span>
+    H<span>U</span>b
 </h1>
 
     </div>

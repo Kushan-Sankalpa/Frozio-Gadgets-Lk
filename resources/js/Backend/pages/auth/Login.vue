@@ -166,11 +166,7 @@ const submit = () => {
         >
           L<span class="flicker">O</span>G<span class="flicker-2">I</span>N
         </h1>
-        <img
-          src="/assets/images/baber_romove_bg.png"
-          alt="Drift Barber"
-          class="mt-6 w-40 sm:w-48 md:w-56 object-contain drop-shadow-[0_0_36px_rgba(255,32,0,0.55)]"
-        />
+      
       </div>
     </section>
   </div>

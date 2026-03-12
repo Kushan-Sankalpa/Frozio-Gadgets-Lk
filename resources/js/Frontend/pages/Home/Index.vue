@@ -4,6 +4,7 @@ import Product from './Product.vue'
 import HomeBanner from './HomeBanner.vue'
 import TechCategories from './techcategories.vue'
 import ShoeCategories from './shoecategories.vue'
+import ShoeFeaturedProducts from './ShoeFeaturedProducts.vue'
 import ThreeDPhone from '../../components/3dphone.vue'
 import ThreeDShoe from '../../components/3dshoe.vue'
 
@@ -32,6 +33,23 @@ defineProps<{
     image_url: string | null
     status?: string | null
   }>
+  featuredShoes: Array<{
+    id: number | string
+    name: string
+    slug?: string | null
+    brand_name?: string | null
+    thumbnail_url: string | null
+    hover_image_url: string | null
+    currency?: string | null
+    regular_price: number | null
+    sale_price: number | null
+    display_price: number | null
+    has_discount: boolean
+    discount_label?: string | null
+    is_sold_out: boolean
+    status?: string | null
+    stock_status?: string | null
+  }>
 }>()
 </script>
 
@@ -48,6 +66,8 @@ defineProps<{
   <Product :products="products" :activeCategory="activeCategory" />
 
   <ShoeCategories :categories="shoeCategories" />
+
+  <ShoeFeaturedProducts :products="featuredShoes" />
 
   <ThreeDShoe
     model-path="/models/air_jordan_1.glb"

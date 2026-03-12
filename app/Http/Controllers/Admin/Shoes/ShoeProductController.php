@@ -98,7 +98,7 @@ class ShoeProductController extends Controller
         $length = (int) $request->input('length', 10);
         $searchValue = trim((string) $request->input('search.value', ''));
 
-        $$baseQuery = ShoeProduct::query()
+        $baseQuery = ShoeProduct::query()
     ->with([
         'brand:id,name',
         'category:id,name',

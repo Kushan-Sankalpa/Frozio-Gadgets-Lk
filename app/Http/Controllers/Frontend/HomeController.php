@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\HomeBanner;
 use App\Models\Product;
+use App\Models\ShoeCategory;
 use Inertia\Inertia;
 
 class HomeController extends Controller
@@ -45,6 +46,21 @@ class HomeController extends Controller
             })
             ->values();
 
+            $shoeCategories = ShoeCategory::query()
+                ->where('status', 'active')
+                ->oldest('id')
+                ->take(3)
+                ->get()
+                ->map(function (ShoeCategory $category) {
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->name,
+                        'image_url' => $category->image_url,
+                        'status' => $category->status,
+                    ];
+                })
+                ->values();
+
         $products = Product::query()
             ->with('category:id,name')
             ->when($normalizedCategory, function ($query, $normalizedCategory) {
@@ -69,10 +85,11 @@ class HomeController extends Controller
             });
 
         return Inertia::render('Frontend/Home/index', [
-            'products' => $products,
-            'activeCategory' => $activeCategory,
-            'banners' => $banners,
-            'categories' => $categories,
-        ]);
+    'products' => $products,
+    'activeCategory' => $activeCategory,
+    'banners' => $banners,
+    'categories' => $categories,
+    'shoeCategories' => $shoeCategories,
+]);
     }
 }

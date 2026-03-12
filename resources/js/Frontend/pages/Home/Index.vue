@@ -3,6 +3,7 @@ import AppLayout from '../../layouts/AppLayout.vue'
 import Product from './Product.vue'
 import HomeBanner from './HomeBanner.vue'
 import TechCategories from './techcategories.vue'
+import ShoeCategories from './shoecategories.vue'
 import ThreeDPhone from '../../components/3dphone.vue'
 import ThreeDShoe from '../../components/3dshoe.vue'
 
@@ -25,6 +26,12 @@ defineProps<{
     image_url: string | null
     status?: string | null
   }>
+  shoeCategories: Array<{
+    id: number | string
+    name: string
+    image_url: string | null
+    status?: string | null
+  }>
 }>()
 </script>
 
@@ -38,9 +45,9 @@ defineProps<{
     height="700px"
   />
 
-  
-
   <Product :products="products" :activeCategory="activeCategory" />
+
+  <ShoeCategories :categories="shoeCategories" />
 
   <ThreeDShoe
     model-path="/models/air_jordan_1.glb"

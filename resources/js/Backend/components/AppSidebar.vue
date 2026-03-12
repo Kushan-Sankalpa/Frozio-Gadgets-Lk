@@ -74,10 +74,10 @@ const mainNavItems: NavItemWithSubmenu[] = [
         title: 'Shoe Brands',
         href: route('admin.shoes.brands.index'),
       },
-      {
-        title: 'Shoe Types',
-        href: route('admin.shoes.types.index'),
-      },
+      // {
+      //   title: 'Shoe Types',
+      //   href: route('admin.shoes.types.index'),
+      // },
       {
         title: 'Shoe Categories',
         href: route('admin.shoes.categories.index'),

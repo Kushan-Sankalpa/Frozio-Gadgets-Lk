@@ -69,7 +69,7 @@ $featuredShoes = ShoeProduct::query()
     ->where('featured', true)
     ->where('status', 'published')
     ->latest('id')
-    ->take(4)
+    ->take(8)
     ->get()
     ->map(function (ShoeProduct $product) use ($today) {
         $regularPrice = $product->regular_price !== null ? (float) $product->regular_price : null;

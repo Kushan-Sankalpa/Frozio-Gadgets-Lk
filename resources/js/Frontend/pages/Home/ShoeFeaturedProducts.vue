@@ -27,7 +27,7 @@ const imageLoadTotal = ref(0)
 const imageLoadDone = ref(0)
 const loading = ref(true)
 
-const visibleProducts = computed(() => (props.products ?? []).slice(0, 4))
+const visibleProducts = computed(() => (props.products ?? []).slice(0, 8))
 
 function formatPrice(value: number | null | undefined) {
   if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) {
@@ -100,9 +100,9 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="loading" class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 xl:gap-5">
+    <div v-if="loading" class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5">
       <div
-        v-for="index in 4"
+        v-for="index in 8"
         :key="`shoe-skeleton-${index}`"
         class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
       >
@@ -121,7 +121,7 @@ onMounted(() => {
 
     <div
       v-else-if="visibleProducts.length"
-      class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 xl:gap-5"
+      class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5"
     >
       <article
         v-for="product in visibleProducts"

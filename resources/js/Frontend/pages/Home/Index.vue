@@ -13,7 +13,23 @@ defineOptions({
 })
 
 defineProps<{
-  products: any
+  products: Array<{
+    id: number | string
+    name: string
+    category_name?: string | null
+    thumbnail_url: string | null
+    hover_image_url: string | null
+    regular_price: number | null
+    display_price: number | null
+    has_discount: boolean
+    discount_label?: string | null
+    is_sold_out: boolean
+    colors?: Array<{
+      id: number | string
+      name: string
+      image_url?: string | null
+    }>
+  }>
   activeCategory?: string | null
   banners: Array<{
     id: number | string
@@ -63,16 +79,20 @@ defineProps<{
     height="700px"
   />
 
-  <Product :products="products" :activeCategory="activeCategory" />
+  <Product
+    :products="products"
+    :categories="categories"
+    :activeCategory="activeCategory"
+  />
 
   <ShoeCategories :categories="shoeCategories" />
 
-    <ThreeDShoe
+  
+  <ThreeDShoe
     model-path="/models/air_jordan_1.glb"
     height="680px"
   />
 
   <ShoeFeaturedProducts :products="featuredShoes" />
-
 
 </template>

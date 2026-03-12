@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { route } from 'ziggy-js'
 
 type CategoryPayload = {
   id: number
   name: string
   status: 'active' | 'inactive'
+  image_url?: string | null
 }
 
 const props = defineProps<{
@@ -17,23 +18,51 @@ const props = defineProps<{
 
 const isEdit = computed(() => props.mode === 'edit' && !!props.category?.id)
 
+const imagePreview = ref<string | null>(props.category?.image_url ?? null)
+let imageObjectUrl: string | null = null
+
 const form = useForm({
   name: props.category?.name ?? '',
   is_active: (props.category?.status ?? 'active') === 'active',
+  image: null as File | null,
 })
+
+function revokeImageObjectUrl() {
+  if (imageObjectUrl) {
+    URL.revokeObjectURL(imageObjectUrl)
+    imageObjectUrl = null
+  }
+}
+
+function onImageChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] || null
+
+  form.image = file
+  revokeImageObjectUrl()
+
+  if (file) {
+    imageObjectUrl = URL.createObjectURL(file)
+    imagePreview.value = imageObjectUrl
+    return
+  }
+
+  imagePreview.value = props.category?.image_url ?? null
+}
 
 function submit() {
   form.clearErrors()
 
-  const payload = (data: typeof form) => ({
+  const payload = (data: any) => ({
     ...data,
     status: data.is_active ? 'active' : 'inactive',
   })
 
   if (!isEdit.value) {
     form
-      .transform((data) => payload(data as typeof form))
+      .transform((data) => payload(data))
       .post(route('admin.shoes.categories.store'), {
+        forceFormData: true,
         preserveScroll: true,
         onFinish: () => form.transform((data) => data),
       })
@@ -43,14 +72,19 @@ function submit() {
 
   form
     .transform((data) => ({
-      ...payload(data as typeof form),
+      ...payload(data),
       _method: 'PUT',
     }))
     .post(route('admin.shoes.categories.update', props.category!.id), {
+      forceFormData: true,
       preserveScroll: true,
       onFinish: () => form.transform((data) => data),
     })
 }
+
+onBeforeUnmount(() => {
+  revokeImageObjectUrl()
+})
 </script>
 
 <template>
@@ -88,6 +122,27 @@ function submit() {
               class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
             />
             <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-sm font-medium text-neutral-700">Category Image</label>
+
+            <div class="flex items-center gap-4">
+              <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
+                <img v-if="imagePreview" :src="imagePreview" class="h-full w-full object-cover" />
+                <span v-else class="text-xs text-neutral-400">No Image</span>
+              </div>
+
+              <div class="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="onImageChange"
+                  class="block w-full text-sm text-neutral-600 file:mr-4 file:rounded-full file:border-0 file:bg-neutral-100 file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-neutral-200"
+                />
+                <p v-if="form.errors.image" class="mt-1 text-sm text-red-600">{{ form.errors.image }}</p>
+              </div>
+            </div>
           </div>
 
           <div>

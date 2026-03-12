@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Shoes;
 use App\Http\Controllers\Controller;
 use App\Models\ShoeCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -28,10 +29,11 @@ class ShoeCategoryController extends Controller
         return Inertia::render('Shoes/Categories/partials/CreateUpdate', [
             'mode' => 'edit',
             'category' => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'status' => $category->status,
-            ],
+    'id' => $category->id,
+    'name' => $category->name,
+    'status' => $category->status,
+    'image_url' => $category->image_url,
+],
         ]);
     }
 
@@ -124,14 +126,20 @@ class ShoeCategoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:shoes_categories,name'],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
+    'name' => ['required', 'string', 'max:255', 'unique:shoes_categories,name'],
+    'status' => ['required', 'in:active,inactive'],
+    'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+]);
 
-        ShoeCategory::create([
-            'name' => $validated['name'],
-            'status' => $validated['status'],
-        ]);
+       $imagePath = $request->hasFile('image')
+    ? $request->file('image')->store('shoe-categories', 'public')
+    : null;
+
+ShoeCategory::create([
+    'name' => $validated['name'],
+    'image_path' => $imagePath,
+    'status' => $validated['status'],
+]);
 
         return redirect()
             ->route('admin.shoes.categories.index')
@@ -140,34 +148,49 @@ class ShoeCategoryController extends Controller
 
     public function update(Request $request, ShoeCategory $category)
     {
-        $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('shoes_categories', 'name')->ignore($category->id),
-            ],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
+       $validated = $request->validate([
+    'name' => [
+        'required',
+        'string',
+        'max:255',
+        Rule::unique('shoes_categories', 'name')->ignore($category->id),
+    ],
+    'status' => ['required', 'in:active,inactive'],
+    'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+]);
 
-        $category->update([
-            'name' => $validated['name'],
-            'status' => $validated['status'],
-        ]);
+        $data = [
+    'name' => $validated['name'],
+    'status' => $validated['status'],
+];
+
+if ($request->hasFile('image')) {
+    if ($category->image_path && Storage::disk('public')->exists($category->image_path)) {
+        Storage::disk('public')->delete($category->image_path);
+    }
+
+    $data['image_path'] = $request->file('image')->store('shoe-categories', 'public');
+}
+
+$category->update($data);
 
         return redirect()
             ->route('admin.shoes.categories.index')
             ->with('success', 'Shoe category updated.');
     }
 
-    public function destroy(ShoeCategory $category)
-    {
-        $category->delete();
-
-        return redirect()
-            ->route('admin.shoes.categories.index')
-            ->with('success', 'Shoe category deleted.');
+   public function destroy(ShoeCategory $category)
+{
+    if ($category->image_path && Storage::disk('public')->exists($category->image_path)) {
+        Storage::disk('public')->delete($category->image_path);
     }
+
+    $category->delete();
+
+    return redirect()
+        ->route('admin.shoes.categories.index')
+        ->with('success', 'Shoe category deleted.');
+}
 
     public function options()
     {

@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Admin\Shoes;
 use App\Http\Controllers\Controller;
 use App\Models\ShoeSubcategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-
 class ShoeSubcategoryController extends Controller
 {
     public function index()
@@ -27,12 +27,13 @@ class ShoeSubcategoryController extends Controller
     {
         return Inertia::render('Shoes/Subcategories/partials/CreateUpdate', [
             'mode' => 'edit',
-            'subcategory' => [
-                'id' => $subcategory->id,
-                'category_id' => $subcategory->category_id,
-                'name' => $subcategory->name,
-                'status' => $subcategory->status,
-            ],
+'subcategory' => [
+    'id' => $subcategory->id,
+    'category_id' => $subcategory->category_id,
+    'name' => $subcategory->name,
+    'status' => $subcategory->status,
+    'image_url' => $subcategory->image_url,
+],
         ]);
     }
 
@@ -130,24 +131,29 @@ class ShoeSubcategoryController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'category_id' => ['required', 'integer', 'exists:shoes_categories,id'],
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('shoe_subcategories', 'name')
-                    ->where(fn ($query) => $query->where('category_id', $request->category_id)),
-            ],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
+       $validated = $request->validate([
+    'category_id' => ['required', 'integer', 'exists:shoes_categories,id'],
+    'name' => [
+        'required',
+        'string',
+        'max:255',
+        Rule::unique('shoe_subcategories', 'name')
+            ->where(fn ($query) => $query->where('category_id', $request->category_id)),
+    ],
+    'status' => ['required', 'in:active,inactive'],
+    'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+]);
 
-        ShoeSubcategory::create([
-            'category_id' => $validated['category_id'],
-            'name' => $validated['name'],
-            'status' => $validated['status'],
-        ]);
+       $imagePath = $request->hasFile('image')
+    ? $request->file('image')->store('shoe-subcategories', 'public')
+    : null;
 
+ShoeSubcategory::create([
+    'category_id' => $validated['category_id'],
+    'name' => $validated['name'],
+    'image_path' => $imagePath,
+    'status' => $validated['status'],
+]);
         return redirect()
             ->route('admin.shoes.subcategories.index')
             ->with('success', 'Shoe subcategory created.');
@@ -155,38 +161,52 @@ class ShoeSubcategoryController extends Controller
 
     public function update(Request $request, ShoeSubcategory $subcategory)
     {
-        $validated = $request->validate([
-            'category_id' => ['required', 'integer', 'exists:shoes_categories,id'],
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('shoe_subcategories', 'name')
-                    ->ignore($subcategory->id)
-                    ->where(fn ($query) => $query->where('category_id', $request->category_id)),
-            ],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
+       $validated = $request->validate([
+    'category_id' => ['required', 'integer', 'exists:shoes_categories,id'],
+    'name' => [
+        'required',
+        'string',
+        'max:255',
+        Rule::unique('shoe_subcategories', 'name')
+            ->ignore($subcategory->id)
+            ->where(fn ($query) => $query->where('category_id', $request->category_id)),
+    ],
+    'status' => ['required', 'in:active,inactive'],
+    'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+]);
 
-        $subcategory->update([
-            'category_id' => $validated['category_id'],
-            'name' => $validated['name'],
-            'status' => $validated['status'],
-        ]);
+       $data = [
+    'category_id' => $validated['category_id'],
+    'name' => $validated['name'],
+    'status' => $validated['status'],
+];
+
+if ($request->hasFile('image')) {
+    if ($subcategory->image_path && Storage::disk('public')->exists($subcategory->image_path)) {
+        Storage::disk('public')->delete($subcategory->image_path);
+    }
+
+    $data['image_path'] = $request->file('image')->store('shoe-subcategories', 'public');
+}
+
+$subcategory->update($data);
 
         return redirect()
             ->route('admin.shoes.subcategories.index')
             ->with('success', 'Shoe subcategory updated.');
     }
-
-    public function destroy(ShoeSubcategory $subcategory)
-    {
-        $subcategory->delete();
-
-        return redirect()
-            ->route('admin.shoes.subcategories.index')
-            ->with('success', 'Shoe subcategory deleted.');
+public function destroy(ShoeSubcategory $subcategory)
+{
+    if ($subcategory->image_path && Storage::disk('public')->exists($subcategory->image_path)) {
+        Storage::disk('public')->delete($subcategory->image_path);
     }
+
+    $subcategory->delete();
+
+    return redirect()
+        ->route('admin.shoes.subcategories.index')
+        ->with('success', 'Shoe subcategory deleted.');
+}
 
     public function options(Request $request)
 {

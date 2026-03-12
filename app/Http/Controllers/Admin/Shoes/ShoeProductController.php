@@ -37,7 +37,7 @@ class ShoeProductController extends Controller
                 'name' => $product->name,
                 'slug' => $product->slug,
                 'brand_id' => $product->brand_id,
-                'product_type_id' => $product->product_type_id,
+                
                 'category_id' => $product->category_id,
                 'subcategory_id' => $product->subcategory_id,
                 'sku' => $product->sku,
@@ -98,13 +98,12 @@ class ShoeProductController extends Controller
         $length = (int) $request->input('length', 10);
         $searchValue = trim((string) $request->input('search.value', ''));
 
-        $baseQuery = ShoeProduct::query()
-            ->with([
-                'brand:id,name',
-                'productType:id,name',
-                'category:id,name',
-                'subcategory:id,name',
-            ]);
+        $$baseQuery = ShoeProduct::query()
+    ->with([
+        'brand:id,name',
+        'category:id,name',
+        'subcategory:id,name',
+    ]);
 
         $recordsTotal = (clone $baseQuery)->count();
 
@@ -115,7 +114,7 @@ class ShoeProductController extends Controller
                     ->orWhere('sku', 'like', "%{$searchValue}%")
                     ->orWhere('status', 'like', "%{$searchValue}%")
                     ->orWhereHas('brand', fn ($x) => $x->where('name', 'like', "%{$searchValue}%"))
-                    ->orWhereHas('productType', fn ($x) => $x->where('name', 'like', "%{$searchValue}%"))
+                    
                     ->orWhereHas('category', fn ($x) => $x->where('name', 'like', "%{$searchValue}%"))
                     ->orWhereHas('subcategory', fn ($x) => $x->where('name', 'like', "%{$searchValue}%"));
             });
@@ -163,14 +162,13 @@ class ShoeProductController extends Controller
                         <div class="text-xs text-neutral-500">' . e($product->slug) . '</div>
                    </div>';
 
-            $details = '
-                <div class="text-sm">
-                    <div><span class="font-medium">Brand:</span> ' . e($product->brand?->name ?? '-') . '</div>
-                    <div><span class="font-medium">Type:</span> ' . e($product->productType?->name ?? '-') . '</div>
-                    <div><span class="font-medium">Category:</span> ' . e($product->category?->name ?? '-') . '</div>
-                </div>
-            ';
-
+           $details = '
+    <div class="text-sm">
+        <div><span class="font-medium">Brand:</span> ' . e($product->brand?->name ?? '-') . '</div>
+        <div><span class="font-medium">Category:</span> ' . e($product->category?->name ?? '-') . '</div>
+        <div><span class="font-medium">Subcategory:</span> ' . e($product->subcategory?->name ?? '-') . '</div>
+    </div>
+';
             $price = $product->sale_price ?: $product->regular_price;
             $priceDisplay = $price !== null
                 ? e($product->currency . ' ' . number_format((float) $price, 2))
@@ -276,7 +274,7 @@ class ShoeProductController extends Controller
                 Rule::unique('shoe_products', 'slug')->ignore($product?->id),
             ],
             'brand_id' => ['required', 'integer', 'exists:shoe_brands,id'],
-            'product_type_id' => ['required', 'integer', 'exists:shoe_types,id'],
+          'product_type_id' => ['nullable', 'integer', 'exists:shoe_types,id'],
             'category_id' => ['required', 'integer', 'exists:shoes_categories,id'],
             'subcategory_id' => ['required', 'integer', 'exists:shoe_subcategories,id'],
             'sku' => [
@@ -363,7 +361,9 @@ class ShoeProductController extends Controller
             'name' => $validated['name'],
             'slug' => Str::slug($validated['slug']),
             'brand_id' => (int) $validated['brand_id'],
-            'product_type_id' => (int) $validated['product_type_id'],
+            'product_type_id' => !empty($validated['product_type_id'])
+    ? (int) $validated['product_type_id']
+    : null,
             'category_id' => (int) $validated['category_id'],
             'subcategory_id' => (int) $validated['subcategory_id'],
             'sku' => filled(trim((string) ($validated['sku'] ?? '')))

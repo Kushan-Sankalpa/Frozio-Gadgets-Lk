@@ -17,7 +17,7 @@ type ProductPayload = {
   name: string
   slug: string
   brand_id: number | null
-  product_type_id: number | null
+  
   category_id: number | null
   subcategory_id: number | null
   sku?: string | null
@@ -62,7 +62,7 @@ const props = defineProps<{
 const isEdit = computed(() => props.mode === 'edit' && !!props.product?.id)
 
 const brandOptions = ref<Option[]>([])
-const typeOptions = ref<Option[]>([])
+
 const categoryOptions = ref<Option[]>([])
 const subcategoryOptions = ref<Option[]>([])
 const sizeTypeOptions = ref<Option[]>([])
@@ -132,7 +132,7 @@ const form = useForm({
   name: props.product?.name ?? '',
   slug: props.product?.slug ?? '',
   brand_id: props.product?.brand_id ?? null as number | null,
-  product_type_id: props.product?.product_type_id ?? null as number | null,
+
   category_id: props.product?.category_id ?? null as number | null,
   subcategory_id: props.product?.subcategory_id ?? null as number | null,
   sku: props.product?.sku ?? '',
@@ -187,7 +187,11 @@ watch(
 
 watch(
   () => form.category_id,
-  async (categoryId) => {
+  async (categoryId, oldCategoryId) => {
+    if (Number(categoryId) !== Number(oldCategoryId)) {
+      form.subcategory_id = null
+    }
+
     await fetchSubcategories(categoryId ? Number(categoryId) : null)
   }
 )
@@ -423,28 +427,25 @@ async function fetchSubcategories(categoryId: number | null) {
 }
 
 async function fetchAllOptions() {
-  const [
-    brandsResponse,
-    typesResponse,
-    categoriesResponse,
-    sizeTypesResponse,
-    colorsResponse,
-    materialsResponse,
-  ] = await Promise.all([
-    axios.get(route('admin.shoes.brands.options')),
-    axios.get(route('admin.shoes.types.options')),
-    axios.get(route('admin.shoes.categories.options')),
-    axios.get(route('admin.shoes.size-types.options')),
-    axios.get(route('admin.shoes.colors.options')),
-    axios.get(route('admin.shoes.materials.options')),
-  ])
+ const [
+  brandsResponse,
+  categoriesResponse,
+  sizeTypesResponse,
+  colorsResponse,
+  materialsResponse,
+] = await Promise.all([
+  axios.get(route('admin.shoes.brands.options')),
+  axios.get(route('admin.shoes.categories.options')),
+  axios.get(route('admin.shoes.size-types.options')),
+  axios.get(route('admin.shoes.colors.options')),
+  axios.get(route('admin.shoes.materials.options')),
+])
 
-  brandOptions.value = Array.isArray(brandsResponse.data) ? brandsResponse.data : []
-  typeOptions.value = Array.isArray(typesResponse.data) ? typesResponse.data : []
-  categoryOptions.value = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : []
-  sizeTypeOptions.value = Array.isArray(sizeTypesResponse.data) ? sizeTypesResponse.data : []
-  colorOptions.value = Array.isArray(colorsResponse.data) ? colorsResponse.data : []
-  materialOptions.value = Array.isArray(materialsResponse.data) ? materialsResponse.data : []
+brandOptions.value = Array.isArray(brandsResponse.data) ? brandsResponse.data : []
+categoryOptions.value = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : []
+sizeTypeOptions.value = Array.isArray(sizeTypesResponse.data) ? sizeTypesResponse.data : []
+colorOptions.value = Array.isArray(colorsResponse.data) ? colorsResponse.data : []
+materialOptions.value = Array.isArray(materialsResponse.data) ? materialsResponse.data : []
 
   if (form.category_id) {
     await fetchSubcategories(Number(form.category_id))
@@ -570,7 +571,7 @@ onBeforeUnmount(() => {
                 placeholder="Select brand"
               />
             </div>
-
+<!-- 
             <div>
               <SelectInputComponent
                 id="shoe_product_type_id"
@@ -583,7 +584,7 @@ onBeforeUnmount(() => {
                 labelKey="name"
                 placeholder="Select product type"
               />
-            </div>
+            </div> -->
 
             <div>
               <SelectInputComponent

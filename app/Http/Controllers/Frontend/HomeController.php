@@ -16,8 +16,24 @@ class HomeController extends Controller
     public function index()
     {
         $activeCategory = request('category');
+        $activeShoeCategory = request('shoe_category');
+        $activeShoeSubcategory = request('shoe_subcategory');
+        $search = trim((string) request('search', ''));
+
         $normalizedCategory = filled($activeCategory)
             ? mb_strtolower(trim((string) $activeCategory))
+            : null;
+
+        $normalizedShoeCategory = filled($activeShoeCategory)
+            ? mb_strtolower(trim((string) $activeShoeCategory))
+            : null;
+
+        $normalizedShoeSubcategory = filled($activeShoeSubcategory)
+            ? mb_strtolower(trim((string) $activeShoeSubcategory))
+            : null;
+
+        $normalizedSearch = filled($search)
+            ? mb_strtolower($search)
             : null;
 
         $banners = HomeBanner::query()
@@ -49,8 +65,13 @@ class HomeController extends Controller
 
         $shoeCategories = ShoeCategory::query()
             ->where('status', 'active')
+            ->with([
+                'subcategories' => function ($query) {
+                    $query->select('id', 'category_id', 'name')
+                        ->orderBy('name');
+                },
+            ])
             ->oldest('id')
-            ->take(3)
             ->get()
             ->map(function (ShoeCategory $category) {
                 return [
@@ -58,6 +79,12 @@ class HomeController extends Controller
                     'name' => $category->name,
                     'image_url' => $category->image_url,
                     'status' => $category->status,
+                    'subcategories' => $category->subcategories
+                        ->map(fn ($subcategory) => [
+                            'id' => $subcategory->id,
+                            'name' => $subcategory->name,
+                        ])
+                        ->values(),
                 ];
             })
             ->values();
@@ -65,9 +92,30 @@ class HomeController extends Controller
         $today = now()->startOfDay();
 
         $featuredShoes = ShoeProduct::query()
-            ->with(['brand:id,name'])
+            ->with([
+                'brand:id,name',
+                'category:id,name',
+                'subcategory:id,name',
+            ])
             ->where('featured', true)
             ->where('status', 'published')
+            ->when($normalizedShoeCategory, function ($query) use ($normalizedShoeCategory) {
+                $query->whereHas('category', function ($categoryQuery) use ($normalizedShoeCategory) {
+                    $categoryQuery->whereRaw('LOWER(name) = ?', [$normalizedShoeCategory]);
+                });
+            })
+            ->when($normalizedShoeSubcategory, function ($query) use ($normalizedShoeSubcategory) {
+                $query->whereHas('subcategory', function ($subcategoryQuery) use ($normalizedShoeSubcategory) {
+                    $subcategoryQuery->whereRaw('LOWER(name) = ?', [$normalizedShoeSubcategory]);
+                });
+            })
+            ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
+                $query->where(function ($inner) use ($normalizedSearch) {
+                    $inner->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(slug) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
+                });
+            })
             ->latest('id')
             ->take(8)
             ->get()
@@ -130,6 +178,12 @@ class HomeController extends Controller
             ->when($normalizedCategory, function ($query, $normalizedCategory) {
                 $query->whereHas('category', function ($categoryQuery) use ($normalizedCategory) {
                     $categoryQuery->whereRaw('LOWER(name) = ?', [$normalizedCategory]);
+                });
+            })
+            ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
+                $query->where(function ($inner) use ($normalizedSearch) {
+                    $inner->whereRaw('LOWER(model) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
                 });
             })
             ->latest('id')
@@ -220,6 +274,9 @@ class HomeController extends Controller
             'categories' => $categories,
             'shoeCategories' => $shoeCategories,
             'featuredShoes' => $featuredShoes,
+            'search' => $search,
+            'activeShoeCategory' => $activeShoeCategory,
+            'activeShoeSubcategory' => $activeShoeSubcategory,
         ]);
     }
 }

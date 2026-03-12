@@ -204,15 +204,7 @@ watch(
               v-if="b.name || b.description"
               class="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8"
             >
-              <div v-if="b.name" class="text-white font-semibold text-base sm:text-lg md:text-xl drop-shadow">
-                {{ b.name }}
-              </div>
-              <div
-                v-if="b.description"
-                class="mt-1 text-white/85 text-sm sm:text-base md:text-lg line-clamp-2 drop-shadow"
-              >
-                {{ b.description }}
-              </div>
+             
             </div>
           </div>
         </div>

@@ -73,21 +73,6 @@ function formatPrice(value: number | null | undefined) {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-3 rounded-[28px] border border-neutral-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-      <div>
-        <h2 class="text-lg font-semibold text-neutral-900">
-          Product Results
-        </h2>
-        <p class="mt-1 text-sm text-neutral-500">
-          Page {{ pagination.current_page }} of {{ pagination.last_page }} · {{ pagination.total }} items
-        </p>
-      </div>
-
-      <div class="rounded-full bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700">
-        Showing {{ pagination.from }}–{{ pagination.to }}
-      </div>
-    </div>
-
     <div
       v-if="loadError"
       class="rounded-[28px] border border-red-200 bg-red-50 px-6 py-12 text-center"
@@ -123,40 +108,40 @@ function formatPrice(value: number | null | undefined) {
 
       <div
         v-else
-        class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5"
       >
         <article
           v-for="product in products"
           :key="product.id"
-          class="shoe-product-card group overflow-hidden rounded-[24px] border border-neutral-200 bg-white shadow-sm"
+          class="shoe-product-card group overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
         >
           <div class="relative overflow-hidden bg-white">
-            <div class="absolute left-4 top-4 z-20 flex flex-col gap-2">
+            <div class="absolute left-3 top-3 z-20 flex flex-col gap-1.5 sm:left-4 sm:top-4 sm:gap-2">
               <span
                 v-if="product.has_discount && product.discount_label"
-                class="inline-flex w-fit items-center rounded-md bg-[#ef5a4f] px-3 py-1 text-xs font-semibold text-white shadow-sm"
+                class="inline-flex w-fit items-center rounded-md bg-[#ef5a4f] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
               >
                 {{ product.discount_label }}
               </span>
 
               <span
                 v-if="product.is_sold_out"
-                class="inline-flex w-fit items-center rounded-md bg-[#bdbdbd] px-3 py-1 text-xs font-semibold text-white shadow-sm"
+                class="inline-flex w-fit items-center rounded-md bg-[#bdbdbd] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
               >
                 Sold Out
               </span>
             </div>
 
-            <div class="absolute right-4 top-4 z-20 text-right">
-              <div class="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-700">
+            <div class="absolute right-3 top-3 z-20 text-right sm:right-4 sm:top-4">
+              <div class="max-w-[92px] truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-700 sm:max-w-[120px] sm:text-xs sm:tracking-[0.16em]">
                 {{ product.brand_name || 'Featured' }}
               </div>
-              <div class="text-[11px] text-neutral-500">
+              <div class="max-w-[92px] truncate text-[9px] text-neutral-500 sm:max-w-[120px] sm:text-[11px]">
                 {{ product.category_name || 'shoe collection' }}
               </div>
             </div>
 
-            <div class="relative flex h-[280px] items-center justify-center px-4 pb-4 pt-12">
+            <div class="relative flex h-[180px] items-center justify-center px-3 pb-3 pt-10 sm:h-[235px] sm:px-4 sm:pb-4 sm:pt-12 lg:h-[280px]">
               <img
                 :src="product.thumbnail_url || product.hover_image_url || ''"
                 :alt="product.name"
@@ -173,22 +158,22 @@ function formatPrice(value: number | null | undefined) {
             </div>
           </div>
 
-          <div class="bg-white p-4">
+          <div class="bg-white p-3 sm:p-4">
             <div
               v-if="product.subcategory_name"
-              class="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400"
+              class="mb-1.5 line-clamp-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-400 sm:mb-2 sm:text-[11px]"
             >
               {{ product.subcategory_name }}
             </div>
 
-            <h3 class="line-clamp-2 text-[17px] font-medium leading-snug text-neutral-900">
+            <h3 class="line-clamp-2 min-h-[40px] text-[14px] font-medium leading-snug text-neutral-900 sm:min-h-[46px] sm:text-[16px] lg:text-[17px]">
               {{ product.name }}
             </h3>
 
-            <div class="mt-3 space-y-1">
+            <div class="mt-2 space-y-1 sm:mt-3">
               <p
                 v-if="product.has_discount && product.regular_price !== null && product.display_price !== null"
-                class="flex flex-wrap items-center gap-2 text-[14px] leading-6"
+                class="flex flex-wrap items-center gap-1.5 text-[12px] leading-5 sm:gap-2 sm:text-[14px] sm:leading-6"
               >
                 <span class="font-semibold text-neutral-400 line-through">
                   {{ formatPrice(product.regular_price) }}
@@ -201,7 +186,7 @@ function formatPrice(value: number | null | undefined) {
 
               <p
                 v-else
-                class="text-[17px] font-bold text-neutral-900"
+                class="text-[15px] font-bold text-neutral-900 sm:text-[17px]"
               >
                 {{ formatPrice(product.display_price) }}
               </p>
@@ -212,29 +197,29 @@ function formatPrice(value: number | null | undefined) {
         <div
           v-for="index in skeletonCount"
           :key="`shoe-list-skeleton-${index}`"
-          class="overflow-hidden rounded-[24px] border border-neutral-200 bg-white shadow-sm"
+          class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
         >
-          <div class="relative h-[280px] animate-pulse bg-white">
-            <div class="absolute left-4 top-4 h-6 w-20 rounded bg-neutral-200" />
-            <div class="absolute right-4 top-4 h-4 w-20 rounded bg-neutral-200" />
+          <div class="relative h-[180px] animate-pulse bg-white sm:h-[235px] lg:h-[280px]">
+            <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
+            <div class="absolute right-3 top-3 h-4 w-14 rounded bg-neutral-200 sm:right-4 sm:top-4 sm:w-20" />
           </div>
 
-          <div class="space-y-3 p-4">
-            <div class="h-4 w-1/3 animate-pulse rounded bg-neutral-100" />
-            <div class="h-5 w-4/5 animate-pulse rounded bg-neutral-200" />
-            <div class="h-5 w-2/3 animate-pulse rounded bg-neutral-100" />
-            <div class="h-5 w-1/2 animate-pulse rounded bg-neutral-200" />
+          <div class="space-y-2 p-3 sm:space-y-3 sm:p-4">
+            <div class="h-3.5 w-1/3 animate-pulse rounded bg-neutral-100 sm:h-4" />
+            <div class="h-4 w-4/5 animate-pulse rounded bg-neutral-200 sm:h-5" />
+            <div class="h-4 w-2/3 animate-pulse rounded bg-neutral-100 sm:h-5" />
+            <div class="h-4 w-1/2 animate-pulse rounded bg-neutral-200 sm:h-5" />
           </div>
         </div>
       </div>
 
       <div
         v-if="pagination.last_page > 1"
-        class="flex flex-wrap items-center justify-center gap-2 rounded-[28px] border border-neutral-200 bg-white px-4 py-5 shadow-sm"
+        class="flex flex-wrap items-center justify-center gap-2 pt-2"
       >
         <button
           type="button"
-          class="rounded-2xl border px-4 py-2 text-sm font-semibold transition"
+          class="rounded-2xl border bg-white px-4 py-2 text-sm font-semibold transition shadow-sm"
           :class="
             pagination.current_page === 1
               ? 'cursor-not-allowed border-neutral-200 text-neutral-300'
@@ -250,7 +235,7 @@ function formatPrice(value: number | null | undefined) {
           v-for="pageNumber in visiblePages"
           :key="pageNumber"
           type="button"
-          class="min-w-[44px] rounded-2xl border px-4 py-2 text-sm font-semibold transition"
+          class="min-w-[44px] rounded-2xl border bg-white px-4 py-2 text-sm font-semibold transition shadow-sm"
           :class="
             pageNumber === pagination.current_page
               ? 'border-neutral-900 bg-neutral-900 text-white'
@@ -263,7 +248,7 @@ function formatPrice(value: number | null | undefined) {
 
         <button
           type="button"
-          class="rounded-2xl border px-4 py-2 text-sm font-semibold transition"
+          class="rounded-2xl border bg-white px-4 py-2 text-sm font-semibold transition shadow-sm"
           :class="
             pagination.current_page === pagination.last_page
               ? 'cursor-not-allowed border-neutral-200 text-neutral-300'
@@ -282,8 +267,8 @@ function formatPrice(value: number | null | undefined) {
 <style scoped>
 .shoe-product-card {
   transition:
-    transform 0.4s ease,
-    box-shadow 0.4s ease;
+    transform 0.38s ease,
+    box-shadow 0.38s ease;
 }
 
 .shoe-product-card:hover {
@@ -294,8 +279,8 @@ function formatPrice(value: number | null | undefined) {
 .shoe-main-image,
 .shoe-hover-image {
   position: absolute;
-  max-width: calc(100% - 2rem);
-  max-height: calc(100% - 2rem);
+  max-width: calc(100% - 1.5rem);
+  max-height: calc(100% - 1.5rem);
   object-fit: contain;
   transition:
     opacity 0.4s ease,
@@ -320,6 +305,14 @@ function formatPrice(value: number | null | undefined) {
 .shoe-product-card:hover .shoe-hover-image {
   opacity: 1;
   transform: scale(1);
+}
+
+@media (min-width: 640px) {
+  .shoe-main-image,
+  .shoe-hover-image {
+    max-width: calc(100% - 2rem);
+    max-height: calc(100% - 2rem);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

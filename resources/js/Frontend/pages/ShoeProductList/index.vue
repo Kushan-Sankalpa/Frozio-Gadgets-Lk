@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, usePage } from '@inertiajs/vue3'
+import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 import AppLayout from '../../layouts/AppLayout.vue'
@@ -78,6 +78,7 @@ const products = ref<ShoeProductCard[]>([])
 const loading = ref(false)
 const loadingMore = ref(false)
 const loadError = ref('')
+
 const pagination = ref<PaginationMeta>({
   current_page: 1,
   last_page: 1,
@@ -258,7 +259,7 @@ async function fetchProducts() {
       batchTimer = setTimeout(() => {
         products.value = [...products.value, ...remainingProducts]
         loadingMore.value = false
-      }, 350)
+      }, 320)
     }
   } catch (error) {
     if ((error as Error)?.name === 'AbortError') return
@@ -367,19 +368,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="bg-[#faf8f6] pb-16 pt-8 sm:pt-10 lg:pt-12">
+  <section class="bg-[#faf8f6] pb-16 pt-6 sm:pt-8 lg:pt-10">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <nav
-        class="mb-6 flex flex-wrap items-center gap-2 text-sm text-neutral-500 sm:mb-8"
+        class="mb-5 flex flex-wrap items-center gap-2 text-sm text-neutral-500 sm:mb-7"
         aria-label="Breadcrumb"
       >
         <template v-for="(item, index) in breadcrumbItems" :key="`${item.label}-${index}`">
-          <a
+          <Link
             :href="item.href"
             class="transition-colors hover:text-neutral-900"
           >
             {{ item.label }}
-          </a>
+          </Link>
 
           <span
             v-if="index < breadcrumbItems.length - 1"
@@ -390,31 +391,17 @@ onBeforeUnmount(() => {
         </template>
       </nav>
 
-      <div class="mb-8 flex flex-col gap-3 sm:mb-10 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p class="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400">
-            Shoe Collection
-          </p>
-
-          <h1 class="text-3xl font-semibold tracking-[-0.03em] text-neutral-900 sm:text-4xl">
-            {{ heading }}
-          </h1>
-
-          <p class="mt-2 max-w-2xl text-sm text-neutral-500 sm:text-base">
-            Smooth shoe product listing page with instant navigation, lazy card loading, clean filters, and fast pagination.
-          </p>
-        </div>
-
-        <div class="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 shadow-sm">
-          {{ pagination.total }} products found
-        </div>
+      <div class="mb-6 sm:mb-8">
+        <h1 class="text-3xl font-semibold tracking-[-0.03em] text-neutral-900 sm:text-4xl">
+          {{ heading }}
+        </h1>
       </div>
 
       <div
         id="shoe-product-list-section"
-        class="grid grid-cols-1 gap-8 xl:grid-cols-12"
+        class="grid items-start grid-cols-1 gap-6 lg:gap-8 xl:grid-cols-12"
       >
-        <aside class="xl:col-span-3">
+        <aside class="xl:col-span-3 xl:self-start">
           <ShoeProductFilter
             :filters="currentFilters"
             :shoe-categories="shoeCategories"

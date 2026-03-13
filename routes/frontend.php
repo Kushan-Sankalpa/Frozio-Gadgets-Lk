@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\HomeController;
+use App\Http\Controllers\Frontend\WebShoeProductController;
 
 // Frontend home (public)
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
@@ -21,6 +22,12 @@ Route::get('/home/featured-shoes', [HomeController::class, 'featuredShoes'])
 // Products fetch after homepage loads
 Route::get('/home/products', [HomeController::class, 'products'])
     ->name('frontend.home.products');
+
+Route::get('/shoe-products', [WebShoeProductController::class, 'index'])
+    ->name('frontend.shoe-products.index');
+
+Route::get('/shoe-products/products', [WebShoeProductController::class, 'products'])
+    ->name('frontend.shoe-products.products');
 
 // Optional: keep /home working too
 Route::redirect('/home', '/')->name('frontend.home');

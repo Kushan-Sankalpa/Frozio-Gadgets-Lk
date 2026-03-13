@@ -57,17 +57,29 @@ const currentParams = computed(() => {
   return new URLSearchParams(query)
 })
 
+const currentPath = computed(() => {
+  const url = page.url || ''
+  return url.includes('?') ? url.split('?')[0] : url
+})
+
+const isShoeListingPage = computed(() => currentPath.value.startsWith('/shoe-products'))
+
 const currentCategory = computed(() => currentParams.value.get('category') || '')
 const currentShoeCategory = computed(() => currentParams.value.get('shoe_category') || '')
 const currentShoeSubcategory = computed(() => currentParams.value.get('shoe_subcategory') || '')
 const currentSearch = computed(() => currentParams.value.get('search') || '')
 
 const isHomeActive = computed(() => {
-  return !currentCategory.value && !currentShoeCategory.value && !currentShoeSubcategory.value
+  return currentPath.value === '/' &&
+    !currentCategory.value &&
+    !currentShoeCategory.value &&
+    !currentShoeSubcategory.value
 })
 
 const isTechMenuActive = computed(() => !!currentCategory.value)
-const isShoeMenuActive = computed(() => !!currentShoeCategory.value || !!currentShoeSubcategory.value)
+const isShoeMenuActive = computed(() => {
+  return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
+})
 
 watch(
   () => page.url,
@@ -149,12 +161,17 @@ function toggleSearchPanel() {
 }
 
 function submitSearch() {
+  const goToShoePage =
+    isShoeListingPage.value ||
+    !!currentShoeCategory.value ||
+    !!currentShoeSubcategory.value
+
   router.get(
-    route('frontend.root'),
+    route(goToShoePage ? 'frontend.shoe-products.index' : 'frontend.root'),
     {
-      category: currentCategory.value || undefined,
-      shoe_category: currentShoeCategory.value || undefined,
-      shoe_subcategory: currentShoeSubcategory.value || undefined,
+      category: goToShoePage ? undefined : currentCategory.value || undefined,
+      shoe_category: goToShoePage ? currentShoeCategory.value || undefined : undefined,
+      shoe_subcategory: goToShoePage ? currentShoeSubcategory.value || undefined : undefined,
       search: searchQuery.value.trim() || undefined,
     },
     {
@@ -338,36 +355,41 @@ onBeforeUnmount(() => {
             @mouseenter="handleDropdownEnter('shoes')"
             @mouseleave="handleDropdownLeave"
           >
-            <button
-              type="button"
-              class="nav-link inline-flex items-center gap-1.5"
-              :class="[
-                scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
-                isShoeMenuActive ? 'nav-link--active' : '',
-              ]"
-            >
-              <span>Shoe Products</span>
-              <svg
-                class="h-3.5 w-3.5 transition-transform duration-300"
-                :class="activeDropdown === 'shoes' ? 'rotate-180' : ''"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+<div
+  class="nav-link inline-flex items-center gap-1.5"
+  :class="[
+    scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+    isShoeMenuActive ? 'nav-link--active' : '',
+  ]"
+>
+  <Link
+    :href="route('frontend.shoe-products.index')"
+    class="inline-flex items-center"
+  >
+    <span>Shoe Products</span>
+  </Link>
 
-              <span
-                class="nav-link-indicator"
-                :class="[
-                  isShoeMenuActive ? 'nav-link-indicator--active' : '',
-                  scrolled ? 'bg-black' : 'bg-white',
-                ]"
-              />
-            </button>
+  <svg
+    class="h-3.5 w-3.5 transition-transform duration-300"
+    :class="activeDropdown === 'shoes' ? 'rotate-180' : ''"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      fill-rule="evenodd"
+      d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+      clip-rule="evenodd"
+    />
+  </svg>
+
+  <span
+    class="nav-link-indicator"
+    :class="[
+      isShoeMenuActive ? 'nav-link-indicator--active' : '',
+      scrolled ? 'bg-black' : 'bg-white',
+    ]"
+  />
+</div>
 
             <Transition name="dropdown-fade">
               <div
@@ -379,13 +401,13 @@ onBeforeUnmount(() => {
                     Shoe Categories
                   </div>
 
-                  <Link
-                    :href="route('frontend.root', { search: currentSearch || undefined })"
-                    class="dropdown-link"
-                    :class="!currentShoeCategory && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
-                  >
-                    All Shoe Products
-                  </Link>
+                 <Link
+  :href="route('frontend.shoe-products.index', { search: currentSearch || undefined })"
+  class="dropdown-link"
+  :class="!currentShoeCategory && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
+>
+  All Shoe Products
+</Link>
 
                   <div
                     v-for="category in shoeCategories"
@@ -394,16 +416,16 @@ onBeforeUnmount(() => {
                     @mouseenter="openShoeSubMenu(category.subcategories?.length ? category.id : null)"
                   >
                     <div class="flex items-center">
-                      <Link
-                        :href="route('frontend.root', {
-                          shoe_category: category.name,
-                          search: currentSearch || undefined,
-                        })"
-                        class="dropdown-link flex-1"
-                        :class="isShoeCategoryActive(category.name) ? 'dropdown-link--active' : ''"
-                      >
-                        {{ category.name }}
-                      </Link>
+                     <Link
+  :href="route('frontend.shoe-products.index', {
+    shoe_category: category.name,
+    search: currentSearch || undefined,
+  })"
+  class="dropdown-link flex-1"
+  :class="isShoeCategoryActive(category.name) ? 'dropdown-link--active' : ''"
+>
+  {{ category.name }}
+</Link>
 
                       <span
                         v-if="category.subcategories?.length"
@@ -429,30 +451,30 @@ onBeforeUnmount(() => {
                             {{ category.name }}
                           </div>
 
-                          <Link
-                            :href="route('frontend.root', {
-                              shoe_category: category.name,
-                              search: currentSearch || undefined,
-                            })"
-                            class="dropdown-link"
-                            :class="isShoeCategoryActive(category.name) && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
-                          >
-                            View All
-                          </Link>
+                         <Link
+  :href="route('frontend.shoe-products.index', {
+    shoe_category: category.name,
+    search: currentSearch || undefined,
+  })"
+  class="dropdown-link"
+  :class="isShoeCategoryActive(category.name) && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
+>
+  View All
+</Link>
 
-                          <Link
-                            v-for="subcategory in category.subcategories || []"
-                            :key="subcategory.id"
-                            :href="route('frontend.root', {
-                              shoe_category: category.name,
-                              shoe_subcategory: subcategory.name,
-                              search: currentSearch || undefined,
-                            })"
-                            class="dropdown-link"
-                            :class="isShoeSubcategoryActive(subcategory.name) ? 'dropdown-link--active' : ''"
-                          >
-                            {{ subcategory.name }}
-                          </Link>
+                         <Link
+  v-for="subcategory in category.subcategories || []"
+  :key="subcategory.id"
+  :href="route('frontend.shoe-products.index', {
+    shoe_category: category.name,
+    shoe_subcategory: subcategory.name,
+    search: currentSearch || undefined,
+  })"
+  class="dropdown-link"
+  :class="isShoeSubcategoryActive(subcategory.name) ? 'dropdown-link--active' : ''"
+>
+  {{ subcategory.name }}
+</Link>
                         </div>
                       </div>
                     </Transition>

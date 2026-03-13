@@ -23,9 +23,12 @@ const props = withDefaults(
   },
 )
 
+const sectionRef = ref<HTMLElement | null>(null)
 const stageRef = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const error = ref('')
+const modelReady = ref(false)
+const showRotateHint = ref(false)
 
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
@@ -39,6 +42,9 @@ let meshTargets: THREE.Object3D[] = []
 let currentAutoRotateSpeed = 0
 let targetAutoRotateSpeed = 0
 let dotLottieScriptEl: HTMLScriptElement | null = null
+let hintObserver: IntersectionObserver | null = null
+let sectionInView = false
+let hasUserInteracted = false
 
 const raycaster = new THREE.Raycaster()
 const pointer = new THREE.Vector2()
@@ -49,6 +55,24 @@ const clearResumeTimer = () => {
     window.clearTimeout(resumeRotateTimer)
     resumeRotateTimer = null
   }
+}
+
+const hideRotateHint = () => {
+  showRotateHint.value = false
+}
+
+const maybeShowRotateHint = () => {
+  if (!modelReady.value || loading.value || !!error.value || !sectionInView || hasUserInteracted) {
+    return
+  }
+
+  showRotateHint.value = true
+}
+
+const registerUserInteraction = () => {
+  if (hasUserInteracted) return
+  hasUserInteracted = true
+  hideRotateHint()
 }
 
 const ensureDotLottieScript = () => {
@@ -117,6 +141,7 @@ const handlePointerDown = (event: PointerEvent) => {
   const hitModel = getIntersections(event).length > 0
 
   if (hitModel) {
+    registerUserInteraction()
     controls.enabled = true
     pauseAutoRotate()
   } else {
@@ -206,7 +231,8 @@ const animate = () => {
   const delta = Math.min(clock.getDelta(), 0.033)
 
   if (controls) {
-    currentAutoRotateSpeed += (targetAutoRotateSpeed - currentAutoRotateSpeed) * Math.min(1, delta * 7)
+    currentAutoRotateSpeed +=
+      (targetAutoRotateSpeed - currentAutoRotateSpeed) * Math.min(1, delta * 7)
     controls.autoRotate = currentAutoRotateSpeed > 0.001
     controls.autoRotateSpeed = currentAutoRotateSpeed
     controls.update(delta)
@@ -217,6 +243,7 @@ const animate = () => {
 
 const disposeScene = () => {
   clearResumeTimer()
+  hideRotateHint()
 
   if (frameId) {
     window.cancelAnimationFrame(frameId)
@@ -262,6 +289,9 @@ const disposeScene = () => {
   resizeObserver?.disconnect()
   resizeObserver = null
 
+  hintObserver?.disconnect()
+  hintObserver = null
+
   if (stageRef.value) {
     stageRef.value.innerHTML = ''
   }
@@ -290,6 +320,7 @@ onMounted(() => {
   renderer.domElement.style.display = 'block'
   renderer.domElement.style.width = '100%'
   renderer.domElement.style.height = '100%'
+  renderer.domElement.setAttribute('aria-label', 'Interactive 3D phone model')
 
   stageRef.value.appendChild(renderer.domElement)
 
@@ -329,6 +360,27 @@ onMounted(() => {
   })
   resizeObserver.observe(stageRef.value)
 
+  if (sectionRef.value) {
+    hintObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        sectionInView = entry.isIntersecting && entry.intersectionRatio > 0.35
+
+        if (!sectionInView) {
+          hideRotateHint()
+          return
+        }
+
+        maybeShowRotateHint()
+      },
+      {
+        threshold: [0.2, 0.35, 0.6],
+      },
+    )
+
+    hintObserver.observe(sectionRef.value)
+  }
+
   const loader = new GLTFLoader()
 
   loader.load(
@@ -357,7 +409,9 @@ onMounted(() => {
       fitCameraToObject(modelRoot)
       renderer.compile(scene, camera)
 
+      modelReady.value = true
       loading.value = false
+      maybeShowRotateHint()
       clock.start()
       animate()
     },
@@ -366,6 +420,8 @@ onMounted(() => {
       console.error(loadError)
       error.value = 'Failed to load 3D model.'
       loading.value = false
+      modelReady.value = false
+      hideRotateHint()
     },
   )
 })
@@ -377,6 +433,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
+    ref="sectionRef"
     class="phone-showcase relative w-full overflow-hidden bg-black text-white"
     :style="{ '--phone-stage-height': height }"
   >
@@ -431,10 +488,68 @@ onBeforeUnmount(() => {
             </div>
 
             <div
+              v-if="showRotateHint && !loading && !error"
+              class="phone-showcase__rotate-hint"
+              aria-hidden="true"
+            >
+              <div class="phone-showcase__rotate-hint-card">
+                <div class="phone-showcase__rotate-track">
+                  <span class="phone-showcase__rotate-trail" />
+                  <span class="phone-showcase__rotate-glow" />
+
+                  <span class="phone-showcase__rotate-hand">
+                    <svg
+                      viewBox="0 0 64 64"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="phone-showcase__rotate-hand-icon"
+                    >
+                      <path
+                        d="M24 29V14.5C24 12.567 25.567 11 27.5 11C29.433 11 31 12.567 31 14.5V26"
+                        stroke="currentColor"
+                        stroke-width="3.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M31 26V12.5C31 10.567 32.567 9 34.5 9C36.433 9 38 10.567 38 12.5V26"
+                        stroke="currentColor"
+                        stroke-width="3.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M38 26V15.5C38 13.567 39.567 12 41.5 12C43.433 12 45 13.567 45 15.5V29"
+                        stroke="currentColor"
+                        stroke-width="3.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M24 24.5L20.4 22.3C18.7 21.26 16.49 21.78 15.44 23.47C14.42 25.13 14.89 27.3 16.5 28.4L24 33.5V43.8C24 50.54 29.46 56 36.2 56C41.76 56 46.64 52.23 48.05 46.85L50 39.4C50.64 36.96 50.03 34.35 48.36 32.45L45 28.6"
+                        stroke="currentColor"
+                        stroke-width="3.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+
+                <div class="phone-showcase__rotate-copy">
+                  <p class="phone-showcase__rotate-title">Drag to rotate</p>
+                  <p class="phone-showcase__rotate-subtitle">Touch and move the phone in 3D</p>
+                </div>
+              </div>
+            </div>
+
+            <div
               v-if="error"
               class="absolute inset-0 z-30 flex items-center justify-center px-6 text-center"
             >
-              <div class="rounded-2xl border border-red-300/25 bg-red-500/15 px-5 py-4 text-sm text-white">
+              <div
+                class="rounded-2xl border border-red-300/25 bg-red-500/15 px-5 py-4 text-sm text-white"
+              >
                 {{ error }}
               </div>
             </div>
@@ -503,6 +618,147 @@ onBeforeUnmount(() => {
   color: rgba(255, 255, 255, 0.92);
 }
 
+.phone-showcase__rotate-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: clamp(16px, 3.5vw, 28px);
+  animation: phone-showcase-hint-fade 0.38s ease;
+}
+
+.phone-showcase__rotate-hint-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.95rem;
+  min-width: min(92%, 360px);
+  max-width: 92%;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(10, 10, 10, 0.58);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.phone-showcase__rotate-track {
+  position: relative;
+  flex: 0 0 clamp(108px, 18vw, 150px);
+  height: 46px;
+  overflow: hidden;
+}
+
+.phone-showcase__rotate-trail {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(78px, 13vw, 108px);
+  height: 2px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 255, 255, 0.05)
+  );
+  animation: phone-showcase-trail-pulse 1.6s ease-in-out infinite;
+}
+
+.phone-showcase__rotate-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 84px;
+  height: 84px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 64%);
+  filter: blur(3px);
+  opacity: 0.75;
+}
+
+.phone-showcase__rotate-hand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  animation: phone-showcase-hand-swipe 1.6s ease-in-out infinite;
+}
+
+.phone-showcase__rotate-hand-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.phone-showcase__rotate-copy {
+  min-width: 0;
+}
+
+.phone-showcase__rotate-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.phone-showcase__rotate-subtitle {
+  margin: 0.24rem 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+@keyframes phone-showcase-hand-swipe {
+  0%,
+  100% {
+    transform: translate(calc(-50% - 24px), -50%) rotate(-12deg);
+  }
+  50% {
+    transform: translate(calc(-50% + 24px), -50%) rotate(12deg);
+  }
+}
+
+@keyframes phone-showcase-trail-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scaleX(0.72);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scaleX(1);
+  }
+}
+
+@keyframes phone-showcase-hint-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 640px) {
   .phone-showcase__stage {
     height: clamp(360px, 92vw, 500px);
@@ -516,6 +772,39 @@ onBeforeUnmount(() => {
   .phone-showcase__loader-anim {
     width: clamp(100px, 34vw, 150px);
     height: clamp(100px, 34vw, 150px);
+  }
+
+  .phone-showcase__rotate-hint {
+    padding: 14px;
+  }
+
+  .phone-showcase__rotate-hint-card {
+    gap: 0.75rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 18px;
+  }
+
+  .phone-showcase__rotate-track {
+    flex-basis: 102px;
+    height: 42px;
+  }
+
+  .phone-showcase__rotate-hand {
+    width: 42px;
+    height: 42px;
+  }
+
+  .phone-showcase__rotate-hand-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .phone-showcase__rotate-title {
+    font-size: 13px;
+  }
+
+  .phone-showcase__rotate-subtitle {
+    font-size: 11px;
   }
 }
 

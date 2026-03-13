@@ -25,6 +25,18 @@ const setVideoRef = (el: HTMLVideoElement | null, idx: number) => {
   videoEls.value[idx] = el
 }
 
+// Track which videos are ready
+const readyMap = ref<Record<number, boolean>>({})
+
+const setReady = (idx: number) => {
+  readyMap.value = {
+    ...readyMap.value,
+    [idx]: true,
+  }
+}
+
+const isReady = (idx: number) => !!readyMap.value[idx]
+
 let rafId: number | null = null
 let autoplayTimer: number | null = null
 let resumeTimer: number | null = null
@@ -78,7 +90,6 @@ const pauseAllExceptActive = async () => {
     const v = videoEls.value[i]
     if (!v) continue
 
-    // Ensure autoplay is allowed
     v.muted = true
     v.playsInline = true
     v.loop = true
@@ -129,17 +140,31 @@ const markInteraction = () => {
 }
 
 const handleResize = () => {
-  // keep the current slide aligned after resize
   scrollToIndex(active.value, 'auto')
 }
 
+const loadLottieScript = () => {
+  if (typeof window === 'undefined') return
+  if (document.querySelector('script[data-dotlottie-loader="true"]')) return
+  if (customElements.get('dotlottie-wc')) return
+
+  const script = document.createElement('script')
+  script.src = 'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
+  script.type = 'module'
+  script.setAttribute('data-dotlottie-loader', 'true')
+  document.body.appendChild(script)
+}
+
 onMounted(async () => {
+  loadLottieScript()
+
   await nextTick()
   if (hasSlides.value) {
     scrollToIndex(0, 'auto')
     await pauseAllExceptActive()
     startAutoplay()
   }
+
   window.addEventListener('resize', handleResize, { passive: true })
 })
 
@@ -159,6 +184,7 @@ watch(
   slides,
   async () => {
     active.value = 0
+    readyMap.value = {}
     await nextTick()
     scrollToIndex(0, 'auto')
     await pauseAllExceptActive()
@@ -171,7 +197,6 @@ watch(
 <template>
   <section v-if="hasSlides" class="w-full">
     <div class="relative w-full">
-      <!-- Track -->
       <div
         ref="trackRef"
         class="no-scrollbar flex w-full overflow-x-auto snap-x snap-mandatory scroll-smooth"
@@ -185,37 +210,52 @@ watch(
           :key="b.id"
           class="relative w-full flex-shrink-0 snap-center bg-black"
         >
-          <!-- Aspect control: feels like a hero banner on desktop, not too tall on mobile -->
-          <div class="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[24/9] overflow-hidden">
+          <div class="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[24/9] overflow-hidden bg-black">
+            <!-- Loader -->
+            <div
+              v-if="!isReady(idx)"
+              class="absolute inset-0 z-20 flex items-center justify-center bg-black"
+            >
+              <dotlottie-wc
+                src="https://lottie.host/3aaa9185-2876-4f24-a9dd-7bcb4b6126ff/DqmYrIP5av.lottie"
+                style="width: 220px; height: 220px"
+                autoplay
+                loop
+              ></dotlottie-wc>
+            </div>
+
+            <!-- Video -->
             <video
               :ref="(el) => setVideoRef(el as HTMLVideoElement | null, idx)"
               :src="b.video_url || ''"
-              class="h-full w-full object-cover"
+              class="h-full w-full object-cover transition-opacity duration-500"
+              :class="isReady(idx) ? 'opacity-100' : 'opacity-0'"
               muted
               playsinline
               loop
-              preload="metadata"
+              preload="none"
+              @loadeddata="setReady(idx)"
+              @canplay="setReady(idx)"
             />
+
             <!-- soft overlay -->
             <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-black/10" />
 
-            <!-- Caption (optional) -->
+            <!-- Caption -->
             <div
               v-if="b.name || b.description"
               class="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8"
             >
-             
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Arrows -->
       <button
         v-if="slides.length > 1"
         type="button"
         aria-label="Previous slide"
-        class="absolute left-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 hover:bg-black/55 backdrop-blur px-3 py-3 text-white"
+        class="absolute left-3 top-1/2 -translate-y-1/2 z-30 rounded-full bg-black/40 hover:bg-black/55 backdrop-blur px-3 py-3 text-white"
         @click="prev"
       >
         <span class="text-lg leading-none">‹</span>
@@ -225,16 +265,15 @@ watch(
         v-if="slides.length > 1"
         type="button"
         aria-label="Next slide"
-        class="absolute right-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/40 hover:bg-black/55 backdrop-blur px-3 py-3 text-white"
+        class="absolute right-3 top-1/2 -translate-y-1/2 z-30 rounded-full bg-black/40 hover:bg-black/55 backdrop-blur px-3 py-3 text-white"
         @click="next"
       >
         <span class="text-lg leading-none">›</span>
       </button>
 
-      <!-- Dots -->
       <div
         v-if="slides.length > 1"
-        class="absolute bottom-3 left-0 right-0 z-10 flex items-center justify-center gap-2"
+        class="absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center gap-2"
       >
         <button
           v-for="(_, i) in slides"

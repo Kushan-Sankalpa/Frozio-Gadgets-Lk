@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
 type TechCategory = {
@@ -25,6 +25,7 @@ type ShoeCategory = {
 
 const page = usePage()
 const navRef = ref<HTMLElement | null>(null)
+const desktopSearchInputRef = ref<HTMLInputElement | null>(null)
 
 const scrolled = ref(false)
 const openMobileMenu = ref(false)
@@ -45,7 +46,9 @@ const techCategories = computed<TechCategory[]>(() => {
 })
 
 const shoeCategories = computed<ShoeCategory[]>(() => {
-  return Array.isArray(page.props.shoeCategories) ? (page.props.shoeCategories as ShoeCategory[]) : []
+  return Array.isArray(page.props.shoeCategories)
+    ? (page.props.shoeCategories as ShoeCategory[])
+    : []
 })
 
 const currentParams = computed(() => {
@@ -83,6 +86,13 @@ watch(
 
 watch(openMobileMenu, (value) => {
   document.body.style.overflow = value ? 'hidden' : ''
+})
+
+watch(searchOpen, async (value) => {
+  if (value) {
+    await nextTick()
+    desktopSearchInputRef.value?.focus()
+  }
 })
 
 function normalize(value: string | null | undefined) {
@@ -126,6 +136,18 @@ function openShoeSubMenu(id: number | string | null) {
   activeShoeSubMenu.value = id
 }
 
+function openSearchPanel() {
+  searchOpen.value = true
+}
+
+function closeSearchPanel() {
+  searchOpen.value = false
+}
+
+function toggleSearchPanel() {
+  searchOpen.value = !searchOpen.value
+}
+
 function submitSearch() {
   router.get(
     route('frontend.root'),
@@ -145,6 +167,7 @@ function submitSearch() {
 function clearSearch() {
   searchQuery.value = ''
   submitSearch()
+  closeSearchPanel()
 }
 
 function toggleMobileShoeCategory(id: number | string) {
@@ -155,12 +178,21 @@ function handleScroll() {
   scrolled.value = window.scrollY > 28
 }
 
+function handleResize() {
+  if (window.innerWidth >= 1280) {
+    openMobileMenu.value = false
+    openMobileTech.value = false
+    openMobileShoe.value = false
+    openMobileShoeCategoryId.value = null
+  }
+}
+
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     activeDropdown.value = null
     activeShoeSubMenu.value = null
     openMobileMenu.value = false
-    searchOpen.value = false
+    closeSearchPanel()
   }
 }
 
@@ -171,19 +203,23 @@ function handleClickOutside(event: MouseEvent) {
   if (!navRef.value.contains(target)) {
     activeDropdown.value = null
     activeShoeSubMenu.value = null
-    searchOpen.value = false
+    closeSearchPanel()
   }
 }
 
 onMounted(() => {
   handleScroll()
+  handleResize()
+
   window.addEventListener('scroll', handleScroll, { passive: true })
+  window.addEventListener('resize', handleResize, { passive: true })
   window.addEventListener('keydown', handleKeydown)
   document.addEventListener('mousedown', handleClickOutside)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('mousedown', handleClickOutside)
   document.body.style.overflow = ''
@@ -207,7 +243,7 @@ onBeforeUnmount(() => {
           <img src="/assets/images/froziohub-logo.png" alt="Logo" class="h-10 w-auto sm:h-11" />
         </Link>
 
-        <nav class="hidden xl:flex items-center gap-8">
+        <nav class="hidden items-center gap-8 xl:flex">
           <Link
             :href="route('frontend.root')"
             class="nav-link"
@@ -445,22 +481,25 @@ onBeforeUnmount(() => {
           </Link>
         </nav>
 
-        <div class="hidden xl:flex items-center gap-2.5">
-          <Transition name="search-expand" mode="out-in">
-            <div v-if="searchOpen" key="search-open" class="relative w-[240px]">
-              <form @submit.prevent="submitSearch">
-                <input
-                  v-model="searchQuery"
-                  type="text"
-                  placeholder="Search products..."
-                  class="w-full rounded-full border py-2.5 pl-10 pr-10 text-sm outline-none transition-all duration-500"
-                  :class="
-                    scrolled
-                      ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
-                      : 'border-white/10 bg-white/8 text-white placeholder:text-white/45 focus:border-white/25'
-                  "
-                />
-              </form>
+        <div class="hidden items-center gap-2.5 xl:flex">
+          <div
+            class="search-shell"
+            :class="searchOpen ? 'search-shell--open' : 'search-shell--closed'"
+          >
+            <form @submit.prevent="submitSearch" class="relative">
+              <input
+                ref="desktopSearchInputRef"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search products..."
+                class="search-shell-input w-full rounded-full border py-2.5 pl-10 pr-10 text-sm outline-none"
+                :class="
+                  scrolled
+                    ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
+                    : 'border-white/10 bg-white/8 text-white placeholder:text-white/45 focus:border-white/25'
+                "
+                @keydown.esc.prevent="closeSearchPanel"
+              />
 
               <span
                 class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
@@ -476,10 +515,12 @@ onBeforeUnmount(() => {
               </span>
 
               <button
+                v-if="searchOpen && searchQuery"
                 type="button"
                 @click="clearSearch"
                 class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
                 :class="scrolled ? 'text-black/45 hover:text-black' : 'text-white/45 hover:text-white'"
+                aria-label="Clear search"
               >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                   <path
@@ -489,35 +530,52 @@ onBeforeUnmount(() => {
                   />
                 </svg>
               </button>
-            </div>
+            </form>
+          </div>
 
-            <button
-              v-else
-              key="search-closed"
-              type="button"
-              aria-label="Search"
-              class="navbar-icon-btn"
-              :class="
-                scrolled
-                  ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
-                  : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
-              "
-              @click="searchOpen = true"
+          <button
+            type="button"
+            :aria-label="searchOpen ? 'Close search' : 'Open search'"
+            :aria-expanded="searchOpen ? 'true' : 'false'"
+            class="inline-flex navbar-icon-btn"
+            :class="
+              scrolled
+                ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+                : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+            "
+            @click="searchOpen ? closeSearchPanel() : openSearchPanel()"
+          >
+            <svg
+              v-if="!searchOpen"
+              class="h-4.5 w-4.5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
             >
-              <svg class="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fill-rule="evenodd"
-                  d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
-          </Transition>
+              <path
+                fill-rule="evenodd"
+                d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
+
+            <svg
+              v-else
+              class="h-4.5 w-4.5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
 
           <button
             type="button"
             aria-label="Cart"
-            class="navbar-icon-btn relative"
+            class="inline-flex navbar-icon-btn relative"
             :class="
               scrolled
                 ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
@@ -538,7 +596,7 @@ onBeforeUnmount(() => {
 
         <button
           type="button"
-          class="xl:hidden navbar-icon-btn"
+          class="inline-flex navbar-icon-btn xl:hidden"
           :class="
             scrolled
               ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
@@ -589,7 +647,7 @@ onBeforeUnmount(() => {
         class="fixed bottom-0 right-0 top-[72px] z-[80] w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black text-white xl:hidden"
         @click.stop
       >
-        <div class="p-5 space-y-2">
+        <div class="space-y-2 p-5">
           <form @submit.prevent="submitSearch" class="relative mb-4">
             <input
               v-model="searchQuery"
@@ -639,7 +697,7 @@ onBeforeUnmount(() => {
 
             <Transition name="accordion">
               <div v-if="openMobileTech" class="overflow-hidden px-3 pb-3">
-                <div class="rounded-2xl border border-white/8 bg-black/20 p-2 space-y-1">
+                <div class="space-y-1 rounded-2xl border border-white/8 bg-black/20 p-2">
                   <Link
                     :href="route('frontend.root', { search: currentSearch || undefined })"
                     class="mobile-sub-link"
@@ -685,7 +743,7 @@ onBeforeUnmount(() => {
 
             <Transition name="accordion">
               <div v-if="openMobileShoe" class="overflow-hidden px-3 pb-3">
-                <div class="rounded-2xl border border-white/8 bg-black/20 p-2 space-y-2">
+                <div class="space-y-2 rounded-2xl border border-white/8 bg-black/20 p-2">
                   <Link
                     :href="route('frontend.root', { search: currentSearch || undefined })"
                     class="mobile-sub-link"
@@ -724,7 +782,7 @@ onBeforeUnmount(() => {
                         v-if="openMobileShoeCategoryId === category.id"
                         class="overflow-hidden px-3 pb-3"
                       >
-                        <div class="rounded-xl border border-white/8 bg-black/25 p-2 space-y-1">
+                        <div class="space-y-1 rounded-xl border border-white/8 bg-black/25 p-2">
                           <Link
                             :href="route('frontend.root', {
                               shoe_category: category.name,
@@ -888,7 +946,6 @@ onBeforeUnmount(() => {
 }
 
 .navbar-icon-btn {
-  display: inline-flex;
   height: 44px;
   width: 44px;
   align-items: center;
@@ -904,6 +961,47 @@ onBeforeUnmount(() => {
 
 .navbar-icon-btn:hover {
   transform: translateY(-1px);
+}
+
+.search-shell {
+  overflow: hidden;
+  transition:
+    width 320ms ease,
+    opacity 220ms ease,
+    margin-right 320ms ease;
+}
+
+.search-shell--open {
+  width: 240px;
+  opacity: 1;
+  margin-right: 2px;
+}
+
+.search-shell--closed {
+  width: 0;
+  opacity: 0;
+  margin-right: 0;
+}
+
+.search-shell-input {
+  transition:
+    opacity 220ms ease,
+    transform 320ms ease,
+    background-color 240ms ease,
+    border-color 240ms ease,
+    color 240ms ease;
+}
+
+.search-shell--open .search-shell-input {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.search-shell--closed .search-shell-input {
+  opacity: 0;
+  transform: translateX(14px);
+  pointer-events: none;
 }
 
 .mobile-link {
@@ -973,8 +1071,6 @@ onBeforeUnmount(() => {
 .submenu-fade-leave-active,
 .overlay-fade-enter-active,
 .overlay-fade-leave-active,
-.search-expand-enter-active,
-.search-expand-leave-active,
 .panel-slide-enter-active,
 .panel-slide-leave-active,
 .accordion-enter-active,
@@ -997,12 +1093,6 @@ onBeforeUnmount(() => {
 .overlay-fade-enter-from,
 .overlay-fade-leave-to {
   opacity: 0;
-}
-
-.search-expand-enter-from,
-.search-expand-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
 }
 
 .panel-slide-enter-from,

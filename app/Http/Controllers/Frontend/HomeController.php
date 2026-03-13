@@ -34,17 +34,58 @@ class HomeController extends Controller
             })
             ->values();
 
-        return Inertia::render('Frontend/Home/index', [
-            'products' => [],
-            'activeCategory' => $activeCategory,
-            'banners' => $banners,
-            'categories' => [],
-            'shoeCategories' => [],
-            'featuredShoes' => [],
-            'search' => $search,
-            'activeShoeCategory' => $activeShoeCategory,
-            'activeShoeSubcategory' => $activeShoeSubcategory,
-        ]);
+      $categories = Category::query()
+    ->where('status', 'active')
+    ->oldest('id')
+    ->get()
+    ->map(function (Category $category) {
+        return [
+            'id' => $category->id,
+            'name' => $category->name,
+            'image_url' => $category->image_url,
+            'status' => $category->status,
+        ];
+    })
+    ->values();
+
+$shoeCategories = ShoeCategory::query()
+    ->where('status', 'active')
+    ->with([
+        'subcategories' => function ($query) {
+            $query->where('status', 'active')->oldest('id');
+        }
+    ])
+    ->oldest('id')
+    ->get()
+    ->map(function (ShoeCategory $category) {
+        return [
+            'id' => $category->id,
+            'name' => $category->name,
+            'image_url' => $category->image_url,
+            'status' => $category->status,
+            'subcategories' => $category->subcategories->map(function ($subcategory) {
+                return [
+                    'id' => $subcategory->id,
+                    'name' => $subcategory->name,
+                    'image_url' => $subcategory->image_url,
+                    'status' => $subcategory->status,
+                ];
+            })->values(),
+        ];
+    })
+    ->values();
+
+return Inertia::render('Frontend/Home/index', [
+    'products' => [],
+    'activeCategory' => $activeCategory,
+    'banners' => $banners,
+    'categories' => $categories,
+    'shoeCategories' => $shoeCategories,
+    'featuredShoes' => [],
+    'search' => $search,
+    'activeShoeCategory' => $activeShoeCategory,
+    'activeShoeSubcategory' => $activeShoeSubcategory,
+]);
     }
 
     public function categories(): JsonResponse
@@ -68,28 +109,39 @@ class HomeController extends Controller
         ]);
     }
 
-    public function shoeCategories(): JsonResponse
-    {
-        $shoeCategories = ShoeCategory::query()
-            ->where('status', 'active')
-            ->oldest('id')
-            ->take(3)
-            ->get()
-            ->map(function (ShoeCategory $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
-                ];
-            })
-            ->values();
+public function shoeCategories(): JsonResponse
+{
+    $shoeCategories = ShoeCategory::query()
+        ->where('status', 'active')
+        ->with([
+            'subcategories' => function ($query) {
+                $query->where('status', 'active')->oldest('id');
+            }
+        ])
+        ->oldest('id')
+        ->get()
+        ->map(function (ShoeCategory $category) {
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'image_url' => $category->image_url,
+                'status' => $category->status,
+                'subcategories' => $category->subcategories->map(function ($subcategory) {
+                    return [
+                        'id' => $subcategory->id,
+                        'name' => $subcategory->name,
+                        'image_url' => $subcategory->image_url,
+                        'status' => $subcategory->status,
+                    ];
+                })->values(),
+            ];
+        })
+        ->values();
 
-        return response()->json([
-            'categories' => $shoeCategories,
-        ]);
-    }
-
+    return response()->json([
+        'categories' => $shoeCategories,
+    ]);
+}
     public function featuredShoes(): JsonResponse
     {
         $activeShoeCategory = request('shoe_category');

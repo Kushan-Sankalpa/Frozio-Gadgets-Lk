@@ -46,32 +46,6 @@ class HomeController extends Controller
             })
             ->values();
 
-        $shoeCategories = ShoeCategory::query()
-            ->where('status', 'active')
-            ->with([
-                'subcategories' => function ($query) {
-                    $query->select('id', 'category_id', 'name')
-                        ->orderBy('name');
-                },
-            ])
-            ->oldest('id')
-            ->get()
-            ->map(function (ShoeCategory $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
-                    'subcategories' => $category->subcategories
-                        ->map(fn ($subcategory) => [
-                            'id' => $subcategory->id,
-                            'name' => $subcategory->name,
-                        ])
-                        ->values(),
-                ];
-            })
-            ->values();
-
         $today = now()->startOfDay();
 
         $featuredShoes = ShoeProduct::query()
@@ -160,7 +134,7 @@ class HomeController extends Controller
             'activeCategory' => $activeCategory,
             'banners' => $banners,
             'categories' => [],
-            'shoeCategories' => $shoeCategories,
+            'shoeCategories' => [],
             'featuredShoes' => $featuredShoes,
             'search' => $search,
             'activeShoeCategory' => $activeShoeCategory,
@@ -186,6 +160,28 @@ class HomeController extends Controller
 
         return response()->json([
             'categories' => $categories,
+        ]);
+    }
+
+    public function shoeCategories(): JsonResponse
+    {
+        $shoeCategories = ShoeCategory::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->take(3)
+            ->get()
+            ->map(function (ShoeCategory $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'categories' => $shoeCategories,
         ]);
     }
 

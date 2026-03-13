@@ -10,6 +10,10 @@ Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
 Route::get('/home/categories', [HomeController::class, 'categories'])
     ->name('frontend.home.categories');
 
+// Shoe categories fetch only when section is viewed
+Route::get('/home/shoe-categories', [HomeController::class, 'shoeCategories'])
+    ->name('frontend.home.shoe-categories');
+
 // Products fetch after homepage loads
 Route::get('/home/products', [HomeController::class, 'products'])
     ->name('frontend.home.products');

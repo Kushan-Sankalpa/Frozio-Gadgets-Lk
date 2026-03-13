@@ -1,1 +1,0 @@
-import{d as a,c as o,V as r,g as t}from"./app-Ba8QcEi4.js";const l=a({inheritAttrs:!1,__name:"AppLogoIcon",props:{className:{type:[Boolean,null,String,Object,Array]}},setup(e){return(s,n)=>(t(),o("img",r({class:e.className},s.$attrs,{src:"/assets/images/froziohub-logo.png",alt:""}),null,16))}});export{l as _};

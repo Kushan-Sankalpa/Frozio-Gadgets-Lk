@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 type Category = {
   id: number | string
@@ -10,10 +10,53 @@ type Category = {
 }
 
 const props = defineProps<{
-  categories: Category[]
+  categories?: Category[]
 }>()
 
-const visibleCategories = computed(() => (props.categories ?? []).slice(0, 4))
+const loading = ref(true)
+const loadedCategories = ref<Category[]>([])
+const loadError = ref(false)
+
+const fetchCategories = async () => {
+  loading.value = true
+  loadError.value = false
+
+  try {
+    const response = await fetch('/home/categories', {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories')
+    }
+
+    const data = await response.json()
+    loadedCategories.value = Array.isArray(data?.categories) ? data.categories : []
+  } catch (error) {
+    console.error('Categories fetch error:', error)
+    loadError.value = true
+    loadedCategories.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  if ((props.categories ?? []).length > 0) {
+    loadedCategories.value = props.categories ?? []
+    loading.value = false
+    return
+  }
+
+  fetchCategories()
+})
+
+const visibleCategories = computed(() => loadedCategories.value.slice(0, 4))
+const skeletonCards = computed(() => [0, 1, 2, 3])
 
 const cardClass = (index: number) => {
   switch (index) {
@@ -36,12 +79,6 @@ const titleClass = (index: number) => {
     : 'text-[11px] leading-[1] sm:text-[16px] xl:text-[28px]'
 }
 
-const descriptionClass = (index: number) => {
-  return index < 2
-    ? 'mt-2 max-w-[96%] text-[9px] leading-3 text-white/80 sm:mt-3 sm:max-w-[82%] sm:text-[12px] sm:leading-5 xl:mt-4 xl:max-w-[75%] xl:text-[15px] xl:leading-6'
-    : 'mt-1.5 max-w-[98%] text-[8px] leading-3 text-white/78 sm:mt-2 sm:max-w-[90%] sm:text-[10px] sm:leading-4 xl:mt-3 xl:max-w-[82%] xl:text-[14px] xl:leading-5'
-}
-
 const contentClass = (index: number) => {
   return index < 2
     ? 'p-3 sm:p-5 xl:p-8'
@@ -56,14 +93,57 @@ const buttonClass = (index: number) => {
 </script>
 
 <template>
-  <section v-if="visibleCategories.length" class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-14 lg:px-8">
+  <section class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-14 lg:px-8">
     <div class="mb-5 sm:mb-8">
       <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
         Tech Categories
       </h2>
     </div>
 
-    <div class="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-4 xl:gap-5">
+    <!-- Skeleton loader -->
+    <div v-if="loading" class="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-4 xl:gap-5">
+      <div
+        v-for="index in skeletonCards"
+        :key="`skeleton-${index}`"
+        class="tech-card tech-card--skeleton"
+        :class="cardClass(index)"
+      >
+        <div class="tech-card__skeleton-bg shimmer"></div>
+
+        <div class="relative z-10 flex h-full flex-col justify-between" :class="contentClass(index)">
+          <div>
+            <div
+              class="skeleton-line shimmer rounded-full"
+              :class="index < 2 ? 'h-6 w-32 sm:h-8 sm:w-44 xl:h-10 xl:w-56' : 'h-4 w-24 sm:h-6 sm:w-32 xl:h-8 xl:w-40'"
+            ></div>
+
+            <div
+              class="skeleton-line shimmer mt-3 rounded-full opacity-80"
+              :class="index < 2 ? 'h-3 w-24 sm:h-4 sm:w-32 xl:h-5 xl:w-40' : 'h-2.5 w-20 sm:h-3 sm:w-24 xl:h-4 xl:w-28'"
+            ></div>
+          </div>
+
+          <div class="mt-3 flex items-end justify-between gap-1.5 sm:mt-6 sm:gap-2 xl:mt-10">
+            <div
+              class="skeleton-pill shimmer rounded-full"
+              :class="buttonClass(index)"
+              style="width: 90px; height: 30px;"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div
+      v-else-if="loadError"
+      class="rounded-3xl border border-red-200 bg-red-50 px-5 py-6 text-sm text-red-600"
+    >
+      Failed to load categories. Please refresh the page.
+    </div>
+
+    <!-- Real categories -->
+    <div v-else-if="visibleCategories.length" class="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-4 xl:gap-5">
       <Link
         v-for="(category, index) in visibleCategories"
         :key="category.id"
@@ -91,10 +171,6 @@ const buttonClass = (index: number) => {
             >
               {{ category.name }}
             </h3>
-
-            <!-- <p :class="descriptionClass(index)">
-              Explore the latest products, accessories, and top picks in this category.
-            </p> -->
           </div>
 
           <div class="mt-3 flex items-end justify-between gap-1.5 sm:mt-6 sm:gap-2 xl:mt-10">
@@ -205,6 +281,57 @@ const buttonClass = (index: number) => {
   transform: translateX(4px);
 }
 
+/* Skeleton */
+.tech-card--skeleton {
+  background: linear-gradient(135deg, #111827, #1f2937);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+  animation: none;
+}
+
+.tech-card--skeleton:hover {
+  transform: none;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+}
+
+.tech-card__skeleton-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)),
+    linear-gradient(135deg, #0f172a, #1e293b);
+  opacity: 1;
+}
+
+.skeleton-line,
+.skeleton-pill {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.18),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -258,7 +385,8 @@ const buttonClass = (index: number) => {
 @media (prefers-reduced-motion: reduce) {
   .tech-card,
   .tech-card__bg,
-  .tech-card__arrow {
+  .tech-card__arrow,
+  .shimmer::after {
     animation: none !important;
     transition: none !important;
     transform: none !important;

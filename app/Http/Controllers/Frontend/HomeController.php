@@ -9,6 +9,7 @@ use App\Models\HomeBanner;
 use App\Models\Product;
 use App\Models\ShoeCategory;
 use App\Models\ShoeProduct;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 
 class HomeController extends Controller
@@ -45,20 +46,6 @@ class HomeController extends Controller
                     'name' => $b->name,
                     'description' => $b->description,
                     'video_url' => $b->video_url,
-                ];
-            })
-            ->values();
-
-        $categories = Category::query()
-            ->where('status', 'active')
-            ->oldest('id')
-            ->get()
-            ->map(function (Category $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
                 ];
             })
             ->values();
@@ -271,12 +258,33 @@ class HomeController extends Controller
             'products' => $products,
             'activeCategory' => $activeCategory,
             'banners' => $banners,
-            'categories' => $categories,
+            'categories' => [],
             'shoeCategories' => $shoeCategories,
             'featuredShoes' => $featuredShoes,
             'search' => $search,
             'activeShoeCategory' => $activeShoeCategory,
             'activeShoeSubcategory' => $activeShoeSubcategory,
+        ]);
+    }
+
+    public function categories(): JsonResponse
+    {
+        $categories = Category::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->get()
+            ->map(function (Category $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'categories' => $categories,
         ]);
     }
 }

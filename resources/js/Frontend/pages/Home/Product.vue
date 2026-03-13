@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3'
-import { computed, onMounted, ref, watch } from 'vue'
-import { route } from 'ziggy-js'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 type CategoryItem = {
   id: number | string
@@ -31,17 +29,38 @@ type ProductItem = {
 }
 
 const props = defineProps<{
-  products: ProductItem[]
-  categories: CategoryItem[]
+  products?: ProductItem[]
+  categories?: CategoryItem[]
   activeCategory?: string | null
 }>()
 
-const loading = ref(true)
+const sectionRef = ref<HTMLElement | null>(null)
+const loadingCategories = ref(true)
+const loadingProducts = ref(false)
+const categoriesLoaded = ref<CategoryItem[]>([])
+const productsLoaded = ref<ProductItem[]>([])
+const selectedCategory = ref<string | null>(props.activeCategory ?? null)
+const hasLoadedProductsOnce = ref(false)
+const loadError = ref(false)
+const categoryLoadError = ref(false)
+
 const imageLoadTotal = ref(0)
 const imageLoadDone = ref(0)
 
-const visibleProducts = computed(() => (props.products ?? []).slice(0, 4))
-const navCategories = computed(() => props.categories ?? [])
+let sectionObserver: IntersectionObserver | null = null
+let delayedLoadTimer: number | null = null
+
+const navCategories = computed(() => categoriesLoaded.value)
+const visibleProducts = computed(() => productsLoaded.value.slice(0, 4))
+const showLoader = computed(() => loadingProducts.value)
+
+function normalizeName(value: string | null | undefined) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function isActiveNav(name?: string | null) {
+  return normalizeName(selectedCategory.value) === normalizeName(name)
+}
 
 function formatPrice(value: number | null | undefined) {
   if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) {
@@ -53,57 +72,6 @@ function formatPrice(value: number | null | undefined) {
     maximumFractionDigits: 2,
   })}`
 }
-
-function normalizeName(value: string | null | undefined) {
-  return String(value ?? '').trim().toLowerCase()
-}
-
-function isActiveNav(name?: string | null) {
-  return normalizeName(props.activeCategory) === normalizeName(name)
-}
-
-function preloadImages() {
-  const urls = visibleProducts.value
-    .flatMap((product) => [product.thumbnail_url, product.hover_image_url])
-    .filter((url): url is string => !!url)
-
-  imageLoadTotal.value = urls.length
-  imageLoadDone.value = 0
-
-  if (!urls.length) {
-    loading.value = false
-    return
-  }
-
-  loading.value = true
-
-  urls.forEach((url) => {
-    const img = new Image()
-
-    const markDone = () => {
-      imageLoadDone.value += 1
-      if (imageLoadDone.value >= imageLoadTotal.value) {
-        loading.value = false
-      }
-    }
-
-    img.onload = markDone
-    img.onerror = markDone
-    img.src = url
-  })
-}
-
-watch(
-  () => props.products,
-  () => {
-    preloadImages()
-  },
-  { immediate: true, deep: true }
-)
-
-onMounted(() => {
-  preloadImages()
-})
 
 const colorFallbackMap: Record<string, string> = {
   black: '#111111',
@@ -142,10 +110,211 @@ function colorSwatchStyle(color: ProductColor) {
     backgroundColor: colorFallbackMap[key] || '#d4d4d8',
   }
 }
+
+function updateUrl(category?: string | null) {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+
+  if (category && String(category).trim() !== '') {
+    url.searchParams.set('category', category)
+  } else {
+    url.searchParams.delete('category')
+  }
+
+  url.hash = 'products-section'
+  window.history.replaceState({}, '', url.toString())
+}
+
+function scrollToSection() {
+  sectionRef.value?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+}
+
+function preloadImages() {
+  const urls = visibleProducts.value
+    .flatMap((product) => [product.thumbnail_url, product.hover_image_url])
+    .filter((url): url is string => !!url)
+
+  imageLoadTotal.value = urls.length
+  imageLoadDone.value = 0
+
+  if (!urls.length) {
+    loadingProducts.value = false
+    return
+  }
+
+  urls.forEach((url) => {
+    const img = new Image()
+
+    const markDone = () => {
+      imageLoadDone.value += 1
+      if (imageLoadDone.value >= imageLoadTotal.value) {
+        loadingProducts.value = false
+      }
+    }
+
+    img.onload = markDone
+    img.onerror = markDone
+    img.src = url
+  })
+}
+
+async function fetchCategories() {
+  loadingCategories.value = true
+  categoryLoadError.value = false
+
+  try {
+    const response = await fetch('/home/categories', {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories')
+    }
+
+    const data = await response.json()
+    categoriesLoaded.value = Array.isArray(data?.categories) ? data.categories : []
+  } catch (error) {
+    console.error('Product categories fetch error:', error)
+    categoryLoadError.value = true
+    categoriesLoaded.value = []
+  } finally {
+    loadingCategories.value = false
+  }
+}
+
+async function fetchProducts(category?: string | null) {
+  loadingProducts.value = true
+  loadError.value = false
+
+  try {
+    const url = new URL('/home/products', window.location.origin)
+
+    if (category && String(category).trim() !== '') {
+      url.searchParams.set('category', category)
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch products')
+    }
+
+    const data = await response.json()
+    productsLoaded.value = Array.isArray(data?.products) ? data.products : []
+    hasLoadedProductsOnce.value = true
+    preloadImages()
+  } catch (error) {
+    console.error('Products fetch error:', error)
+    loadError.value = true
+    productsLoaded.value = []
+    loadingProducts.value = false
+  }
+}
+
+async function ensureProductsLoaded() {
+  if (hasLoadedProductsOnce.value || loadingProducts.value) return
+  await fetchProducts(selectedCategory.value)
+}
+
+async function onCategoryClick(category?: string | null) {
+  selectedCategory.value = category ?? null
+  updateUrl(selectedCategory.value)
+  scrollToSection()
+  await nextTick()
+  await fetchProducts(selectedCategory.value)
+}
+
+function loadLottieScript() {
+  if (typeof window === 'undefined') return
+  if (document.querySelector('script[data-dotlottie-loader="true"]')) return
+  if (customElements.get('dotlottie-wc')) return
+
+  const script = document.createElement('script')
+  script.src = 'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
+  script.type = 'module'
+  script.setAttribute('data-dotlottie-loader', 'true')
+  document.body.appendChild(script)
+}
+
+onMounted(async () => {
+  loadLottieScript()
+
+  if ((props.categories ?? []).length > 0) {
+    categoriesLoaded.value = props.categories ?? []
+    loadingCategories.value = false
+  } else {
+    fetchCategories()
+  }
+
+  if ((props.products ?? []).length > 0) {
+    productsLoaded.value = props.products ?? []
+    hasLoadedProductsOnce.value = true
+    preloadImages()
+  }
+
+  delayedLoadTimer = window.setTimeout(() => {
+    ensureProductsLoaded()
+  }, 1400)
+
+  if ('IntersectionObserver' in window && sectionRef.value) {
+    sectionObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry?.isIntersecting) {
+          ensureProductsLoaded()
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px 0px',
+        threshold: 0.1,
+      }
+    )
+
+    sectionObserver.observe(sectionRef.value)
+  }
+
+  if (window.location.hash === '#products-section') {
+    setTimeout(() => {
+      scrollToSection()
+      ensureProductsLoaded()
+    }, 150)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (sectionObserver) {
+    sectionObserver.disconnect()
+    sectionObserver = null
+  }
+
+  if (delayedLoadTimer) {
+    window.clearTimeout(delayedLoadTimer)
+    delayedLoadTimer = null
+  }
+})
 </script>
 
 <template>
-  <section class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-12 lg:px-8">
+  <section
+    id="products-section"
+    ref="sectionRef"
+    class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-12 lg:px-8"
+  >
     <div class="mb-5 flex flex-col gap-4 sm:mb-7">
       <div>
         <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
@@ -158,55 +327,92 @@ function colorSwatchStyle(color: ProductColor) {
 
       <div class="overflow-x-auto pb-1">
         <div class="inline-flex min-w-full gap-2 sm:gap-3">
-          <Link
-            :href="route('frontend.root')"
-            preserve-scroll
+          <button
+            type="button"
             class="whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition"
-            :class="!activeCategory
+            :class="!selectedCategory
               ? 'border-black bg-black text-white'
               : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100'"
+            @click="onCategoryClick(null)"
           >
             All
-          </Link>
+          </button>
 
-          <Link
-            v-for="category in navCategories"
-            :key="category.id"
-            :href="route('frontend.root', { category: category.name })"
-            preserve-scroll
-            class="whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition"
-            :class="isActiveNav(category.name)
-              ? 'border-black bg-black text-white'
-              : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100'"
-          >
-            {{ category.name }}
-          </Link>
+          <template v-if="!loadingCategories && navCategories.length">
+            <button
+              v-for="category in navCategories"
+              :key="category.id"
+              type="button"
+              class="whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition"
+              :class="isActiveNav(category.name)
+                ? 'border-black bg-black text-white'
+                : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100'"
+              @click="onCategoryClick(category.name)"
+            >
+              {{ category.name }}
+            </button>
+          </template>
+
+          <template v-else-if="loadingCategories">
+            <span
+              v-for="index in 4"
+              :key="`cat-pill-${index}`"
+              class="inline-block h-[40px] w-[100px] animate-pulse rounded-full border border-neutral-200 bg-neutral-100"
+            />
+          </template>
         </div>
       </div>
     </div>
 
-    <div v-if="loading" class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5">
-      <div
-        v-for="index in 4"
-        :key="`product-skeleton-${index}`"
-        class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
-      >
-        <div class="relative h-[180px] animate-pulse bg-white sm:h-[240px] xl:h-[260px]">
-          <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
-          <div class="absolute left-3 top-10 h-5 w-14 rounded bg-neutral-200 sm:left-4 sm:top-12 sm:h-6 sm:w-16" />
+    <div
+      v-if="showLoader"
+      class="relative min-h-[320px] rounded-[24px] border border-neutral-200 bg-white"
+    >
+      <div class="absolute inset-0 z-20 flex items-center justify-center bg-white/92 backdrop-blur-[2px]">
+        <div class="flex flex-col items-center justify-center">
+          <dotlottie-wc
+            src="https://lottie.host/3aaa9185-2876-4f24-a9dd-7bcb4b6126ff/DqmYrIP5av.lottie"
+            style="width: 220px; height: 220px"
+            autoplay
+            loop
+          ></dotlottie-wc>
+          <p class="-mt-4 text-sm font-medium text-neutral-500">Loading products...</p>
         </div>
+      </div>
 
-        <div class="space-y-2 p-3 sm:space-y-3 sm:p-4">
-          <div class="h-4 w-3/4 animate-pulse rounded bg-neutral-200 sm:h-5" />
-          <div class="h-4 w-full animate-pulse rounded bg-neutral-100" />
-          <div class="h-4 w-2/3 animate-pulse rounded bg-neutral-200" />
-          <div class="mt-2 flex gap-2">
-            <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
-            <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
-            <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
+      <div class="grid grid-cols-2 gap-3 p-0 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5">
+        <div
+          v-for="index in 4"
+          :key="`product-skeleton-${index}`"
+          class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+        >
+          <div class="relative h-[180px] animate-pulse bg-white sm:h-[240px] xl:h-[260px]">
+            <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
+            <div class="absolute left-3 top-10 h-5 w-14 rounded bg-neutral-200 sm:left-4 sm:top-12 sm:h-6 sm:w-16" />
+          </div>
+
+          <div class="space-y-2 p-3 sm:space-y-3 sm:p-4">
+            <div class="h-4 w-3/4 animate-pulse rounded bg-neutral-200 sm:h-5" />
+            <div class="h-4 w-full animate-pulse rounded bg-neutral-100" />
+            <div class="h-4 w-2/3 animate-pulse rounded bg-neutral-200" />
+            <div class="mt-2 flex gap-2">
+              <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
+              <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
+              <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
+            </div>
           </div>
         </div>
       </div>
+    </div>
+
+    <div
+      v-else-if="loadError"
+      class="rounded-[24px] border border-red-200 bg-red-50 px-6 py-12 text-center"
+    >
+      <h3 class="text-lg font-semibold text-red-700">Failed to load products</h3>
+      <p class="mt-2 text-sm text-red-500">
+        Please try again.
+      </p>
     </div>
 
     <div

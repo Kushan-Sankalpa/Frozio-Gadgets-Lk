@@ -21,10 +21,6 @@ class HomeController extends Controller
         $activeShoeSubcategory = request('shoe_subcategory');
         $search = trim((string) request('search', ''));
 
-        $normalizedCategory = filled($activeCategory)
-            ? mb_strtolower(trim((string) $activeCategory))
-            : null;
-
         $normalizedShoeCategory = filled($activeShoeCategory)
             ? mb_strtolower(trim((string) $activeShoeCategory))
             : null;
@@ -159,6 +155,53 @@ class HomeController extends Controller
             })
             ->values();
 
+        return Inertia::render('Frontend/Home/index', [
+            'products' => [],
+            'activeCategory' => $activeCategory,
+            'banners' => $banners,
+            'categories' => [],
+            'shoeCategories' => $shoeCategories,
+            'featuredShoes' => $featuredShoes,
+            'search' => $search,
+            'activeShoeCategory' => $activeShoeCategory,
+            'activeShoeSubcategory' => $activeShoeSubcategory,
+        ]);
+    }
+
+    public function categories(): JsonResponse
+    {
+        $categories = Category::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->get()
+            ->map(function (Category $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'categories' => $categories,
+        ]);
+    }
+
+    public function products(): JsonResponse
+    {
+        $activeCategory = request('category');
+        $search = trim((string) request('search', ''));
+
+        $normalizedCategory = filled($activeCategory)
+            ? mb_strtolower(trim((string) $activeCategory))
+            : null;
+
+        $normalizedSearch = filled($search)
+            ? mb_strtolower($search)
+            : null;
+
         $baseProducts = Product::query()
             ->with('category:id,name')
             ->where('status', 'active')
@@ -254,37 +297,9 @@ class HomeController extends Controller
             })
             ->values();
 
-        return Inertia::render('Frontend/Home/index', [
+        return response()->json([
             'products' => $products,
             'activeCategory' => $activeCategory,
-            'banners' => $banners,
-            'categories' => [],
-            'shoeCategories' => $shoeCategories,
-            'featuredShoes' => $featuredShoes,
-            'search' => $search,
-            'activeShoeCategory' => $activeShoeCategory,
-            'activeShoeSubcategory' => $activeShoeSubcategory,
-        ]);
-    }
-
-    public function categories(): JsonResponse
-    {
-        $categories = Category::query()
-            ->where('status', 'active')
-            ->oldest('id')
-            ->get()
-            ->map(function (Category $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
-                ];
-            })
-            ->values();
-
-        return response()->json([
-            'categories' => $categories,
         ]);
     }
 }

@@ -434,14 +434,14 @@ onBeforeUnmount(() => {
 <template>
   <section
     ref="sectionRef"
-    class="relative overflow-hidden"
+    class="relative overflow-hidden bg-white"
     :style="{ '--shoe-stage-height': height }"
   >
-    <div class="pointer-events-none absolute inset-0">
+    <!-- <div class="pointer-events-none absolute inset-0">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(17,24,39,0.04),transparent_28%)]" />
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(17,24,39,0.035),transparent_26%)]" />
       <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.02),transparent_18%,transparent_82%,rgba(17,24,39,0.02))]" />
-    </div>
+    </div> -->
 
     <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-1 lg:px-8 lg:py-1">
       <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">

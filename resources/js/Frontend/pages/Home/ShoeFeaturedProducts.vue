@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 type FeaturedShoe = {
   id: number | string
@@ -20,14 +20,20 @@ type FeaturedShoe = {
 }
 
 const props = defineProps<{
-  products: FeaturedShoe[]
+  products?: FeaturedShoe[]
 }>()
 
+const sectionRef = ref<HTMLElement | null>(null)
 const imageLoadTotal = ref(0)
 const imageLoadDone = ref(0)
-const loading = ref(true)
+const loading = ref(false)
+const hasLoadedOnce = ref(false)
+const loadError = ref(false)
+const loadedProducts = ref<FeaturedShoe[]>([])
 
-const visibleProducts = computed(() => (props.products ?? []).slice(0, 8))
+let sectionObserver: IntersectionObserver | null = null
+
+const visibleProducts = computed(() => loadedProducts.value.slice(0, 8))
 
 function formatPrice(value: number | null | undefined) {
   if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) {
@@ -55,8 +61,6 @@ function preloadImages() {
     return
   }
 
-  loading.value = true
-
   urls.forEach((url) => {
     const img = new Image()
 
@@ -74,21 +78,78 @@ function preloadImages() {
   })
 }
 
-watch(
-  () => props.products,
-  () => {
+async function fetchFeaturedShoes() {
+  if (loading.value || hasLoadedOnce.value) return
+
+  loading.value = true
+  loadError.value = false
+
+  try {
+    const response = await fetch('/home/featured-shoes', {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch featured shoes')
+    }
+
+    const data = await response.json()
+    loadedProducts.value = Array.isArray(data?.products) ? data.products : []
+    hasLoadedOnce.value = true
     preloadImages()
-  },
-  { immediate: true, deep: true }
-)
+  } catch (error) {
+    console.error('Featured shoes fetch error:', error)
+    loadError.value = true
+    loadedProducts.value = []
+    loading.value = false
+  }
+}
 
 onMounted(() => {
-  preloadImages()
+  if ((props.products ?? []).length > 0) {
+    loadedProducts.value = props.products ?? []
+    hasLoadedOnce.value = true
+    preloadImages()
+    return
+  }
+
+  if ('IntersectionObserver' in window && sectionRef.value) {
+    sectionObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry?.isIntersecting) {
+          fetchFeaturedShoes()
+          if (sectionObserver) {
+            sectionObserver.disconnect()
+            sectionObserver = null
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: '220px 0px',
+        threshold: 0.12,
+      }
+    )
+
+    sectionObserver.observe(sectionRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (sectionObserver) {
+    sectionObserver.disconnect()
+    sectionObserver = null
+  }
 })
 </script>
 
 <template>
-  <section class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-12 lg:px-8">
+  <section ref="sectionRef" class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-12 lg:px-8">
     <div class="mb-5 flex items-end justify-between gap-3 sm:mb-7">
       <div>
         <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
@@ -117,6 +178,16 @@ onMounted(() => {
           <div class="h-4 w-2/3 animate-pulse rounded bg-neutral-200" />
         </div>
       </div>
+    </div>
+
+    <div
+      v-else-if="loadError"
+      class="rounded-[24px] border border-red-200 bg-red-50 px-6 py-12 text-center"
+    >
+      <h3 class="text-lg font-semibold text-red-700">Failed to load featured shoes</h3>
+      <p class="mt-2 text-sm text-red-500">
+        Please scroll again or refresh the page.
+      </p>
     </div>
 
     <div

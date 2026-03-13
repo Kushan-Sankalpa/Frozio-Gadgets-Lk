@@ -21,18 +21,6 @@ class HomeController extends Controller
         $activeShoeSubcategory = request('shoe_subcategory');
         $search = trim((string) request('search', ''));
 
-        $normalizedShoeCategory = filled($activeShoeCategory)
-            ? mb_strtolower(trim((string) $activeShoeCategory))
-            : null;
-
-        $normalizedShoeSubcategory = filled($activeShoeSubcategory)
-            ? mb_strtolower(trim((string) $activeShoeSubcategory))
-            : null;
-
-        $normalizedSearch = filled($search)
-            ? mb_strtolower($search)
-            : null;
-
         $banners = HomeBanner::query()
             ->latest()
             ->get()
@@ -45,6 +33,80 @@ class HomeController extends Controller
                 ];
             })
             ->values();
+
+        return Inertia::render('Frontend/Home/index', [
+            'products' => [],
+            'activeCategory' => $activeCategory,
+            'banners' => $banners,
+            'categories' => [],
+            'shoeCategories' => [],
+            'featuredShoes' => [],
+            'search' => $search,
+            'activeShoeCategory' => $activeShoeCategory,
+            'activeShoeSubcategory' => $activeShoeSubcategory,
+        ]);
+    }
+
+    public function categories(): JsonResponse
+    {
+        $categories = Category::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->get()
+            ->map(function (Category $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'categories' => $categories,
+        ]);
+    }
+
+    public function shoeCategories(): JsonResponse
+    {
+        $shoeCategories = ShoeCategory::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->take(3)
+            ->get()
+            ->map(function (ShoeCategory $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'categories' => $shoeCategories,
+        ]);
+    }
+
+    public function featuredShoes(): JsonResponse
+    {
+        $activeShoeCategory = request('shoe_category');
+        $activeShoeSubcategory = request('shoe_subcategory');
+        $search = trim((string) request('search', ''));
+
+        $normalizedShoeCategory = filled($activeShoeCategory)
+            ? mb_strtolower(trim((string) $activeShoeCategory))
+            : null;
+
+        $normalizedShoeSubcategory = filled($activeShoeSubcategory)
+            ? mb_strtolower(trim((string) $activeShoeSubcategory))
+            : null;
+
+        $normalizedSearch = filled($search)
+            ? mb_strtolower($search)
+            : null;
 
         $today = now()->startOfDay();
 
@@ -129,59 +191,11 @@ class HomeController extends Controller
             })
             ->values();
 
-        return Inertia::render('Frontend/Home/index', [
-            'products' => [],
-            'activeCategory' => $activeCategory,
-            'banners' => $banners,
-            'categories' => [],
-            'shoeCategories' => [],
-            'featuredShoes' => $featuredShoes,
-            'search' => $search,
+        return response()->json([
+            'products' => $featuredShoes,
             'activeShoeCategory' => $activeShoeCategory,
             'activeShoeSubcategory' => $activeShoeSubcategory,
-        ]);
-    }
-
-    public function categories(): JsonResponse
-    {
-        $categories = Category::query()
-            ->where('status', 'active')
-            ->oldest('id')
-            ->get()
-            ->map(function (Category $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
-                ];
-            })
-            ->values();
-
-        return response()->json([
-            'categories' => $categories,
-        ]);
-    }
-
-    public function shoeCategories(): JsonResponse
-    {
-        $shoeCategories = ShoeCategory::query()
-            ->where('status', 'active')
-            ->oldest('id')
-            ->take(3)
-            ->get()
-            ->map(function (ShoeCategory $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
-                ];
-            })
-            ->values();
-
-        return response()->json([
-            'categories' => $shoeCategories,
+            'search' => $search,
         ]);
     }
 

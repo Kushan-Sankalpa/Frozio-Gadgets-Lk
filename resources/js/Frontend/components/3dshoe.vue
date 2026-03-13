@@ -4,6 +4,12 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
+const DOTLOTTIE_SCRIPT_SRC =
+  'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
+
+const DOTLOTTIE_ANIMATION_SRC =
+  'https://lottie.host/6b1767c9-aa5a-4979-a1a6-ca0995bbf626/mqJgNxzu51.lottie'
+
 const props = withDefaults(
   defineProps<{
     modelPath?: string
@@ -30,15 +36,31 @@ let frameId = 0
 let resizeObserver: ResizeObserver | null = null
 let resumeRotateTimer: number | null = null
 let meshTargets: THREE.Object3D[] = []
+let currentAutoRotateSpeed = 0
+let targetAutoRotateSpeed = 0
+let dotLottieScriptEl: HTMLScriptElement | null = null
 
 const raycaster = new THREE.Raycaster()
 const pointer = new THREE.Vector2()
+const clock = new THREE.Clock()
 
 const clearResumeTimer = () => {
   if (resumeRotateTimer !== null) {
     window.clearTimeout(resumeRotateTimer)
     resumeRotateTimer = null
   }
+}
+
+const ensureDotLottieScript = () => {
+  if (typeof window === 'undefined') return
+  if (document.querySelector('script[data-dotlottie-wc="true"]')) return
+
+  dotLottieScriptEl = document.createElement('script')
+  dotLottieScriptEl.src = DOTLOTTIE_SCRIPT_SRC
+  dotLottieScriptEl.type = 'module'
+  dotLottieScriptEl.async = true
+  dotLottieScriptEl.dataset.dotlottieWc = 'true'
+  document.head.appendChild(dotLottieScriptEl)
 }
 
 const setCanvasIdleState = () => {
@@ -55,9 +77,7 @@ const setCanvasDragState = () => {
 
 const pauseAutoRotate = () => {
   clearResumeTimer()
-  if (controls) {
-    controls.autoRotate = false
-  }
+  targetAutoRotateSpeed = 0
   setCanvasDragState()
 }
 
@@ -65,14 +85,15 @@ const resumeAutoRotate = () => {
   clearResumeTimer()
   setCanvasIdleState()
 
-  if (!props.autoRotate) return
+  if (!props.autoRotate) {
+    targetAutoRotateSpeed = 0
+    return
+  }
 
   resumeRotateTimer = window.setTimeout(() => {
-    if (controls) {
-      controls.autoRotate = true
-    }
+    targetAutoRotateSpeed = window.innerWidth < 768 ? 0.52 : 0.72
     setCanvasIdleState()
-  }, 900)
+  }, 500)
 }
 
 const getIntersections = (event: PointerEvent) => {
@@ -91,7 +112,7 @@ const getIntersections = (event: PointerEvent) => {
 }
 
 const handlePointerDown = (event: PointerEvent) => {
-  if (!controls) return
+  if (!controls || loading.value || error.value) return
 
   const hitModel = getIntersections(event).length > 0
 
@@ -173,7 +194,7 @@ const resize = () => {
 
   camera.aspect = width / height
   camera.updateProjectionMatrix()
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
   renderer.setSize(width, height, false)
 }
 
@@ -181,7 +202,16 @@ const animate = () => {
   if (!renderer || !scene || !camera) return
 
   frameId = window.requestAnimationFrame(animate)
-  controls?.update()
+
+  const delta = Math.min(clock.getDelta(), 0.033)
+
+  if (controls) {
+    currentAutoRotateSpeed += (targetAutoRotateSpeed - currentAutoRotateSpeed) * Math.min(1, delta * 7)
+    controls.autoRotate = currentAutoRotateSpeed > 0.001
+    controls.autoRotateSpeed = currentAutoRotateSpeed
+    controls.update(delta)
+  }
+
   renderer.render(scene, camera)
 }
 
@@ -199,6 +229,7 @@ const disposeScene = () => {
 
   window.removeEventListener('pointerup', handlePointerEnd)
   window.removeEventListener('pointercancel', handlePointerEnd)
+  window.removeEventListener('pointerleave', handlePointerEnd)
 
   controls?.dispose()
   controls = null
@@ -208,9 +239,7 @@ const disposeScene = () => {
       const mesh = child as THREE.Mesh
 
       if (mesh.isMesh) {
-        if (mesh.geometry) {
-          mesh.geometry.dispose()
-        }
+        mesh.geometry?.dispose()
 
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         materials.forEach((material) => material?.dispose?.())
@@ -241,6 +270,8 @@ const disposeScene = () => {
 onMounted(() => {
   if (!stageRef.value) return
 
+  ensureDotLottieScript()
+
   scene = new THREE.Scene()
 
   camera = new THREE.PerspectiveCamera(34, 1, 0.1, 1000)
@@ -264,16 +295,22 @@ onMounted(() => {
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
-  controls.dampingFactor = 0.075
-  controls.rotateSpeed = 0.72
+  controls.dampingFactor = window.innerWidth < 768 ? 0.11 : 0.085
+  controls.rotateSpeed = window.innerWidth < 768 ? 0.58 : 0.72
   controls.enableZoom = false
   controls.enablePan = false
+  controls.enableRotate = true
   controls.autoRotate = props.autoRotate
-  controls.autoRotateSpeed = 1.05
+  controls.autoRotateSpeed = 0
   controls.minPolarAngle = Math.PI / 2 - 0.62
   controls.maxPolarAngle = Math.PI / 2 + 0.62
   controls.minAzimuthAngle = -Infinity
   controls.maxAzimuthAngle = Infinity
+  controls.touches.ONE = THREE.TOUCH.ROTATE
+  controls.touches.TWO = THREE.TOUCH.DOLLY_PAN
+
+  currentAutoRotateSpeed = 0
+  targetAutoRotateSpeed = props.autoRotate ? (window.innerWidth < 768 ? 0.52 : 0.72) : 0
 
   setCanvasIdleState()
   createLights()
@@ -282,6 +319,7 @@ onMounted(() => {
   renderer.domElement.addEventListener('pointerdown', handlePointerDown)
   window.addEventListener('pointerup', handlePointerEnd)
   window.addEventListener('pointercancel', handlePointerEnd)
+  window.addEventListener('pointerleave', handlePointerEnd)
 
   resizeObserver = new ResizeObserver(() => {
     resize()
@@ -296,7 +334,7 @@ onMounted(() => {
   loader.load(
     props.modelPath,
     (gltf) => {
-      if (!scene) return
+      if (!scene || !renderer || !camera) return
 
       modelRoot = gltf.scene
       modelRoot.rotation.y = -0.85
@@ -310,14 +348,17 @@ onMounted(() => {
         if (mesh.isMesh) {
           mesh.castShadow = false
           mesh.receiveShadow = false
+          mesh.frustumCulled = false
           meshTargets.push(mesh)
         }
       })
 
       scene.add(modelRoot)
       fitCameraToObject(modelRoot)
+      renderer.compile(scene, camera)
 
       loading.value = false
+      clock.start()
       animate()
     },
     undefined,
@@ -335,17 +376,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section
-  class=""
-  :style="{ '--shoe-stage-height': height }"
->
+  <section :style="{ '--shoe-stage-height': height }">
     <div class="pointer-events-none absolute inset-0">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(17,24,39,0.04),transparent_28%)]" />
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(17,24,39,0.035),transparent_26%)]" />
       <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.02),transparent_18%,transparent_82%,rgba(17,24,39,0.02))]" />
     </div>
 
-   <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-1 lg:px-8 lg:py-1">
+    <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-1 lg:px-8 lg:py-1">
       <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
         <div class="order-1">
           <div class="shoe-showcase__stage-wrap relative mr-auto w-full">
@@ -353,11 +391,20 @@ onBeforeUnmount(() => {
 
             <div
               v-if="loading"
-              class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+              class="shoe-showcase__loading pointer-events-none absolute inset-0 z-20"
+              role="status"
+              aria-live="polite"
             >
-              <div class="px-4 py-2 text-sm font-medium text-slate-600">
-  Loading 3D Model...
-</div>
+              <div class="shoe-showcase__loading-card">
+                <component
+                  :is="'dotlottie-wc'"
+                  :src="DOTLOTTIE_ANIMATION_SRC"
+                  class="shoe-showcase__loader-anim"
+                  autoplay
+                  loop
+                />
+                <p class="shoe-showcase__loading-text">Loading 3D Model...</p>
+              </div>
             </div>
 
             <div
@@ -368,8 +415,6 @@ onBeforeUnmount(() => {
                 {{ error }}
               </div>
             </div>
-
-         
           </div>
         </div>
 
@@ -380,37 +425,17 @@ onBeforeUnmount(() => {
             New Arrival
           </div>
 
-         <h2
-  class="mt-5 max-w-[11ch] text-[44px] font-semibold leading-[0.92] tracking-[-0.05em] text-slate-900 sm:text-[56px] lg:text-[70px] xl:text-[86px]"
->
-  Introducing Air Jordan 1
-</h2>
+          <h2
+            class="mt-5 max-w-[11ch] text-[44px] font-semibold leading-[0.92] tracking-[-0.05em] text-slate-900 sm:text-[56px] lg:text-[70px] xl:text-[86px]"
+          >
+            Introducing Air Jordan 1
+          </h2>
 
           <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-slate-600 sm:text-base sm:leading-8">
             Step into an iconic silhouette reimagined for a bold modern statement. The Air Jordan 1
             combines heritage design, standout details, and unmistakable attitude in a form that
             continues to define sneaker culture.
           </p>
-
-        
-
-          <!-- <div class="mt-8 flex flex-wrap items-center gap-3">
-            <div
-              class="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-600 shadow-sm sm:text-xs"
-            >
-              360° Preview
-            </div>
-            <div
-              class="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-600 shadow-sm sm:text-xs"
-            >
-              Touch Enabled
-            </div>
-            <div
-              class="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-600 shadow-sm sm:text-xs"
-            >
-              Premium Style
-            </div>
-          </div> -->
         </div>
       </div>
     </div>
@@ -433,6 +458,7 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
 }
+
 .shoe-showcase__stage :deep(canvas) {
   display: block;
   width: 100% !important;
@@ -441,8 +467,55 @@ onBeforeUnmount(() => {
   touch-action: pan-y;
 }
 
+.shoe-showcase__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(2px);
+}
+
+.shoe-showcase__loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: min(88%, 340px);
+}
+
+.shoe-showcase__loader-anim {
+  width: clamp(118px, 30vw, 300px);
+  height: clamp(118px, 30vw, 300px);
+}
+
+.shoe-showcase__loading-text {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(13px, 2.8vw, 16px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(71 85 105);
+}
+
+@media (max-width: 640px) {
+  .shoe-showcase__stage {
+    height: clamp(340px, 92vw, 500px);
+  }
+
+  .shoe-showcase__loading-card {
+    gap: 0.25rem;
+  }
+
+  .shoe-showcase__loader-anim {
+    width: clamp(100px, 34vw, 150px);
+    height: clamp(100px, 34vw, 150px);
+  }
+}
+
 @media (min-width: 1024px) {
-   .shoe-showcase__stage-wrap {
+  .shoe-showcase__stage-wrap {
     max-width: 900px;
   }
 

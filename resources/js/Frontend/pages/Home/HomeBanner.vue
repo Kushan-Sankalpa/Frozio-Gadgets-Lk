@@ -15,18 +15,27 @@ const props = defineProps<{
 const slides = computed(() => (props.banners ?? []).filter(b => !!b?.video_url) as Required<Banner>[])
 const hasSlides = computed(() => slides.value.length > 0)
 
+const sectionRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLDivElement | null>(null)
 const active = ref(0)
 
-// Keep video refs (same order as slides)
 const videoEls = ref<Array<HTMLVideoElement | null>>([])
 
 const setVideoRef = (el: HTMLVideoElement | null, idx: number) => {
   videoEls.value[idx] = el
 }
 
-// Track which videos are ready
 const readyMap = ref<Record<number, boolean>>({})
+const shouldRenderVideos = ref(false)
+
+let rafId: number | null = null
+let autoplayTimer: number | null = null
+let resumeTimer: number | null = null
+let loadVideosTimer: number | null = null
+let sectionObserver: IntersectionObserver | null = null
+
+const userInteracting = ref(false)
+const hasScheduledLoad = ref(false)
 
 const setReady = (idx: number) => {
   readyMap.value = {
@@ -36,11 +45,6 @@ const setReady = (idx: number) => {
 }
 
 const isReady = (idx: number) => !!readyMap.value[idx]
-
-let rafId: number | null = null
-let autoplayTimer: number | null = null
-let resumeTimer: number | null = null
-const userInteracting = ref(false)
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 
@@ -83,6 +87,8 @@ const onScroll = () => {
 }
 
 const pauseAllExceptActive = async () => {
+  if (!shouldRenderVideos.value) return
+
   const count = slides.value.length
   if (count === 0) return
 
@@ -100,14 +106,14 @@ const pauseAllExceptActive = async () => {
         // @ts-ignore
         if (p?.catch) p.catch(() => {})
       } catch {
-        // ignore
+        //
       }
     } else {
       try {
         v.pause()
         v.currentTime = 0
       } catch {
-        // ignore
+        //
       }
     }
   }
@@ -120,6 +126,7 @@ const stopAutoplay = () => {
 
 const startAutoplay = () => {
   stopAutoplay()
+  if (!shouldRenderVideos.value) return
   if (slides.value.length <= 1) return
 
   autoplayTimer = window.setInterval(() => {
@@ -155,14 +162,55 @@ const loadLottieScript = () => {
   document.body.appendChild(script)
 }
 
+const scheduleVideoLoading = () => {
+  if (hasScheduledLoad.value) return
+  hasScheduledLoad.value = true
+
+  if (loadVideosTimer) {
+    window.clearTimeout(loadVideosTimer)
+    loadVideosTimer = null
+  }
+
+  loadVideosTimer = window.setTimeout(async () => {
+    shouldRenderVideos.value = true
+    await nextTick()
+    await pauseAllExceptActive()
+    startAutoplay()
+  }, 5000)
+}
+
 onMounted(async () => {
   loadLottieScript()
 
   await nextTick()
+
   if (hasSlides.value) {
     scrollToIndex(0, 'auto')
-    await pauseAllExceptActive()
-    startAutoplay()
+  }
+
+  if ('IntersectionObserver' in window && sectionRef.value) {
+    sectionObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry?.isIntersecting) {
+          scheduleVideoLoading()
+
+          if (sectionObserver) {
+            sectionObserver.disconnect()
+            sectionObserver = null
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.35,
+      }
+    )
+
+    sectionObserver.observe(sectionRef.value)
+  } else {
+    scheduleVideoLoading()
   }
 
   window.addEventListener('resize', handleResize, { passive: true })
@@ -170,8 +218,16 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   stopAutoplay()
+
   if (resumeTimer) window.clearTimeout(resumeTimer)
+  if (loadVideosTimer) window.clearTimeout(loadVideosTimer)
   if (rafId) cancelAnimationFrame(rafId)
+
+  if (sectionObserver) {
+    sectionObserver.disconnect()
+    sectionObserver = null
+  }
+
   window.removeEventListener('resize', handleResize)
 })
 
@@ -185,17 +241,23 @@ watch(
   async () => {
     active.value = 0
     readyMap.value = {}
+    shouldRenderVideos.value = false
+    hasScheduledLoad.value = false
+
+    if (loadVideosTimer) {
+      window.clearTimeout(loadVideosTimer)
+      loadVideosTimer = null
+    }
+
     await nextTick()
     scrollToIndex(0, 'auto')
-    await pauseAllExceptActive()
-    startAutoplay()
   },
   { deep: true }
 )
 </script>
 
 <template>
-  <section v-if="hasSlides" class="w-full">
+  <section v-if="hasSlides" ref="sectionRef" class="w-full">
     <div class="relative w-full">
       <div
         ref="trackRef"
@@ -211,21 +273,20 @@ watch(
           class="relative w-full flex-shrink-0 snap-center bg-black"
         >
           <div class="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[24/9] overflow-hidden bg-black">
-            <!-- Loader -->
             <div
               v-if="!isReady(idx)"
               class="absolute inset-0 z-20 flex items-center justify-center bg-black"
             >
               <dotlottie-wc
                 src="https://lottie.host/3aaa9185-2876-4f24-a9dd-7bcb4b6126ff/DqmYrIP5av.lottie"
-                style="width: 220px; height: 220px"
+                class="banner-loader"
                 autoplay
                 loop
               ></dotlottie-wc>
             </div>
 
-            <!-- Video -->
             <video
+              v-if="shouldRenderVideos"
               :ref="(el) => setVideoRef(el as HTMLVideoElement | null, idx)"
               :src="b.video_url || ''"
               class="h-full w-full object-cover transition-opacity duration-500"
@@ -238,10 +299,8 @@ watch(
               @canplay="setReady(idx)"
             />
 
-            <!-- soft overlay -->
             <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-black/10" />
 
-            <!-- Caption -->
             <div
               v-if="b.name || b.description"
               class="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8"
@@ -296,5 +355,24 @@ watch(
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.banner-loader {
+  width: 110px;
+  height: 110px;
+}
+
+@media (min-width: 640px) {
+  .banner-loader {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .banner-loader {
+    width: 220px;
+    height: 220px;
+  }
 }
 </style>

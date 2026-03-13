@@ -52,7 +52,7 @@ let delayedLoadTimer: number | null = null
 
 const navCategories = computed(() => categoriesLoaded.value)
 const visibleProducts = computed(() => productsLoaded.value.slice(0, 4))
-const showLoader = computed(() => loadingProducts.value)
+const showSkeletons = computed(() => loadingProducts.value)
 
 function normalizeName(value: string | null | undefined) {
   return String(value ?? '').trim().toLowerCase()
@@ -238,21 +238,7 @@ async function onCategoryClick(category?: string | null) {
   await fetchProducts(selectedCategory.value)
 }
 
-function loadLottieScript() {
-  if (typeof window === 'undefined') return
-  if (document.querySelector('script[data-dotlottie-loader="true"]')) return
-  if (customElements.get('dotlottie-wc')) return
-
-  const script = document.createElement('script')
-  script.src = 'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
-  script.type = 'module'
-  script.setAttribute('data-dotlottie-loader', 'true')
-  document.body.appendChild(script)
-}
-
 onMounted(async () => {
-  loadLottieScript()
-
   if ((props.categories ?? []).length > 0) {
     categoriesLoaded.value = props.categories ?? []
     loadingCategories.value = false
@@ -365,41 +351,27 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="showLoader"
-      class="relative min-h-[320px] rounded-[24px] border border-neutral-200 bg-white"
+      v-if="showSkeletons"
+      class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5"
     >
-      <div class="absolute inset-0 z-20 flex items-center justify-center bg-white/92 backdrop-blur-[2px]">
-        <div class="flex flex-col items-center justify-center">
-          <dotlottie-wc
-            src="https://lottie.host/3aaa9185-2876-4f24-a9dd-7bcb4b6126ff/DqmYrIP5av.lottie"
-            style="width: 220px; height: 220px"
-            autoplay
-            loop
-          ></dotlottie-wc>
-          <p class="-mt-4 text-sm font-medium text-neutral-500">Loading products...</p>
+      <div
+        v-for="index in 4"
+        :key="`product-skeleton-${index}`"
+        class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+      >
+        <div class="relative h-[180px] animate-pulse bg-white sm:h-[240px] xl:h-[260px]">
+          <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
+          <div class="absolute left-3 top-10 h-5 w-14 rounded bg-neutral-200 sm:left-4 sm:top-12 sm:h-6 sm:w-16" />
         </div>
-      </div>
 
-      <div class="grid grid-cols-2 gap-3 p-0 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5">
-        <div
-          v-for="index in 4"
-          :key="`product-skeleton-${index}`"
-          class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
-        >
-          <div class="relative h-[180px] animate-pulse bg-white sm:h-[240px] xl:h-[260px]">
-            <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
-            <div class="absolute left-3 top-10 h-5 w-14 rounded bg-neutral-200 sm:left-4 sm:top-12 sm:h-6 sm:w-16" />
-          </div>
-
-          <div class="space-y-2 p-3 sm:space-y-3 sm:p-4">
-            <div class="h-4 w-3/4 animate-pulse rounded bg-neutral-200 sm:h-5" />
-            <div class="h-4 w-full animate-pulse rounded bg-neutral-100" />
-            <div class="h-4 w-2/3 animate-pulse rounded bg-neutral-200" />
-            <div class="mt-2 flex gap-2">
-              <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
-              <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
-              <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
-            </div>
+        <div class="space-y-2 p-3 sm:space-y-3 sm:p-4">
+          <div class="h-4 w-3/4 animate-pulse rounded bg-neutral-200 sm:h-5" />
+          <div class="h-4 w-full animate-pulse rounded bg-neutral-100" />
+          <div class="h-4 w-2/3 animate-pulse rounded bg-neutral-200" />
+          <div class="mt-2 flex gap-2">
+            <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
+            <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
+            <div class="h-6 w-6 animate-pulse rounded-full bg-neutral-200" />
           </div>
         </div>
       </div>

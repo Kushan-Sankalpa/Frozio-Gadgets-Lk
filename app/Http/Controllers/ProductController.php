@@ -652,4 +652,49 @@ class ProductController extends Controller
 
         return $candidate;
     }
+
+
+    public function suggestions(Request $request)
+{
+    $query = trim((string) $request->input('q', ''));
+
+    if ($query === '') {
+        return response()->json([]);
+    }
+
+    $needle = mb_strtolower($query);
+
+    $items = Product::query()
+        ->select(['id', 'model', 'main_image_path', 'status'])
+        ->where('status', 'active')
+        ->whereNotNull('model')
+        ->whereRaw('LOWER(model) LIKE ?', ['%' . $needle . '%'])
+        ->orderByRaw(
+            "CASE
+                WHEN LOWER(model) = ? THEN 0
+                WHEN LOWER(model) LIKE ? THEN 1
+                WHEN LOWER(model) LIKE ? THEN 2
+                ELSE 3
+            END",
+            [
+                $needle,
+                $needle . '%',
+                '%' . $needle . '%',
+            ]
+        )
+        ->orderBy('model')
+        ->limit(20)
+        ->get()
+        ->map(fn (Product $product) => [
+            'id' => $product->id,
+            'name' => trim((string) $product->model),
+            'image_url' => $product->main_image_url,
+        ])
+        ->filter(fn (array $item) => $item['name'] !== '')
+        ->unique(fn (array $item) => mb_strtolower($item['name']))
+        ->values()
+        ->take(10);
+
+    return response()->json($items);
+}
 }

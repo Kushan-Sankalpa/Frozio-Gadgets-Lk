@@ -31,9 +31,18 @@ type ShoeCategory = {
   subcategories?: ShoeSubcategory[]
 }
 
+type SearchSuggestion = {
+  id: number | string
+  name: string
+  image_url?: string | null
+}
+
 const page = usePage()
+
 const navRef = ref<HTMLElement | null>(null)
+const mobilePanelRef = ref<HTMLElement | null>(null)
 const desktopSearchInputRef = ref<HTMLInputElement | null>(null)
+const mobileSearchInputRef = ref<HTMLInputElement | null>(null)
 
 const scrolled = ref(false)
 const openMobileMenu = ref(false)
@@ -49,7 +58,15 @@ const activeShoeSubMenu = ref<number | string | null>(null)
 const searchOpen = ref(false)
 const searchQuery = ref('')
 
+const searchSuggestions = ref<SearchSuggestion[]>([])
+const searchLoading = ref(false)
+const searchDropdownOpen = ref(false)
+const highlightedSuggestionIndex = ref(-1)
+
 let dropdownCloseTimer: ReturnType<typeof setTimeout> | null = null
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let searchAbortController: AbortController | null = null
+let skipNextSuggestionFetch = false
 
 const techCategories = computed<TechCategory[]>(() => {
   return Array.isArray(page.props.categories) ? (page.props.categories as TechCategory[]) : []
@@ -105,20 +122,45 @@ watch(
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
     searchOpen.value = false
+
+    cancelSuggestionRequest()
+    closeSuggestionDropdown()
+    searchSuggestions.value = []
+
+    skipNextSuggestionFetch = true
     searchQuery.value = currentSearch.value
   },
   { immediate: true }
 )
 
-watch(openMobileMenu, (value) => {
+watch(openMobileMenu, async (value) => {
   document.body.style.overflow = value ? 'hidden' : ''
+
+  if (value) {
+    await nextTick()
+    mobileSearchInputRef.value?.focus()
+  } else {
+    closeSuggestionDropdown()
+  }
 })
 
 watch(searchOpen, async (value) => {
   if (value) {
     await nextTick()
     desktopSearchInputRef.value?.focus()
+    openSuggestionDropdownIfNeeded()
+  } else {
+    closeSuggestionDropdown()
   }
+})
+
+watch(searchQuery, (value) => {
+  if (skipNextSuggestionFetch) {
+    skipNextSuggestionFetch = false
+    return
+  }
+
+  scheduleSuggestionFetch(value)
 })
 
 function normalize(value: string | null | undefined) {
@@ -178,9 +220,13 @@ function openSearchPanel() {
 
 function closeSearchPanel() {
   searchOpen.value = false
+  closeSuggestionDropdown()
 }
 
 function submitSearch() {
+  closeSuggestionDropdown()
+  cancelSuggestionRequest()
+
   const goToShoePage =
     isShoeListingPage.value ||
     !!currentShoeCategory.value ||
@@ -203,7 +249,11 @@ function submitSearch() {
 }
 
 function clearSearch() {
+  skipNextSuggestionFetch = true
   searchQuery.value = ''
+  cancelSuggestionRequest()
+  searchSuggestions.value = []
+  closeSuggestionDropdown()
   submitSearch()
   closeSearchPanel()
 }
@@ -242,13 +292,204 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleClickOutside(event: MouseEvent) {
   const target = event.target as Node | null
-  if (!target || !navRef.value) return
+  if (!target) return
 
-  if (!navRef.value.contains(target)) {
+  const insideNav = !!navRef.value?.contains(target)
+  const insideMobilePanel = !!mobilePanelRef.value?.contains(target)
+
+  if (!insideNav && !insideMobilePanel) {
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
     closeSearchPanel()
+    closeSuggestionDropdown()
+  }
+}
+
+function cancelSuggestionRequest() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+
+  if (searchAbortController) {
+    searchAbortController.abort()
+    searchAbortController = null
+  }
+
+  searchLoading.value = false
+}
+
+function closeSuggestionDropdown() {
+  searchDropdownOpen.value = false
+  highlightedSuggestionIndex.value = -1
+}
+
+function openSuggestionDropdownIfNeeded() {
+  if (searchQuery.value.trim() && (searchLoading.value || searchSuggestions.value.length > 0)) {
+    searchDropdownOpen.value = true
+  }
+}
+
+function rankSuggestion(name: string, query: string) {
+  const normalizedName = normalize(name)
+  const normalizedQuery = normalize(query)
+
+  if (!normalizedQuery) return 999
+  if (normalizedName === normalizedQuery) return 0
+  if (normalizedName.startsWith(normalizedQuery)) return 1
+  if (normalizedName.split(/\s+/).some(word => word.startsWith(normalizedQuery))) return 2
+  if (normalizedName.includes(normalizedQuery)) return 3
+  return 4
+}
+
+function scheduleSuggestionFetch(value: string) {
+  cancelSuggestionRequest()
+
+  const query = value.trim()
+
+  if (!query) {
+    searchSuggestions.value = []
+    closeSuggestionDropdown()
+    return
+  }
+
+  searchDebounceTimer = setTimeout(() => {
+    fetchSearchSuggestions(query)
+  }, 220)
+}
+
+async function fetchSearchSuggestions(query: string) {
+  const cleanQuery = query.trim()
+
+  if (!cleanQuery) {
+    searchSuggestions.value = []
+    closeSuggestionDropdown()
+    return
+  }
+
+  searchLoading.value = true
+  searchAbortController = new AbortController()
+
+  try {
+    const response = await fetch(
+      `${route('frontend.products.suggestions')}?q=${encodeURIComponent(cleanQuery)}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        signal: searchAbortController.signal,
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to load suggestions')
+    }
+
+    const payload = await response.json()
+
+    const uniqueMap = new Map<string, SearchSuggestion>()
+
+    if (Array.isArray(payload)) {
+      payload.forEach((item: any) => {
+        const name = String(item?.name ?? '').trim()
+
+        if (!name) return
+
+        const key = name.toLowerCase()
+
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, {
+            id: item?.id ?? key,
+            name,
+            image_url: item?.image_url ?? null,
+          })
+        }
+      })
+    }
+
+    const results = Array.from(uniqueMap.values())
+      .sort((a, b) => {
+        const rankA = rankSuggestion(a.name, cleanQuery)
+        const rankB = rankSuggestion(b.name, cleanQuery)
+
+        if (rankA !== rankB) return rankA - rankB
+        return a.name.localeCompare(b.name)
+      })
+      .slice(0, 10)
+
+    searchSuggestions.value = results
+    searchDropdownOpen.value = true
+    highlightedSuggestionIndex.value = results.length ? 0 : -1
+  } catch (error: any) {
+    if (error?.name !== 'AbortError') {
+      searchSuggestions.value = []
+      closeSuggestionDropdown()
+    }
+  } finally {
+    searchLoading.value = false
+    searchAbortController = null
+  }
+}
+
+function selectSuggestion(suggestion: SearchSuggestion) {
+  skipNextSuggestionFetch = true
+  searchQuery.value = suggestion.name
+  closeSuggestionDropdown()
+
+  nextTick(() => {
+    if (openMobileMenu.value) {
+      mobileSearchInputRef.value?.focus()
+      return
+    }
+
+    if (searchOpen.value) {
+      desktopSearchInputRef.value?.focus()
+    }
+  })
+}
+
+function handleSearchInputKeydown(event: KeyboardEvent) {
+  if (event.key === 'ArrowDown') {
+    if (!searchSuggestions.value.length) return
+
+    event.preventDefault()
+    searchDropdownOpen.value = true
+    highlightedSuggestionIndex.value = Math.min(
+      highlightedSuggestionIndex.value + 1,
+      searchSuggestions.value.length - 1
+    )
+    return
+  }
+
+  if (event.key === 'ArrowUp') {
+    if (!searchSuggestions.value.length) return
+
+    event.preventDefault()
+    highlightedSuggestionIndex.value = Math.max(highlightedSuggestionIndex.value - 1, 0)
+    return
+  }
+
+  if (event.key === 'Enter') {
+    if (
+      searchDropdownOpen.value &&
+      highlightedSuggestionIndex.value >= 0 &&
+      searchSuggestions.value[highlightedSuggestionIndex.value]
+    ) {
+      event.preventDefault()
+      selectSuggestion(searchSuggestions.value[highlightedSuggestionIndex.value])
+    }
+
+    return
+  }
+
+  if (event.key === 'Escape') {
+    closeSuggestionDropdown()
+
+    if (searchOpen.value) {
+      closeSearchPanel()
+    }
   }
 }
 
@@ -269,6 +510,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside)
   document.body.style.overflow = ''
   clearDropdownTimer()
+  cancelSuggestionRequest()
 })
 </script>
 
@@ -590,55 +832,118 @@ onBeforeUnmount(() => {
         </nav>
 
         <div class="hidden items-center gap-2.5 xl:flex">
-          <div
-            class="search-shell"
-            :class="searchOpen ? 'search-shell--open' : 'search-shell--closed'"
-          >
-            <form @submit.prevent="submitSearch" class="relative">
-              <input
-                ref="desktopSearchInputRef"
-                v-model="searchQuery"
-                type="text"
-                placeholder="Search products..."
-                class="search-shell-input w-full rounded-full border py-2.5 pl-10 pr-10 text-sm outline-none"
-                :class="
-                  scrolled
-                    ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
-                    : 'border-white/10 bg-white/8 text-white placeholder:text-white/45 focus:border-white/25'
-                "
-                @keydown.esc.prevent="closeSearchPanel"
-              />
+          <div class="search-shell-wrap" :class="searchOpen ? 'search-shell-wrap--open' : 'search-shell-wrap--closed'">
+            <div class="search-shell">
+              <form @submit.prevent="submitSearch" class="relative">
+                <input
+                  ref="desktopSearchInputRef"
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search products..."
+                  class="search-shell-input w-full rounded-full border py-2.5 pl-10 pr-10 text-sm outline-none"
+                  :class="
+                    scrolled
+                      ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
+                      : 'border-white/10 bg-white/8 text-white placeholder:text-white/45 focus:border-white/25'
+                  "
+                  @focus="openSuggestionDropdownIfNeeded"
+                  @keydown="handleSearchInputKeydown"
+                />
 
-              <span
-                class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
-                :class="scrolled ? 'text-black/45' : 'text-white/45'"
-              >
-                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fill-rule="evenodd"
-                    d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </span>
+                <span
+                  class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
+                  :class="scrolled ? 'text-black/45' : 'text-white/45'"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </span>
 
-              <button
-                v-if="searchOpen && searchQuery"
-                type="button"
-                @click="clearSearch"
-                class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                :class="scrolled ? 'text-black/45 hover:text-black' : 'text-white/45 hover:text-white'"
-                aria-label="Clear search"
+                <button
+                  v-if="searchOpen && searchQuery"
+                  type="button"
+                  @click="clearSearch"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  :class="scrolled ? 'text-black/45 hover:text-black' : 'text-white/45 hover:text-white'"
+                  aria-label="Clear search"
+                >
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </form>
+            </div>
+
+            <Transition name="dropdown-fade">
+              <div
+                v-if="searchOpen && searchQuery.trim() && (searchDropdownOpen || searchLoading)"
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-[90] overflow-hidden rounded-[24px] border shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+                :class="scrolled ? 'border-black/10 bg-white text-black' : 'border-white/10 bg-black/95 text-white'"
               >
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fill-rule="evenodd"
-                    d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-            </form>
+                <div
+                  v-if="searchLoading"
+                  class="px-4 py-3 text-sm"
+                  :class="scrolled ? 'text-black/60' : 'text-white/60'"
+                >
+                  Searching products...
+                </div>
+
+                <template v-else>
+                  <button
+                    v-for="(suggestion, index) in searchSuggestions"
+                    :key="`${suggestion.id}-${suggestion.name}`"
+                    type="button"
+                    class="suggestion-item"
+                    :class="[
+                      index === highlightedSuggestionIndex
+                        ? scrolled
+                          ? 'bg-black/[0.05]'
+                          : 'bg-white/[0.07]'
+                        : '',
+                    ]"
+                    @mouseenter="highlightedSuggestionIndex = index"
+                    @mousedown.prevent="selectSuggestion(suggestion)"
+                  >
+                    <div class="suggestion-thumb">
+                      <img
+                        v-if="suggestion.image_url"
+                        :src="suggestion.image_url"
+                        :alt="suggestion.name"
+                      />
+                      <div
+                        v-else
+                        class="flex h-full w-full items-center justify-center text-[10px] font-semibold"
+                        :class="scrolled ? 'text-black/40' : 'text-white/40'"
+                      >
+                        No Image
+                      </div>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <div class="suggestion-name" :class="scrolled ? 'text-black' : 'text-white'">
+                        {{ suggestion.name }}
+                      </div>
+                    </div>
+                  </button>
+
+                  <div
+                    v-if="!searchSuggestions.length"
+                    class="px-4 py-3 text-sm"
+                    :class="scrolled ? 'text-black/60' : 'text-white/60'"
+                  >
+                    No matching products found.
+                  </div>
+                </template>
+              </div>
+            </Transition>
           </div>
 
           <button
@@ -752,27 +1057,93 @@ onBeforeUnmount(() => {
     <Transition name="panel-slide">
       <div
         v-if="openMobileMenu"
+        ref="mobilePanelRef"
         class="fixed bottom-0 right-0 top-[72px] z-[80] w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black text-white xl:hidden"
         @click.stop
       >
         <div class="space-y-2 p-5">
-          <form @submit.prevent="submitSearch" class="relative mb-4">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search products..."
-              class="w-full rounded-2xl border border-white/10 bg-white/8 py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/45 outline-none"
-            />
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/45">
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fill-rule="evenodd"
-                  d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </span>
-          </form>
+          <div class="relative mb-4">
+            <form @submit.prevent="submitSearch" class="relative">
+              <input
+                ref="mobileSearchInputRef"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search products..."
+                class="w-full rounded-2xl border border-white/10 bg-white/8 py-3 pl-11 pr-10 text-sm text-white placeholder:text-white/45 outline-none"
+                @focus="openSuggestionDropdownIfNeeded"
+                @keydown="handleSearchInputKeydown"
+              />
+              <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/45">
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </span>
+
+              <button
+                v-if="searchQuery"
+                type="button"
+                @click="clearSearch"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-white/45 transition-colors hover:text-white"
+                aria-label="Clear search"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </form>
+
+            <Transition name="dropdown-fade">
+              <div
+                v-if="searchQuery.trim() && (searchDropdownOpen || searchLoading)"
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-[90] overflow-hidden rounded-[24px] border border-white/10 bg-black/95 text-white shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+              >
+                <div v-if="searchLoading" class="px-4 py-3 text-sm text-white/60">
+                  Searching products...
+                </div>
+
+                <template v-else>
+                  <button
+                    v-for="(suggestion, index) in searchSuggestions"
+                    :key="`mobile-${suggestion.id}-${suggestion.name}`"
+                    type="button"
+                    class="suggestion-item"
+                    :class="index === highlightedSuggestionIndex ? 'bg-white/[0.07]' : ''"
+                    @mouseenter="highlightedSuggestionIndex = index"
+                    @mousedown.prevent="selectSuggestion(suggestion)"
+                  >
+                    <div class="suggestion-thumb">
+                      <img
+                        v-if="suggestion.image_url"
+                        :src="suggestion.image_url"
+                        :alt="suggestion.name"
+                      />
+                      <div class="flex h-full w-full items-center justify-center text-[10px] font-semibold text-white/40">
+                        <template v-if="!suggestion.image_url">No Image</template>
+                      </div>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <div class="suggestion-name text-white">
+                        {{ suggestion.name }}
+                      </div>
+                    </div>
+                  </button>
+
+                  <div v-if="!searchSuggestions.length" class="px-4 py-3 text-sm text-white/60">
+                    No matching products found.
+                  </div>
+                </template>
+              </div>
+            </Transition>
+          </div>
 
           <Link
             :href="route('frontend.root')"
@@ -1121,24 +1492,29 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
 }
 
-.search-shell {
-  overflow: hidden;
+.search-shell-wrap {
+  position: relative;
   transition:
     width 320ms ease,
     opacity 220ms ease,
     margin-right 320ms ease;
 }
 
-.search-shell--open {
-  width: 240px;
+.search-shell-wrap--open {
+  width: clamp(280px, 30vw, 380px);
   opacity: 1;
   margin-right: 2px;
 }
 
-.search-shell--closed {
+.search-shell-wrap--closed {
   width: 0;
   opacity: 0;
   margin-right: 0;
+}
+
+.search-shell {
+  width: 100%;
+  overflow: hidden;
 }
 
 .search-shell-input {
@@ -1150,16 +1526,56 @@ onBeforeUnmount(() => {
     color 240ms ease;
 }
 
-.search-shell--open .search-shell-input {
+.search-shell-wrap--open .search-shell-input {
   opacity: 1;
   transform: translateX(0);
   pointer-events: auto;
 }
 
-.search-shell--closed .search-shell-input {
+.search-shell-wrap--closed .search-shell-input {
   opacity: 0;
   transform: translateX(14px);
   pointer-events: none;
+}
+
+.suggestion-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.suggestion-item:hover {
+  transform: translateX(2px);
+}
+
+.suggestion-thumb {
+  height: 44px;
+  width: 44px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.suggestion-thumb img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.suggestion-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .mobile-link {

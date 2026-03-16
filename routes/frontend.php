@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\WebShoeProductController;
 use App\Http\Controllers\Frontend\WebTechProductController;
+use App\Http\Controllers\ProductController;
 
 // Frontend home (public)
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
@@ -37,6 +38,9 @@ Route::get('/shoe-products', [WebShoeProductController::class, 'index'])
 
 Route::get('/shoe-products/products', [WebShoeProductController::class, 'products'])
     ->name('frontend.shoe-products.products');
+
+Route::get('/search/product-suggestions', [ProductController::class, 'suggestions'])
+    ->name('frontend.products.suggestions');
 
 // Optional: keep /home working too
 Route::redirect('/home', '/')->name('frontend.home');

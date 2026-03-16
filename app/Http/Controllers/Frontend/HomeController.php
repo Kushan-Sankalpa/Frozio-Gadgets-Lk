@@ -34,58 +34,58 @@ class HomeController extends Controller
             })
             ->values();
 
-      $categories = Category::query()
-    ->where('status', 'active')
-    ->oldest('id')
-    ->get()
-    ->map(function (Category $category) {
-        return [
-            'id' => $category->id,
-            'name' => $category->name,
-            'image_url' => $category->image_url,
-            'status' => $category->status,
-        ];
-    })
-    ->values();
-
-$shoeCategories = ShoeCategory::query()
-    ->where('status', 'active')
-    ->with([
-        'subcategories' => function ($query) {
-            $query->where('status', 'active')->oldest('id');
-        }
-    ])
-    ->oldest('id')
-    ->get()
-    ->map(function (ShoeCategory $category) {
-        return [
-            'id' => $category->id,
-            'name' => $category->name,
-            'image_url' => $category->image_url,
-            'status' => $category->status,
-            'subcategories' => $category->subcategories->map(function ($subcategory) {
+        $categories = Category::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->get()
+            ->map(function (Category $category) {
                 return [
-                    'id' => $subcategory->id,
-                    'name' => $subcategory->name,
-                    'image_url' => $subcategory->image_url,
-                    'status' => $subcategory->status,
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
                 ];
-            })->values(),
-        ];
-    })
-    ->values();
+            })
+            ->values();
 
-return Inertia::render('Frontend/Home/index', [
-    'products' => [],
-    'activeCategory' => $activeCategory,
-    'banners' => $banners,
-    'categories' => $categories,
-    'shoeCategories' => $shoeCategories,
-    'featuredShoes' => [],
-    'search' => $search,
-    'activeShoeCategory' => $activeShoeCategory,
-    'activeShoeSubcategory' => $activeShoeSubcategory,
-]);
+        $shoeCategories = ShoeCategory::query()
+            ->where('status', 'active')
+            ->with([
+                'subcategories' => function ($query) {
+                    $query->where('status', 'active')->oldest('id');
+                }
+            ])
+            ->oldest('id')
+            ->get()
+            ->map(function (ShoeCategory $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                    'subcategories' => $category->subcategories->map(function ($subcategory) {
+                        return [
+                            'id' => $subcategory->id,
+                            'name' => $subcategory->name,
+                            'image_url' => $subcategory->image_url,
+                            'status' => $subcategory->status,
+                        ];
+                    })->values(),
+                ];
+            })
+            ->values();
+
+        return Inertia::render('Frontend/Home/index', [
+            'products' => [],
+            'activeCategory' => $activeCategory,
+            'banners' => $banners,
+            'categories' => $categories,
+            'shoeCategories' => $shoeCategories,
+            'featuredShoes' => [],
+            'search' => $search,
+            'activeShoeCategory' => $activeShoeCategory,
+            'activeShoeSubcategory' => $activeShoeSubcategory,
+        ]);
     }
 
     public function categories(): JsonResponse
@@ -109,39 +109,40 @@ return Inertia::render('Frontend/Home/index', [
         ]);
     }
 
-public function shoeCategories(): JsonResponse
-{
-    $shoeCategories = ShoeCategory::query()
-        ->where('status', 'active')
-        ->with([
-            'subcategories' => function ($query) {
-                $query->where('status', 'active')->oldest('id');
-            }
-        ])
-        ->oldest('id')
-        ->get()
-        ->map(function (ShoeCategory $category) {
-            return [
-                'id' => $category->id,
-                'name' => $category->name,
-                'image_url' => $category->image_url,
-                'status' => $category->status,
-                'subcategories' => $category->subcategories->map(function ($subcategory) {
-                    return [
-                        'id' => $subcategory->id,
-                        'name' => $subcategory->name,
-                        'image_url' => $subcategory->image_url,
-                        'status' => $subcategory->status,
-                    ];
-                })->values(),
-            ];
-        })
-        ->values();
+    public function shoeCategories(): JsonResponse
+    {
+        $shoeCategories = ShoeCategory::query()
+            ->where('status', 'active')
+            ->with([
+                'subcategories' => function ($query) {
+                    $query->where('status', 'active')->oldest('id');
+                }
+            ])
+            ->oldest('id')
+            ->get()
+            ->map(function (ShoeCategory $category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'image_url' => $category->image_url,
+                    'status' => $category->status,
+                    'subcategories' => $category->subcategories->map(function ($subcategory) {
+                        return [
+                            'id' => $subcategory->id,
+                            'name' => $subcategory->name,
+                            'image_url' => $subcategory->image_url,
+                            'status' => $subcategory->status,
+                        ];
+                    })->values(),
+                ];
+            })
+            ->values();
 
-    return response()->json([
-        'categories' => $shoeCategories,
-    ]);
-}
+        return response()->json([
+            'categories' => $shoeCategories,
+        ]);
+    }
+
     public function featuredShoes(): JsonResponse
     {
         $activeShoeCategory = request('shoe_category');
@@ -291,7 +292,7 @@ public function shoeCategories(): JsonResponse
             ->values();
 
         $colorMap = ColorOption::query()
-            ->select('id', 'name', 'image_path')
+            ->select('id', 'name', 'color_code')
             ->whereIn('id', $colorIds)
             ->get()
             ->keyBy('id');
@@ -336,6 +337,7 @@ public function shoeCategories(): JsonResponse
                         return [
                             'id' => $color->id,
                             'name' => $color->name,
+                            'color_code' => $color->color_code,
                             'image_url' => $color->image_url,
                         ];
                     })

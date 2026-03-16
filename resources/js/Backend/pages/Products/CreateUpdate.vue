@@ -10,7 +10,7 @@ import SelectInputComponent from '@/Backend/components/SelectInputComponent.vue'
 type Opt = { id: number; name: string }
 type BrandOpt = { id: number; name: string; category_ids?: number[] }
 type WarrantyOpt = { id: number; name: string }
-type ColorOpt = { id: number; name: string; image_url?: string | null }
+type ColorOpt = { id: number; name: string; color_code?: string | null; image_url?: string | null }
 type StorageOpt = { id: number; label: string }
 type RamOpt = { id: number; label: string }
 
@@ -96,6 +96,10 @@ const storageLabelMap = computed(() => {
   return new Map(storages.value.map(s => [Number(s.id), s.label]))
 })
 
+const colorMetaMap = computed(() => {
+  return new Map(colors.value.map(c => [Number(c.id), c]))
+})
+
 const colorLabelMap = computed(() => {
   return new Map(colors.value.map(c => [Number(c.id), c.name]))
 })
@@ -111,6 +115,14 @@ function storageLabel(id: number) {
 function colorLabel(id: number) {
   return colorLabelMap.value.get(Number(id)) || `Color #${id}`
 }
+
+function colorSwatchStyle(id: number) {
+  const color = colorMetaMap.value.get(Number(id))
+  return {
+    backgroundColor: color?.color_code || '#d4d4d8',
+  }
+}
+
 const isEdit = computed(() => props.mode === 'edit' && !!props.product?.id)
 
 const mainPreview = ref<string | null>(props.product?.main_image_url ?? null)
@@ -172,7 +184,7 @@ const form = useForm({
   long_description: props.product?.long_description ?? '',
 
   color_ids: props.product?.color_ids ?? [],
-    variants: (props.product?.variants || []).map(v => ({
+  variants: (props.product?.variants || []).map(v => ({
     id: v.id,
     storage_option_id: Number(v.storage_option_id),
     color_option_id: Number(v.color_option_id),
@@ -315,26 +327,27 @@ function onGalleryChange(e: Event) {
 function submit() {
   form.clearErrors()
 
-const payloadTransform = (data: any) => ({
-  ...data,
-  sku: normalizeSku(data.sku),
-  color_ids: (data.color_ids || []).map((id: any) => Number(id)),
-  storage_option_ids: (data.storage_option_ids || []).map((id: any) => Number(id)),
-  ram_option_ids: (data.ram_option_ids || []).map((id: any) => Number(id)),
-  variants: JSON.stringify(
-    (data.variants || []).map((v: any) => ({
-      storage_option_id: Number(v.storage_option_id),
-      color_option_id: Number(v.color_option_id),
-      price_lkr: Number(v.price_lkr ?? 0),
-      stock_count:
-        v.stock_count === '' || v.stock_count === null || typeof v.stock_count === 'undefined'
-          ? null
-          : Number(v.stock_count),
-      sku: v.sku ? String(v.sku).trim() : null,
-      status: v.status || 'active',
-    }))
-  ),
-})
+  const payloadTransform = (data: any) => ({
+    ...data,
+    sku: normalizeSku(data.sku),
+    color_ids: (data.color_ids || []).map((id: any) => Number(id)),
+    storage_option_ids: (data.storage_option_ids || []).map((id: any) => Number(id)),
+    ram_option_ids: (data.ram_option_ids || []).map((id: any) => Number(id)),
+    variants: JSON.stringify(
+      (data.variants || []).map((v: any) => ({
+        storage_option_id: Number(v.storage_option_id),
+        color_option_id: Number(v.color_option_id),
+        price_lkr: Number(v.price_lkr ?? 0),
+        stock_count:
+          v.stock_count === '' || v.stock_count === null || typeof v.stock_count === 'undefined'
+            ? null
+            : Number(v.stock_count),
+        sku: v.sku ? String(v.sku).trim() : null,
+        status: v.status || 'active',
+      }))
+    ),
+  })
+
   if (!isEdit.value) {
     form
       .transform(payloadTransform)
@@ -739,96 +752,103 @@ const statusOptions = [
                 :error="form.errors.color_ids"
               />
             </div>
+
             <div class="md:col-span-2 rounded-2xl border border-neutral-200 p-4">
-  <div class="mb-3">
-    <h3 class="text-sm font-semibold text-neutral-900">Variant Prices</h3>
-    <p class="text-sm text-neutral-500">
-      Select at least one storage and one color. Then set a different price for each combination.
-    </p>
-  </div>
+              <div class="mb-3">
+                <h3 class="text-sm font-semibold text-neutral-900">Variant Prices</h3>
+                <p class="text-sm text-neutral-500">
+                  Select at least one storage and one color. Then set a different price for each combination.
+                </p>
+              </div>
 
-  <div v-if="!form.storage_option_ids.length || !form.color_ids.length" class="rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
-    Choose at least 1 storage and 1 color to manage variant prices.
-  </div>
+              <div v-if="!form.storage_option_ids.length || !form.color_ids.length" class="rounded-xl bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
+                Choose at least 1 storage and 1 color to manage variant prices.
+              </div>
 
-  <div v-else class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-neutral-200 text-sm">
-      <thead class="bg-neutral-50">
-        <tr>
-          <th class="px-3 py-2 text-left font-medium text-neutral-600">Storage</th>
-          <th class="px-3 py-2 text-left font-medium text-neutral-600">Color</th>
-          <th class="px-3 py-2 text-left font-medium text-neutral-600">Price (LKR)</th>
-          <th class="px-3 py-2 text-left font-medium text-neutral-600">Stock</th>
-          <th class="px-3 py-2 text-left font-medium text-neutral-600">SKU</th>
-          <th class="px-3 py-2 text-left font-medium text-neutral-600">Status</th>
-        </tr>
-      </thead>
+              <div v-else class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-neutral-200 text-sm">
+                  <thead class="bg-neutral-50">
+                    <tr>
+                      <th class="px-3 py-2 text-left font-medium text-neutral-600">Storage</th>
+                      <th class="px-3 py-2 text-left font-medium text-neutral-600">Color</th>
+                      <th class="px-3 py-2 text-left font-medium text-neutral-600">Price (LKR)</th>
+                      <th class="px-3 py-2 text-left font-medium text-neutral-600">Stock</th>
+                      <th class="px-3 py-2 text-left font-medium text-neutral-600">SKU</th>
+                      <th class="px-3 py-2 text-left font-medium text-neutral-600">Status</th>
+                    </tr>
+                  </thead>
 
-      <tbody class="divide-y divide-neutral-100">
-        <tr
-          v-for="(variant, index) in form.variants"
-          :key="`${variant.storage_option_id}-${variant.color_option_id}`"
-        >
-          <td class="px-3 py-3 text-neutral-800">
-            {{ storageLabel(variant.storage_option_id) }}
-          </td>
+                  <tbody class="divide-y divide-neutral-100">
+                    <tr
+                      v-for="(variant, index) in form.variants"
+                      :key="`${variant.storage_option_id}-${variant.color_option_id}`"
+                    >
+                      <td class="px-3 py-3 text-neutral-800">
+                        {{ storageLabel(variant.storage_option_id) }}
+                      </td>
 
-          <td class="px-3 py-3 text-neutral-800">
-            {{ colorLabel(variant.color_option_id) }}
-          </td>
+                      <td class="px-3 py-3 text-neutral-800">
+                        <div class="flex items-center gap-2">
+                          <span
+                            class="h-5 w-5 rounded-full border border-neutral-300 shrink-0"
+                            :style="colorSwatchStyle(variant.color_option_id)"
+                          />
+                          <span>{{ colorLabel(variant.color_option_id) }}</span>
+                        </div>
+                      </td>
 
-          <td class="px-3 py-3">
-            <input
-              v-model="variant.price_lkr"
-              type="number"
-              min="0"
-              step="0.01"
-              class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
-              placeholder="Variant price"
-            />
-            <p v-if="form.errors[`variants.${index}.price_lkr`]" class="mt-1 text-xs text-red-600">
-              {{ form.errors[`variants.${index}.price_lkr`] }}
-            </p>
-          </td>
+                      <td class="px-3 py-3">
+                        <input
+                          v-model="variant.price_lkr"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
+                          placeholder="Variant price"
+                        />
+                        <p v-if="form.errors[`variants.${index}.price_lkr`]" class="mt-1 text-xs text-red-600">
+                          {{ form.errors[`variants.${index}.price_lkr`] }}
+                        </p>
+                      </td>
 
-          <td class="px-3 py-3">
-            <input
-              v-model="variant.stock_count"
-              type="number"
-              min="0"
-              step="1"
-              class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
-              placeholder="Stock"
-            />
-          </td>
+                      <td class="px-3 py-3">
+                        <input
+                          v-model="variant.stock_count"
+                          type="number"
+                          min="0"
+                          step="1"
+                          class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
+                          placeholder="Stock"
+                        />
+                      </td>
 
-          <td class="px-3 py-3">
-            <input
-              v-model="variant.sku"
-              type="text"
-              class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
-              placeholder="Optional variant SKU"
-            />
-          </td>
+                      <td class="px-3 py-3">
+                        <input
+                          v-model="variant.sku"
+                          type="text"
+                          class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
+                          placeholder="Optional variant SKU"
+                        />
+                      </td>
 
-          <td class="px-3 py-3">
-            <select
-              v-model="variant.status"
-              class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+                      <td class="px-3 py-3">
+                        <select
+                          v-model="variant.status"
+                          class="w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:border-red-500"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-  <p v-if="form.errors.variants" class="mt-2 text-sm text-red-600">
-    {{ form.errors.variants }}
-  </p>
-</div>
+              <p v-if="form.errors.variants" class="mt-2 text-sm text-red-600">
+                {{ form.errors.variants }}
+              </p>
+            </div>
           </div>
         </div>
 

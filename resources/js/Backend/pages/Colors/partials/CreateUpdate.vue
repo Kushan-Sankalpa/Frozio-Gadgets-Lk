@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, watch } from 'vue'
 import { route } from 'ziggy-js'
 
 type ColorPayload = {
   id: number
   name: string
   status: 'active' | 'inactive'
+  color_code?: string | null
   image_url?: string | null
 }
 
@@ -18,78 +19,51 @@ const props = defineProps<{
 
 const isEdit = computed(() => props.mode === 'edit' && !!props.color?.id)
 
-const imagePreview = ref<string | null>(props.color?.image_url ?? null)
-const selectedFileName = ref<string>('')
-
-const fileInputRef = ref<HTMLInputElement | null>(null)
-let objectUrl: string | null = null
-
 const form = useForm<{
   name: string
   status: 'active' | 'inactive'
-  image: File | null
+  color_code: string
 }>({
   name: props.color?.name ?? '',
   status: props.color?.status ?? 'active',
-  image: null,
+  color_code: props.color?.color_code ?? '#000000',
 })
-
-function revokePreviewUrl() {
-  if (objectUrl) {
-    URL.revokeObjectURL(objectUrl)
-    objectUrl = null
-  }
-}
 
 watch(
   () => props.color,
   (c) => {
-    revokePreviewUrl()
     form.clearErrors()
     form.name = c?.name ?? ''
     form.status = c?.status ?? 'active'
-    form.image = null
-    imagePreview.value = c?.image_url ?? null
-    selectedFileName.value = ''
+    form.color_code = c?.color_code ?? '#000000'
   },
   { immediate: true, deep: true }
 )
 
-onBeforeUnmount(() => {
-  revokePreviewUrl()
+const previewColor = computed(() => {
+  const value = String(form.color_code || '').trim()
+  const isValid = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(value)
+  return isValid ? value : '#d4d4d8'
 })
 
-function openFilePicker() {
-  fileInputRef.value?.click()
+function normalizeColorCode(value: string) {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return '#000000'
+
+  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+  return withHash.toUpperCase()
 }
 
-function onImageChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0] || null
-
-  form.image = file
-  selectedFileName.value = file ? file.name : ''
-
-  revokePreviewUrl()
-
-  if (file) {
-    objectUrl = URL.createObjectURL(file)
-    imagePreview.value = objectUrl
-  } else {
-    imagePreview.value = props.color?.image_url ?? null
-  }
-}
-
-function onPreviewError() {
-  imagePreview.value = null
+function onColorCodeInput() {
+  form.color_code = normalizeColorCode(form.color_code)
 }
 
 function submit() {
   form.clearErrors()
+  form.color_code = normalizeColorCode(form.color_code)
 
   if (!isEdit.value) {
     form.post(route('colors.store'), {
-      forceFormData: true,
       preserveScroll: true,
     })
     return
@@ -98,7 +72,6 @@ function submit() {
   form
     .transform((data) => ({ ...data, _method: 'PUT' }))
     .post(route('colors.update', props.color!.id), {
-      forceFormData: true,
       preserveScroll: true,
       onFinish: () => form.transform((d) => d),
     })
@@ -152,48 +125,27 @@ function submit() {
           </div>
 
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Color Image</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">Color Code</label>
 
             <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div class="h-20 w-20 rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center shrink-0">
-                <img
-                  v-if="imagePreview"
-                  :src="imagePreview"
-                  class="h-full w-full object-cover"
-                  @error="onPreviewError"
-                />
-                <span v-else class="text-xs text-neutral-400">No Image</span>
-              </div>
+              <div
+                class="h-20 w-20 rounded-full border border-neutral-300 shrink-0"
+                :style="{ backgroundColor: previewColor }"
+              />
 
               <div class="flex-1 w-full">
                 <input
-                  ref="fileInputRef"
-                  type="file"
-                  accept="image/*"
-                  @change="onImageChange"
-                  class="hidden"
+                  v-model="form.color_code"
+                  type="text"
+                  @blur="onColorCodeInput"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                  placeholder="#000000"
                 />
 
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <button
-                    type="button"
-                    @click="openFilePicker"
-                    class="inline-flex w-fit items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-200 transition"
-                  >
-                    Choose File
-                  </button>
-
-                  <span class="text-sm text-neutral-600">
-                    {{
-                      selectedFileName
-                        ? selectedFileName
-                        : (isEdit && props.color?.image_url ? 'Current image saved' : 'No file chosen')
-                    }}
-                  </span>
-                </div>
-
-                <p class="text-xs text-neutral-500 mt-2">JPG/PNG/WebP up to 2MB.</p>
-                <p v-if="form.errors.image" class="mt-1 text-sm text-red-600">{{ form.errors.image }}</p>
+                <p class="text-xs text-neutral-500 mt-2">
+                  Enter hex color code like #000000, #FFFFFF, #EF4444
+                </p>
+                <p v-if="form.errors.color_code" class="mt-1 text-sm text-red-600">{{ form.errors.color_code }}</p>
               </div>
             </div>
           </div>

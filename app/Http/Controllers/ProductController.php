@@ -28,12 +28,13 @@ class ProductController extends Controller
         return Inertia::render('Products/index', [
             'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
-            'colors' => ColorOption::select('id', 'name', 'image_path')
+            'colors' => ColorOption::select('id', 'name', 'color_code')
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
+                    'color_code' => $c->color_code,
                     'image_url' => $c->image_url,
                 ]),
             'warranties' => WarrantyOption::select('id', 'name')->orderBy('name')->get(),
@@ -53,12 +54,13 @@ class ProductController extends Controller
             'product' => null,
             'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
-            'colors' => ColorOption::select('id', 'name', 'image_path')
+            'colors' => ColorOption::select('id', 'name', 'color_code')
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
+                    'color_code' => $c->color_code,
                     'image_url' => $c->image_url,
                 ]),
             'warranties' => WarrantyOption::select('id', 'name')->orderBy('name')->get(),
@@ -76,11 +78,11 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $product->load([
-    'colors:id',
-    'category:id,name',
-    'brand:id,name',
-    'variants:id,product_id,storage_option_id,color_option_id,price_lkr,stock_count,sku,status',
-]);
+            'colors:id',
+            'category:id,name',
+            'brand:id,name',
+            'variants:id,product_id,storage_option_id,color_option_id,price_lkr,stock_count,sku,status',
+        ]);
 
         $brands = Brand::with('categories:id')->get()->map(fn ($b) => [
             'id' => $b->id,
@@ -153,14 +155,14 @@ class ProductController extends Controller
                 )->map(fn ($v) => (int) $v)->values()->all(),
 
                 'variants' => $product->variants->map(fn ($variant) => [
-    'id' => $variant->id,
-    'storage_option_id' => (int) $variant->storage_option_id,
-    'color_option_id' => (int) $variant->color_option_id,
-    'price_lkr' => (float) $variant->price_lkr,
-    'stock_count' => $variant->stock_count,
-    'sku' => $variant->sku,
-    'status' => $variant->status,
-])->values()->all(),
+                    'id' => $variant->id,
+                    'storage_option_id' => (int) $variant->storage_option_id,
+                    'color_option_id' => (int) $variant->color_option_id,
+                    'price_lkr' => (float) $variant->price_lkr,
+                    'stock_count' => $variant->stock_count,
+                    'sku' => $variant->sku,
+                    'status' => $variant->status,
+                ])->values()->all(),
 
                 'main_image_url' => $product->main_image_url,
                 'hover_image_url' => $product->hover_image_url,
@@ -168,12 +170,13 @@ class ProductController extends Controller
             ],
             'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
-            'colors' => ColorOption::select('id', 'name', 'image_path')
+            'colors' => ColorOption::select('id', 'name', 'color_code')
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
+                    'color_code' => $c->color_code,
                     'image_url' => $c->image_url,
                 ]),
             'warranties' => WarrantyOption::select('id', 'name')->orderBy('name')->get(),
@@ -190,12 +193,12 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-       $request->merge([
-    'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
-    'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
-    'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
-    'variants' => $this->normalizeVariants($request->input('variants', [])),
-]);
+        $request->merge([
+            'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
+            'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
+            'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
+            'variants' => $this->normalizeVariants($request->input('variants', [])),
+        ]);
 
         $validated = $this->validateProduct($request);
         $validated['sku'] = $this->resolveUniqueSku($validated);
@@ -218,29 +221,29 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($validated, $mainPath, $hoverPath, $galleryPaths) {
-    $product = Product::create([
-        ...$validated,
-        'color_ids' => $validated['color_ids'] ?? [],
-        'main_image_path' => $mainPath,
-        'hover_image_path' => $hoverPath,
-        'gallery_image_paths' => $galleryPaths ?: null,
-        'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
-    ]);
+            $product = Product::create([
+                ...$validated,
+                'color_ids' => $validated['color_ids'] ?? [],
+                'main_image_path' => $mainPath,
+                'hover_image_path' => $hoverPath,
+                'gallery_image_paths' => $galleryPaths ?: null,
+                'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
+            ]);
 
-    $this->syncVariants($product, $validated['variants'] ?? []);
-});
+            $this->syncVariants($product, $validated['variants'] ?? []);
+        });
 
-return redirect()->route('products.index')->with('success', 'Product created.');
+        return redirect()->route('products.index')->with('success', 'Product created.');
     }
 
     public function update(Request $request, Product $product)
     {
-      $request->merge([
-    'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
-    'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
-    'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
-    'variants' => $this->normalizeVariants($request->input('variants', [])),
-]);
+        $request->merge([
+            'color_ids' => $this->normalizeIdArray($request->input('color_ids', [])),
+            'storage_option_ids' => $this->normalizeIdArray($request->input('storage_option_ids', [])),
+            'ram_option_ids' => $this->normalizeIdArray($request->input('ram_option_ids', [])),
+            'variants' => $this->normalizeVariants($request->input('variants', [])),
+        ]);
 
         $validated = $this->validateProduct($request, $product->id);
         $validated['sku'] = $this->resolveUniqueSku($validated, $product->id);
@@ -285,19 +288,16 @@ return redirect()->route('products.index')->with('success', 'Product created.');
         }
 
         DB::transaction(function () use ($product, $validated) {
-    $product->fill([
-        ...$validated,
-        'color_ids' => $validated['color_ids'] ?? [],
-        'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
-    ]);
+            $product->fill([
+                ...$validated,
+                'color_ids' => $validated['color_ids'] ?? [],
+                'stock_count' => ($validated['in_stock'] ?? true) ? ($validated['stock_count'] ?? null) : null,
+            ]);
 
-    $product->save();
+            $product->save();
 
-    $this->syncVariants($product, $validated['variants'] ?? []);
-});
-
-return redirect()->route('products.index')->with('success', 'Product updated.');
-        $product->save();
+            $this->syncVariants($product, $validated['variants'] ?? []);
+        });
 
         return redirect()->route('products.index')->with('success', 'Product updated.');
     }
@@ -510,13 +510,14 @@ return redirect()->route('products.index')->with('success', 'Product updated.');
 
             'color_ids' => ['nullable', 'array'],
             'color_ids.*' => ['integer', 'exists:color_options,id'],
+
             'variants' => ['nullable', 'array'],
-'variants.*.storage_option_id' => ['required', 'integer', 'exists:storage_options,id'],
-'variants.*.color_option_id' => ['required', 'integer', 'exists:color_options,id'],
-'variants.*.price_lkr' => ['required', 'numeric', 'min:0'],
-'variants.*.stock_count' => ['nullable', 'integer', 'min:0'],
-'variants.*.sku' => ['nullable', 'string', 'max:255'],
-'variants.*.status' => ['nullable', 'in:active,inactive'],
+            'variants.*.storage_option_id' => ['required', 'integer', 'exists:storage_options,id'],
+            'variants.*.color_option_id' => ['required', 'integer', 'exists:color_options,id'],
+            'variants.*.price_lkr' => ['required', 'numeric', 'min:0'],
+            'variants.*.stock_count' => ['nullable', 'integer', 'min:0'],
+            'variants.*.sku' => ['nullable', 'string', 'max:255'],
+            'variants.*.status' => ['nullable', 'in:active,inactive'],
 
             'main_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'hover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
@@ -548,81 +549,81 @@ return redirect()->route('products.index')->with('success', 'Product updated.');
             ->all();
     }
 
-
     private function normalizeVariants($value): array
-{
-    if (is_string($value)) {
-        $decoded = json_decode($value, true);
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
 
-        if (json_last_error() === JSON_ERROR_NONE) {
-            $value = $decoded;
-        } else {
-            $value = [];
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $value = $decoded;
+            } else {
+                $value = [];
+            }
+        }
+
+        return collect((array) $value)
+            ->map(function ($row) {
+                $row = (array) $row;
+
+                return [
+                    'storage_option_id' => isset($row['storage_option_id']) && $row['storage_option_id'] !== ''
+                        ? (int) $row['storage_option_id']
+                        : null,
+
+                    'color_option_id' => isset($row['color_option_id']) && $row['color_option_id'] !== ''
+                        ? (int) $row['color_option_id']
+                        : null,
+
+                    'price_lkr' => isset($row['price_lkr']) && $row['price_lkr'] !== ''
+                        ? (float) $row['price_lkr']
+                        : null,
+
+                    'stock_count' => isset($row['stock_count']) && $row['stock_count'] !== ''
+                        ? (int) $row['stock_count']
+                        : null,
+
+                    'sku' => !empty($row['sku']) ? trim((string) $row['sku']) : null,
+                    'status' => in_array(($row['status'] ?? 'active'), ['active', 'inactive'], true)
+                        ? $row['status']
+                        : 'active',
+                ];
+            })
+            ->filter(fn ($row) => $row['storage_option_id'] && $row['color_option_id'])
+            ->unique(fn ($row) => $row['storage_option_id'] . '-' . $row['color_option_id'])
+            ->values()
+            ->all();
+    }
+
+    private function syncVariants(Product $product, array $variants): void
+    {
+        $allowedStorageIds = collect($product->storage_option_ids ?? [])->map(fn ($id) => (int) $id)->all();
+        $allowedColorIds = collect($product->color_ids ?? [])->map(fn ($id) => (int) $id)->all();
+
+        $rows = collect($variants)
+            ->filter(function ($row) use ($allowedStorageIds, $allowedColorIds) {
+                return in_array((int) $row['storage_option_id'], $allowedStorageIds, true)
+                    && in_array((int) $row['color_option_id'], $allowedColorIds, true);
+            })
+            ->map(function ($row) {
+                return [
+                    'storage_option_id' => (int) $row['storage_option_id'],
+                    'color_option_id' => (int) $row['color_option_id'],
+                    'price_lkr' => (float) $row['price_lkr'],
+                    'stock_count' => $row['stock_count'],
+                    'sku' => $row['sku'],
+                    'status' => $row['status'] ?? 'active',
+                ];
+            })
+            ->values()
+            ->all();
+
+        $product->variants()->delete();
+
+        if (!empty($rows)) {
+            $product->variants()->createMany($rows);
         }
     }
 
-    return collect((array) $value)
-        ->map(function ($row) {
-            $row = (array) $row;
-
-            return [
-                'storage_option_id' => isset($row['storage_option_id']) && $row['storage_option_id'] !== ''
-                    ? (int) $row['storage_option_id']
-                    : null,
-
-                'color_option_id' => isset($row['color_option_id']) && $row['color_option_id'] !== ''
-                    ? (int) $row['color_option_id']
-                    : null,
-
-                'price_lkr' => isset($row['price_lkr']) && $row['price_lkr'] !== ''
-                    ? (float) $row['price_lkr']
-                    : null,
-
-                'stock_count' => isset($row['stock_count']) && $row['stock_count'] !== ''
-                    ? (int) $row['stock_count']
-                    : null,
-
-                'sku' => !empty($row['sku']) ? trim((string) $row['sku']) : null,
-                'status' => in_array(($row['status'] ?? 'active'), ['active', 'inactive'], true)
-                    ? $row['status']
-                    : 'active',
-            ];
-        })
-        ->filter(fn ($row) => $row['storage_option_id'] && $row['color_option_id'])
-        ->unique(fn ($row) => $row['storage_option_id'] . '-' . $row['color_option_id'])
-        ->values()
-        ->all();
-}
-
-private function syncVariants(Product $product, array $variants): void
-{
-    $allowedStorageIds = collect($product->storage_option_ids ?? [])->map(fn ($id) => (int) $id)->all();
-    $allowedColorIds = collect($product->color_ids ?? [])->map(fn ($id) => (int) $id)->all();
-
-    $rows = collect($variants)
-        ->filter(function ($row) use ($allowedStorageIds, $allowedColorIds) {
-            return in_array((int) $row['storage_option_id'], $allowedStorageIds, true)
-                && in_array((int) $row['color_option_id'], $allowedColorIds, true);
-        })
-        ->map(function ($row) {
-            return [
-                'storage_option_id' => (int) $row['storage_option_id'],
-                'color_option_id' => (int) $row['color_option_id'],
-                'price_lkr' => (float) $row['price_lkr'],
-                'stock_count' => $row['stock_count'],
-                'sku' => $row['sku'],
-                'status' => $row['status'] ?? 'active',
-            ];
-        })
-        ->values()
-        ->all();
-
-    $product->variants()->delete();
-
-    if (!empty($rows)) {
-        $product->variants()->createMany($rows);
-    }
-}
     private function resolveUniqueSku(array $validated, ?int $ignoreId = null): string
     {
         $rawSku = trim((string) ($validated['sku'] ?? ''));

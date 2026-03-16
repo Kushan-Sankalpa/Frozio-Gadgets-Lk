@@ -11,6 +11,7 @@ type CategoryItem = {
 type ProductColor = {
   id: number | string
   name: string
+  color_code?: string | null
   image_url?: string | null
 }
 
@@ -96,12 +97,9 @@ const colorFallbackMap: Record<string, string> = {
 }
 
 function colorSwatchStyle(color: ProductColor) {
-  if (color.image_url) {
+  if (color.color_code && /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(color.color_code)) {
     return {
-      backgroundImage: `url(${color.image_url})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
+      backgroundColor: color.color_code,
     }
   }
 

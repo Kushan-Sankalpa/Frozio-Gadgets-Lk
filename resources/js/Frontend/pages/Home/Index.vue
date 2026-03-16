@@ -27,6 +27,7 @@ defineProps<{
     colors?: Array<{
       id: number | string
       name: string
+      color_code?: string | null
       image_url?: string | null
     }>
   }>
@@ -87,12 +88,10 @@ defineProps<{
 
   <ShoeCategories :categories="shoeCategories" />
 
-  
   <ThreeDShoe
     model-path="/models/air_jordan_1.glb"
     height="680px"
   />
 
   <ShoeFeaturedProducts :products="featuredShoes" />
-
 </template>

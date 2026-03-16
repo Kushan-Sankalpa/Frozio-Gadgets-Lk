@@ -9,16 +9,23 @@ class ColorOption extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'image_path', 'status'];
+    protected $fillable = ['name', 'image_path', 'color_code', 'status'];
 
     protected $appends = ['image_url'];
 
     public function getImageUrlAttribute(): ?string
     {
-        if (!$this->image_path) {
-            return null;
+        return route('colors.image', $this->id);
+    }
+
+    public function normalizedColorCode(): string
+    {
+        $value = strtoupper(trim((string) $this->color_code));
+
+        if (preg_match('/^#([A-F0-9]{3}|[A-F0-9]{6})$/', $value)) {
+            return $value;
         }
 
-        return route('colors.image', $this->id);
+        return '#D4D4D8';
     }
 }

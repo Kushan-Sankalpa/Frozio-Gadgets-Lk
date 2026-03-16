@@ -30,6 +30,7 @@ class ColorOptionController extends Controller
                 'id' => $colorOption->id,
                 'name' => $colorOption->name,
                 'status' => $colorOption->status,
+                'color_code' => $colorOption->color_code,
                 'image_url' => $colorOption->image_url,
             ],
         ]);
@@ -37,17 +38,16 @@ class ColorOptionController extends Controller
 
     public function image(ColorOption $colorOption)
     {
-        if (!$colorOption->image_path) {
-            abort(404);
-        }
+        $fill = $colorOption->normalizedColorCode();
 
-        $disk = Storage::disk('public');
+        $svg = <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+  <circle cx="40" cy="40" r="38" fill="{$fill}" stroke="#E5E7EB" stroke-width="2"/>
+</svg>
+SVG;
 
-        if (!$disk->exists($colorOption->image_path)) {
-            abort(404);
-        }
-
-        return response()->file($disk->path($colorOption->image_path), [
+        return response($svg, 200, [
+            'Content-Type' => 'image/svg+xml',
             'Cache-Control' => 'public, max-age=86400',
         ]);
     }
@@ -55,21 +55,16 @@ class ColorOptionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'   => ['required', 'string', 'max:255', 'unique:color_options,name'],
-            'status' => ['required', 'in:active,inactive'],
-            'image'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'name'       => ['required', 'string', 'max:255', 'unique:color_options,name'],
+            'status'     => ['required', 'in:active,inactive'],
+            'color_code' => ['required', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
         ]);
-
-        $path = null;
-
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('colors', 'public');
-        }
 
         ColorOption::create([
             'name' => $validated['name'],
             'status' => $validated['status'],
-            'image_path' => $path,
+            'color_code' => strtoupper($validated['color_code']),
+            'image_path' => null,
         ]);
 
         return redirect()->route('colors.index')->with('success', 'Color created.');
@@ -78,21 +73,19 @@ class ColorOptionController extends Controller
     public function update(Request $request, ColorOption $colorOption)
     {
         $validated = $request->validate([
-            'name'   => ['required', 'string', 'max:255', 'unique:color_options,name,' . $colorOption->id],
-            'status' => ['required', 'in:active,inactive'],
-            'image'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'name'       => ['required', 'string', 'max:255', 'unique:color_options,name,' . $colorOption->id],
+            'status'     => ['required', 'in:active,inactive'],
+            'color_code' => ['required', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
         ]);
 
-        if ($request->hasFile('image')) {
-            if ($colorOption->image_path && Storage::disk('public')->exists($colorOption->image_path)) {
-                Storage::disk('public')->delete($colorOption->image_path);
-            }
-
-            $colorOption->image_path = $request->file('image')->store('colors', 'public');
+        if ($colorOption->image_path && Storage::disk('public')->exists($colorOption->image_path)) {
+            Storage::disk('public')->delete($colorOption->image_path);
         }
 
         $colorOption->name = $validated['name'];
         $colorOption->status = $validated['status'];
+        $colorOption->color_code = strtoupper($validated['color_code']);
+        $colorOption->image_path = null;
         $colorOption->save();
 
         return redirect()->route('colors.index')->with('success', 'Color updated.');
@@ -122,7 +115,8 @@ class ColorOptionController extends Controller
         if ($searchValue) {
             $q->where(function ($x) use ($searchValue) {
                 $x->where('name', 'like', "%{$searchValue}%")
-                  ->orWhere('status', 'like', "%{$searchValue}%");
+                  ->orWhere('status', 'like', "%{$searchValue}%")
+                  ->orWhere('color_code', 'like', "%{$searchValue}%");
             });
         }
 
@@ -133,7 +127,7 @@ class ColorOptionController extends Controller
 
         $columns = [
             0 => 'id',
-            1 => 'image_path',
+            1 => 'color_code',
             2 => 'name',
             3 => 'status',
         ];
@@ -147,15 +141,9 @@ class ColorOptionController extends Controller
                 ? '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Active</span>'
                 : '<span class="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700">Inactive</span>';
 
-            $imageHtml = $c->image_url
-                ? '<div class="flex items-center justify-center">
-                        <img src="' . e($c->image_url) . '" alt="' . e($c->name) . '" class="h-12 w-12 rounded-lg object-cover border border-neutral-200 bg-white" />
-                   </div>'
-                : '<div class="flex items-center justify-center">
-                        <div class="h-12 w-12 rounded-lg border border-dashed border-neutral-300 bg-neutral-100 text-[10px] text-neutral-500 flex items-center justify-center">
-                            No Image
-                        </div>
-                   </div>';
+            $swatchHtml = '<div class="flex items-center justify-center">
+                    <div class="h-12 w-12 rounded-full border border-neutral-300 bg-white" style="background-color:' . e($c->normalizedColorCode()) . ';"></div>
+                </div>';
 
             $actions = '
               <div class="flex items-center gap-2">
@@ -167,7 +155,7 @@ class ColorOptionController extends Controller
 
             return [
                 'id' => $c->id,
-                'image_html' => $imageHtml,
+                'image_html' => $swatchHtml,
                 'name' => e($c->name),
                 'status_badge' => $statusBadge,
                 'actions' => $actions,

@@ -3,11 +3,19 @@ import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
+type TechBrand = {
+  id: number | string
+  name: string
+  logo_url?: string | null
+  status?: string | null
+}
+
 type TechCategory = {
   id: number | string
   name: string
   image_url?: string | null
   status?: string | null
+  brands?: TechBrand[]
 }
 
 type ShoeSubcategory = {
@@ -31,9 +39,11 @@ const scrolled = ref(false)
 const openMobileMenu = ref(false)
 const openMobileTech = ref(false)
 const openMobileShoe = ref(false)
+const openMobileTechCategoryId = ref<number | string | null>(null)
 const openMobileShoeCategoryId = ref<number | string | null>(null)
 
 const activeDropdown = ref<'tech' | 'shoes' | null>(null)
+const activeTechSubMenu = ref<number | string | null>(null)
 const activeShoeSubMenu = ref<number | string | null>(null)
 
 const searchOpen = ref(false)
@@ -65,6 +75,7 @@ const currentPath = computed(() => {
 const isShoeListingPage = computed(() => currentPath.value.startsWith('/shoe-products'))
 
 const currentCategory = computed(() => currentParams.value.get('category') || '')
+const currentBrand = computed(() => currentParams.value.get('brand') || '')
 const currentShoeCategory = computed(() => currentParams.value.get('shoe_category') || '')
 const currentShoeSubcategory = computed(() => currentParams.value.get('shoe_subcategory') || '')
 const currentSearch = computed(() => currentParams.value.get('search') || '')
@@ -72,11 +83,12 @@ const currentSearch = computed(() => currentParams.value.get('search') || '')
 const isHomeActive = computed(() => {
   return currentPath.value === '/' &&
     !currentCategory.value &&
+    !currentBrand.value &&
     !currentShoeCategory.value &&
     !currentShoeSubcategory.value
 })
 
-const isTechMenuActive = computed(() => !!currentCategory.value)
+const isTechMenuActive = computed(() => !!currentCategory.value || !!currentBrand.value)
 const isShoeMenuActive = computed(() => {
   return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
 })
@@ -87,8 +99,10 @@ watch(
     openMobileMenu.value = false
     openMobileTech.value = false
     openMobileShoe.value = false
+    openMobileTechCategoryId.value = null
     openMobileShoeCategoryId.value = null
     activeDropdown.value = null
+    activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
     searchOpen.value = false
     searchQuery.value = currentSearch.value
@@ -115,6 +129,10 @@ function isTechActive(name?: string | null) {
   return normalize(currentCategory.value) === normalize(name)
 }
 
+function isTechBrandActive(name?: string | null) {
+  return normalize(currentBrand.value) === normalize(name)
+}
+
 function isShoeCategoryActive(name?: string | null) {
   return normalize(currentShoeCategory.value) === normalize(name)
 }
@@ -139,8 +157,14 @@ function handleDropdownLeave() {
   clearDropdownTimer()
   dropdownCloseTimer = setTimeout(() => {
     activeDropdown.value = null
+    activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
   }, 140)
+}
+
+function openTechSubMenu(id: number | string | null) {
+  clearDropdownTimer()
+  activeTechSubMenu.value = id
 }
 
 function openShoeSubMenu(id: number | string | null) {
@@ -156,10 +180,6 @@ function closeSearchPanel() {
   searchOpen.value = false
 }
 
-function toggleSearchPanel() {
-  searchOpen.value = !searchOpen.value
-}
-
 function submitSearch() {
   const goToShoePage =
     isShoeListingPage.value ||
@@ -170,6 +190,7 @@ function submitSearch() {
     route(goToShoePage ? 'frontend.shoe-products.index' : 'frontend.root'),
     {
       category: goToShoePage ? undefined : currentCategory.value || undefined,
+      brand: goToShoePage ? undefined : currentBrand.value || undefined,
       shoe_category: goToShoePage ? currentShoeCategory.value || undefined : undefined,
       shoe_subcategory: goToShoePage ? currentShoeSubcategory.value || undefined : undefined,
       search: searchQuery.value.trim() || undefined,
@@ -187,6 +208,10 @@ function clearSearch() {
   closeSearchPanel()
 }
 
+function toggleMobileTechCategory(id: number | string) {
+  openMobileTechCategoryId.value = openMobileTechCategoryId.value === id ? null : id
+}
+
 function toggleMobileShoeCategory(id: number | string) {
   openMobileShoeCategoryId.value = openMobileShoeCategoryId.value === id ? null : id
 }
@@ -200,6 +225,7 @@ function handleResize() {
     openMobileMenu.value = false
     openMobileTech.value = false
     openMobileShoe.value = false
+    openMobileTechCategoryId.value = null
     openMobileShoeCategoryId.value = null
   }
 }
@@ -207,6 +233,7 @@ function handleResize() {
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     activeDropdown.value = null
+    activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
     openMobileMenu.value = false
     closeSearchPanel()
@@ -219,6 +246,7 @@ function handleClickOutside(event: MouseEvent) {
 
   if (!navRef.value.contains(target)) {
     activeDropdown.value = null
+    activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
     closeSearchPanel()
   }
@@ -318,7 +346,7 @@ onBeforeUnmount(() => {
             <Transition name="dropdown-fade">
               <div
                 v-if="activeDropdown === 'tech'"
-                class="dropdown-panel left-0 min-w-[280px]"
+                class="dropdown-panel left-0 min-w-[300px] overflow-visible"
               >
                 <div class="px-2 py-2">
                   <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
@@ -328,23 +356,81 @@ onBeforeUnmount(() => {
                   <Link
                     :href="route('frontend.root', { search: currentSearch || undefined })"
                     class="dropdown-link"
-                    :class="!currentCategory ? 'dropdown-link--active' : ''"
+                    :class="!currentCategory && !currentBrand ? 'dropdown-link--active' : ''"
                   >
                     All Tech Products
                   </Link>
 
-                  <Link
+                  <div
                     v-for="category in techCategories"
                     :key="category.id"
-                    :href="route('frontend.root', {
-                      category: category.name,
-                      search: currentSearch || undefined,
-                    })"
-                    class="dropdown-link"
-                    :class="isTechActive(category.name) ? 'dropdown-link--active' : ''"
+                    class="relative"
+                    @mouseenter="openTechSubMenu(category.brands?.length ? category.id : null)"
                   >
-                    {{ category.name }}
-                  </Link>
+                    <div class="flex items-center">
+                      <Link
+                        :href="route('frontend.root', {
+                          category: category.name,
+                          search: currentSearch || undefined,
+                        })"
+                        class="dropdown-link flex-1"
+                        :class="isTechActive(category.name) && !currentBrand ? 'dropdown-link--active' : ''"
+                      >
+                        {{ category.name }}
+                      </Link>
+
+                      <span
+                        v-if="category.brands?.length"
+                        class="pointer-events-none pr-3 text-white/35"
+                      >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path
+                            fill-rule="evenodd"
+                            d="M7.21 14.77a.75.75 0 010-1.06L10.94 10 7.21 6.29a.75.75 0 111.06-1.06l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06 0z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+
+                    <Transition name="submenu-fade">
+                      <div
+                        v-if="category.brands?.length && activeTechSubMenu === category.id && activeDropdown === 'tech'"
+                        class="submenu-panel"
+                      >
+                        <div class="px-2 py-2">
+                          <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                            {{ category.name }} Brands
+                          </div>
+
+                          <Link
+                            :href="route('frontend.root', {
+                              category: category.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="dropdown-link"
+                            :class="isTechActive(category.name) && !currentBrand ? 'dropdown-link--active' : ''"
+                          >
+                            View All
+                          </Link>
+
+                          <Link
+                            v-for="brand in category.brands || []"
+                            :key="brand.id"
+                            :href="route('frontend.root', {
+                              category: category.name,
+                              brand: brand.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="dropdown-link"
+                            :class="isTechActive(category.name) && isTechBrandActive(brand.name) ? 'dropdown-link--active' : ''"
+                          >
+                            {{ brand.name }}
+                          </Link>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
               </div>
             </Transition>
@@ -355,41 +441,41 @@ onBeforeUnmount(() => {
             @mouseenter="handleDropdownEnter('shoes')"
             @mouseleave="handleDropdownLeave"
           >
-<div
-  class="nav-link inline-flex items-center gap-1.5"
-  :class="[
-    scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
-    isShoeMenuActive ? 'nav-link--active' : '',
-  ]"
->
-  <Link
-    :href="route('frontend.shoe-products.index')"
-    class="inline-flex items-center"
-  >
-    <span>Shoe Products</span>
-  </Link>
+            <div
+              class="nav-link inline-flex items-center gap-1.5"
+              :class="[
+                scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+                isShoeMenuActive ? 'nav-link--active' : '',
+              ]"
+            >
+              <Link
+                :href="route('frontend.shoe-products.index')"
+                class="inline-flex items-center"
+              >
+                <span>Shoe Products</span>
+              </Link>
 
-  <svg
-    class="h-3.5 w-3.5 transition-transform duration-300"
-    :class="activeDropdown === 'shoes' ? 'rotate-180' : ''"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-  >
-    <path
-      fill-rule="evenodd"
-      d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
-      clip-rule="evenodd"
-    />
-  </svg>
+              <svg
+                class="h-3.5 w-3.5 transition-transform duration-300"
+                :class="activeDropdown === 'shoes' ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
+              </svg>
 
-  <span
-    class="nav-link-indicator"
-    :class="[
-      isShoeMenuActive ? 'nav-link-indicator--active' : '',
-      scrolled ? 'bg-black' : 'bg-white',
-    ]"
-  />
-</div>
+              <span
+                class="nav-link-indicator"
+                :class="[
+                  isShoeMenuActive ? 'nav-link-indicator--active' : '',
+                  scrolled ? 'bg-black' : 'bg-white',
+                ]"
+              />
+            </div>
 
             <Transition name="dropdown-fade">
               <div
@@ -401,13 +487,13 @@ onBeforeUnmount(() => {
                     Shoe Categories
                   </div>
 
-                 <Link
-  :href="route('frontend.shoe-products.index', { search: currentSearch || undefined })"
-  class="dropdown-link"
-  :class="!currentShoeCategory && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
->
-  All Shoe Products
-</Link>
+                  <Link
+                    :href="route('frontend.shoe-products.index', { search: currentSearch || undefined })"
+                    class="dropdown-link"
+                    :class="!currentShoeCategory && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
+                  >
+                    All Shoe Products
+                  </Link>
 
                   <div
                     v-for="category in shoeCategories"
@@ -416,16 +502,16 @@ onBeforeUnmount(() => {
                     @mouseenter="openShoeSubMenu(category.subcategories?.length ? category.id : null)"
                   >
                     <div class="flex items-center">
-                     <Link
-  :href="route('frontend.shoe-products.index', {
-    shoe_category: category.name,
-    search: currentSearch || undefined,
-  })"
-  class="dropdown-link flex-1"
-  :class="isShoeCategoryActive(category.name) ? 'dropdown-link--active' : ''"
->
-  {{ category.name }}
-</Link>
+                      <Link
+                        :href="route('frontend.shoe-products.index', {
+                          shoe_category: category.name,
+                          search: currentSearch || undefined,
+                        })"
+                        class="dropdown-link flex-1"
+                        :class="isShoeCategoryActive(category.name) ? 'dropdown-link--active' : ''"
+                      >
+                        {{ category.name }}
+                      </Link>
 
                       <span
                         v-if="category.subcategories?.length"
@@ -451,30 +537,30 @@ onBeforeUnmount(() => {
                             {{ category.name }}
                           </div>
 
-                         <Link
-  :href="route('frontend.shoe-products.index', {
-    shoe_category: category.name,
-    search: currentSearch || undefined,
-  })"
-  class="dropdown-link"
-  :class="isShoeCategoryActive(category.name) && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
->
-  View All
-</Link>
+                          <Link
+                            :href="route('frontend.shoe-products.index', {
+                              shoe_category: category.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="dropdown-link"
+                            :class="isShoeCategoryActive(category.name) && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
+                          >
+                            View All
+                          </Link>
 
-                         <Link
-  v-for="subcategory in category.subcategories || []"
-  :key="subcategory.id"
-  :href="route('frontend.shoe-products.index', {
-    shoe_category: category.name,
-    shoe_subcategory: subcategory.name,
-    search: currentSearch || undefined,
-  })"
-  class="dropdown-link"
-  :class="isShoeSubcategoryActive(subcategory.name) ? 'dropdown-link--active' : ''"
->
-  {{ subcategory.name }}
-</Link>
+                          <Link
+                            v-for="subcategory in category.subcategories || []"
+                            :key="subcategory.id"
+                            :href="route('frontend.shoe-products.index', {
+                              shoe_category: category.name,
+                              shoe_subcategory: subcategory.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="dropdown-link"
+                            :class="isShoeSubcategoryActive(subcategory.name) ? 'dropdown-link--active' : ''"
+                          >
+                            {{ subcategory.name }}
+                          </Link>
                         </div>
                       </div>
                     </Transition>
@@ -719,7 +805,7 @@ onBeforeUnmount(() => {
 
             <Transition name="accordion">
               <div v-if="openMobileTech" class="overflow-hidden px-3 pb-3">
-                <div class="space-y-1 rounded-2xl border border-white/8 bg-black/20 p-2">
+                <div class="space-y-2 rounded-2xl border border-white/8 bg-black/20 p-2">
                   <Link
                     :href="route('frontend.root', { search: currentSearch || undefined })"
                     class="mobile-sub-link"
@@ -728,15 +814,65 @@ onBeforeUnmount(() => {
                     All Tech Products
                   </Link>
 
-                  <Link
+                  <div
                     v-for="category in techCategories"
                     :key="category.id"
-                    :href="route('frontend.root', { category: category.name, search: currentSearch || undefined })"
-                    class="mobile-sub-link"
-                    @click="openMobileMenu = false"
+                    class="rounded-xl border border-white/8 bg-white/[0.03]"
                   >
-                    {{ category.name }}
-                  </Link>
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-white"
+                      @click="toggleMobileTechCategory(category.id)"
+                    >
+                      <span>{{ category.name }}</span>
+                      <svg
+                        class="h-4 w-4 transition-transform duration-300"
+                        :class="openMobileTechCategoryId === category.id ? 'rotate-180' : ''"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+
+                    <Transition name="accordion">
+                      <div
+                        v-if="openMobileTechCategoryId === category.id"
+                        class="overflow-hidden px-3 pb-3"
+                      >
+                        <div class="space-y-1 rounded-xl border border-white/8 bg-black/25 p-2">
+                          <Link
+                            :href="route('frontend.root', {
+                              category: category.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="mobile-sub-link"
+                            @click="openMobileMenu = false"
+                          >
+                            View All
+                          </Link>
+
+                          <Link
+                            v-for="brand in category.brands || []"
+                            :key="brand.id"
+                            :href="route('frontend.root', {
+                              category: category.name,
+                              brand: brand.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="mobile-sub-link"
+                            @click="openMobileMenu = false"
+                          >
+                            {{ brand.name }}
+                          </Link>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
               </div>
             </Transition>
@@ -767,7 +903,7 @@ onBeforeUnmount(() => {
               <div v-if="openMobileShoe" class="overflow-hidden px-3 pb-3">
                 <div class="space-y-2 rounded-2xl border border-white/8 bg-black/20 p-2">
                   <Link
-                    :href="route('frontend.root', { search: currentSearch || undefined })"
+                    :href="route('frontend.shoe-products.index', { search: currentSearch || undefined })"
                     class="mobile-sub-link"
                     @click="openMobileMenu = false"
                   >
@@ -806,7 +942,7 @@ onBeforeUnmount(() => {
                       >
                         <div class="space-y-1 rounded-xl border border-white/8 bg-black/25 p-2">
                           <Link
-                            :href="route('frontend.root', {
+                            :href="route('frontend.shoe-products.index', {
                               shoe_category: category.name,
                               search: currentSearch || undefined,
                             })"
@@ -819,7 +955,7 @@ onBeforeUnmount(() => {
                           <Link
                             v-for="subcategory in category.subcategories || []"
                             :key="subcategory.id"
-                            :href="route('frontend.root', {
+                            :href="route('frontend.shoe-products.index', {
                               shoe_category: category.name,
                               shoe_subcategory: subcategory.name,
                               search: currentSearch || undefined,

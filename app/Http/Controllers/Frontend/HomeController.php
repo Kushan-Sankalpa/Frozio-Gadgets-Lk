@@ -17,6 +17,7 @@ class HomeController extends Controller
     public function index()
     {
         $activeCategory = request('category');
+        $activeBrand = request('brand');
         $activeShoeCategory = request('shoe_category');
         $activeShoeSubcategory = request('shoe_subcategory');
         $search = trim((string) request('search', ''));
@@ -36,6 +37,13 @@ class HomeController extends Controller
 
         $categories = Category::query()
             ->where('status', 'active')
+            ->with([
+                'brands' => function ($query) {
+                    $query->where('brands.status', 'active')
+                        ->orderBy('brands.name')
+                        ->select('brands.id', 'brands.name', 'brands.logo_path', 'brands.status');
+                }
+            ])
             ->oldest('id')
             ->get()
             ->map(function (Category $category) {
@@ -44,6 +52,14 @@ class HomeController extends Controller
                     'name' => $category->name,
                     'image_url' => $category->image_url,
                     'status' => $category->status,
+                    'brands' => $category->brands->map(function ($brand) {
+                        return [
+                            'id' => $brand->id,
+                            'name' => $brand->name,
+                            'logo_url' => $brand->logo_url,
+                            'status' => $brand->status,
+                        ];
+                    })->values(),
                 ];
             })
             ->values();
@@ -78,6 +94,7 @@ class HomeController extends Controller
         return Inertia::render('Frontend/Home/index', [
             'products' => [],
             'activeCategory' => $activeCategory,
+            'activeBrand' => $activeBrand,
             'banners' => $banners,
             'categories' => $categories,
             'shoeCategories' => $shoeCategories,
@@ -92,6 +109,13 @@ class HomeController extends Controller
     {
         $categories = Category::query()
             ->where('status', 'active')
+            ->with([
+                'brands' => function ($query) {
+                    $query->where('brands.status', 'active')
+                        ->orderBy('brands.name')
+                        ->select('brands.id', 'brands.name', 'brands.logo_path', 'brands.status');
+                }
+            ])
             ->oldest('id')
             ->get()
             ->map(function (Category $category) {
@@ -100,6 +124,14 @@ class HomeController extends Controller
                     'name' => $category->name,
                     'image_url' => $category->image_url,
                     'status' => $category->status,
+                    'brands' => $category->brands->map(function ($brand) {
+                        return [
+                            'id' => $brand->id,
+                            'name' => $brand->name,
+                            'logo_url' => $brand->logo_url,
+                            'status' => $brand->status,
+                        ];
+                    })->values(),
                 ];
             })
             ->values();
@@ -255,10 +287,15 @@ class HomeController extends Controller
     public function products(): JsonResponse
     {
         $activeCategory = request('category');
+        $activeBrand = request('brand');
         $search = trim((string) request('search', ''));
 
         $normalizedCategory = filled($activeCategory)
             ? mb_strtolower(trim((string) $activeCategory))
+            : null;
+
+        $normalizedBrand = filled($activeBrand)
+            ? mb_strtolower(trim((string) $activeBrand))
             : null;
 
         $normalizedSearch = filled($search)
@@ -266,11 +303,19 @@ class HomeController extends Controller
             : null;
 
         $baseProducts = Product::query()
-            ->with('category:id,name')
+            ->with([
+                'category:id,name',
+                'brand:id,name',
+            ])
             ->where('status', 'active')
             ->when($normalizedCategory, function ($query, $normalizedCategory) {
                 $query->whereHas('category', function ($categoryQuery) use ($normalizedCategory) {
                     $categoryQuery->whereRaw('LOWER(name) = ?', [$normalizedCategory]);
+                });
+            })
+            ->when($normalizedBrand, function ($query, $normalizedBrand) {
+                $query->whereHas('brand', function ($brandQuery) use ($normalizedBrand) {
+                    $brandQuery->whereRaw('LOWER(name) = ?', [$normalizedBrand]);
                 });
             })
             ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
@@ -349,6 +394,7 @@ class HomeController extends Controller
                     'id' => $product->id,
                     'name' => $product->model ?? '',
                     'category_name' => $product->category?->name,
+                    'brand_name' => $product->brand?->name,
                     'thumbnail_url' => $product->main_image_url,
                     'hover_image_url' => $product->hover_image_url,
                     'regular_price' => $regularPrice,
@@ -364,6 +410,7 @@ class HomeController extends Controller
         return response()->json([
             'products' => $products,
             'activeCategory' => $activeCategory,
+            'activeBrand' => $activeBrand,
         ]);
     }
 }

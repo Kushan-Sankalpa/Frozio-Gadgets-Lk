@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\WebShoeProductController;
+use App\Http\Controllers\Frontend\WebTechProductController;
 
 // Frontend home (public)
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
@@ -23,6 +24,14 @@ Route::get('/home/featured-shoes', [HomeController::class, 'featuredShoes'])
 Route::get('/home/products', [HomeController::class, 'products'])
     ->name('frontend.home.products');
 
+// Tech product listing page
+Route::get('/tech-products', [WebTechProductController::class, 'index'])
+    ->name('frontend.tech-products.index');
+
+Route::get('/tech-products/products', [WebTechProductController::class, 'products'])
+    ->name('frontend.tech-products.products');
+
+// Shoe product listing page
 Route::get('/shoe-products', [WebShoeProductController::class, 'index'])
     ->name('frontend.shoe-products.index');
 

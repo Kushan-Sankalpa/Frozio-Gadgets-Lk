@@ -354,7 +354,7 @@ onBeforeUnmount(() => {
                   </div>
 
                   <Link
-                    :href="route('frontend.root', { search: currentSearch || undefined })"
+                    :href="route('frontend.tech-products.index', { search: currentSearch || undefined })"
                     class="dropdown-link"
                     :class="!currentCategory && !currentBrand ? 'dropdown-link--active' : ''"
                   >
@@ -369,7 +369,7 @@ onBeforeUnmount(() => {
                   >
                     <div class="flex items-center">
                       <Link
-                        :href="route('frontend.root', {
+                        :href="route('frontend.tech-products.index', {
                           category: category.name,
                           search: currentSearch || undefined,
                         })"
@@ -404,7 +404,7 @@ onBeforeUnmount(() => {
                           </div>
 
                           <Link
-                            :href="route('frontend.root', {
+                            :href="route('frontend.tech-products.index', {
                               category: category.name,
                               search: currentSearch || undefined,
                             })"
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
                           <Link
                             v-for="brand in category.brands || []"
                             :key="brand.id"
-                            :href="route('frontend.root', {
+                            :href="route('frontend.tech-products.index', {
                               category: category.name,
                               brand: brand.name,
                               search: currentSearch || undefined,
@@ -807,7 +807,7 @@ onBeforeUnmount(() => {
               <div v-if="openMobileTech" class="overflow-hidden px-3 pb-3">
                 <div class="space-y-2 rounded-2xl border border-white/8 bg-black/20 p-2">
                   <Link
-                    :href="route('frontend.root', { search: currentSearch || undefined })"
+                    :href="route('frontend.tech-products.index', { search: currentSearch || undefined })"
                     class="mobile-sub-link"
                     @click="openMobileMenu = false"
                   >
@@ -846,7 +846,7 @@ onBeforeUnmount(() => {
                       >
                         <div class="space-y-1 rounded-xl border border-white/8 bg-black/25 p-2">
                           <Link
-                            :href="route('frontend.root', {
+                            :href="route('frontend.tech-products.index', {
                               category: category.name,
                               search: currentSearch || undefined,
                             })"
@@ -859,7 +859,7 @@ onBeforeUnmount(() => {
                           <Link
                             v-for="brand in category.brands || []"
                             :key="brand.id"
-                            :href="route('frontend.root', {
+                            :href="route('frontend.tech-products.index', {
                               category: category.name,
                               brand: brand.name,
                               search: currentSearch || undefined,

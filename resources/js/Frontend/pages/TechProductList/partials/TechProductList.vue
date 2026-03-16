@@ -149,7 +149,7 @@ function colorSwatchStyle(color: ProductColor) {
 
       <div
         v-else
-        class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4"
+        class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-3 lg:gap-5"
       >
         <article
           v-for="product in products"

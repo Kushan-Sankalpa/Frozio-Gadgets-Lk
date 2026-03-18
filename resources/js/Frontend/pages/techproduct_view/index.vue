@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import AppLayout from '../../layouts/AppLayout.vue'
 import TechView from './partials/techview.vue'
+
+defineOptions({
+  layout: AppLayout,
+})
 
 type BreadcrumbItem = {
   label: string

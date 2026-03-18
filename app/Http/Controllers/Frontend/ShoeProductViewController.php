@@ -12,9 +12,9 @@ class ShoeProductViewController extends Controller
 {
     public function index(string $product): Response
     {
-        $shoe = $this->resolveProduct($product);
+        $shoe = $this->findProduct($product);
 
-        abort_if($shoe->status !== 'active', 404);
+        abort_if(!$shoe || $shoe->status !== 'published', 404);
 
         return Inertia::render('Frontend/shoe_productview/index', [
             'productKey' => $product,
@@ -31,98 +31,52 @@ class ShoeProductViewController extends Controller
 
     public function data(string $product): JsonResponse
     {
-        $shoe = $this->resolveProduct($product);
+        $shoe = $this->findProduct($product);
 
-        abort_if($shoe->status !== 'active', 404);
+        abort_if(!$shoe || $shoe->status !== 'published', 404);
 
         $shoe->load([
             'brand',
             'category',
             'subcategory',
-            'sizes',
-            'variants',
         ]);
 
-        $fallbackStock = $shoe->stock_count !== null
-            ? (int) $shoe->stock_count
-            : ((bool) $shoe->in_stock ? 1 : 0);
+        $pricing = $this->resolvePricing($shoe);
 
-        $sizeOptions = $shoe->sizes
-            ->map(fn ($size) => [
-                'id' => $size->id,
-                'label' => $size->label ?? $size->name ?? $size->size ?? '',
-            ])
-            ->filter(fn ($size) => filled($size['label']))
-            ->values();
+        $stockCount = $shoe->stock_quantity !== null ? (int) $shoe->stock_quantity : 0;
+        $isInStock = $shoe->stock_status !== 'out_of_stock' && $stockCount > 0;
 
-        if ($sizeOptions->isEmpty()) {
-            $sizeOptions = $shoe->variants
-                ->map(fn ($variant) => [
-                    'id' => $variant->size_id ?? $variant->id,
-                    'label' => $variant->size_label ?? $variant->size ?? $variant->name ?? '',
-                ])
-                ->filter(fn ($size) => filled($size['label']))
-                ->unique('label')
-                ->values();
-        }
+        $sizes = $this->resolveSizes($shoe);
 
-        $variantRows = $shoe->variants
-            ->map(function ($variant) use ($shoe, $fallbackStock) {
-                $basePrice = (float) ($variant->price_lkr ?: $shoe->price_lkr ?: 0);
-                $discount = $this->resolveDiscount(
-                    $basePrice,
-                    $shoe->discount_type,
-                    $shoe->discount_value
-                );
-
-                $resolvedStock = $variant->stock_count !== null
-                    ? (int) $variant->stock_count
-                    : $fallbackStock;
-
-                $variantStatus = $variant->status ?: 'active';
-                $inStock = $variantStatus !== 'inactive' && $resolvedStock > 0;
-
+        $variants = $sizes->isNotEmpty()
+            ? $sizes->map(function ($size) use ($shoe, $pricing, $stockCount, $isInStock) {
                 return [
-                    'id' => $variant->id,
-                    'size_id' => $variant->size_id ?? $variant->id,
-                    'size_label' => $variant->size_label ?? $variant->size ?? null,
-                    'sku' => $variant->sku,
-                    'price_lkr' => $basePrice,
-                    'old_price_lkr' => $discount['old_price'],
-                    'final_price_lkr' => $discount['current_price'],
-                    'stock_count' => $resolvedStock,
-                    'in_stock' => $inStock,
-                    'status' => $variantStatus,
-                    'discount_label' => $discount['label'],
+                    'id' => 'size-' . $size['id'],
+                    'size_id' => $size['id'],
+                    'size_label' => $size['label'],
+                    'sku' => $shoe->sku,
+                    'price_lkr' => $pricing['base_price'],
+                    'old_price_lkr' => $pricing['old_price'],
+                    'final_price_lkr' => $pricing['current_price'],
+                    'stock_count' => $stockCount,
+                    'in_stock' => $isInStock,
+                    'status' => $isInStock ? 'active' : 'inactive',
+                    'discount_label' => $pricing['discount_label'],
                 ];
-            })
-            ->values();
-
-        if ($variantRows->isEmpty()) {
-            $discount = $this->resolveDiscount(
-                (float) ($shoe->price_lkr ?: 0),
-                $shoe->discount_type,
-                $shoe->discount_value
-            );
-
-            $variantRows = collect([[
+            })->values()
+            : collect([[
                 'id' => 'default',
-                'size_id' => $sizeOptions->first()['id'] ?? null,
-                'size_label' => $sizeOptions->first()['label'] ?? null,
+                'size_id' => null,
+                'size_label' => null,
                 'sku' => $shoe->sku,
-                'price_lkr' => (float) ($shoe->price_lkr ?: 0),
-                'old_price_lkr' => $discount['old_price'],
-                'final_price_lkr' => $discount['current_price'],
-                'stock_count' => $fallbackStock,
-                'in_stock' => ((bool) $shoe->in_stock) && $fallbackStock > 0,
-                'status' => 'active',
-                'discount_label' => $discount['label'],
+                'price_lkr' => $pricing['base_price'],
+                'old_price_lkr' => $pricing['old_price'],
+                'final_price_lkr' => $pricing['current_price'],
+                'stock_count' => $stockCount,
+                'in_stock' => $isInStock,
+                'status' => $isInStock ? 'active' : 'inactive',
+                'discount_label' => $pricing['discount_label'],
             ]]);
-        }
-
-        $displayVariant = $variantRows->first(fn ($variant) => ($variant['in_stock'] ?? false) === true)
-            ?: $variantRows->first(fn ($variant) => ($variant['status'] ?? 'active') !== 'inactive')
-            ?: $variantRows->first();
 
         $gallery = collect($shoe->gallery_urls ?? [])
             ->filter()
@@ -135,7 +89,7 @@ class ShoeProductViewController extends Controller
             ])
             ->values();
 
-        $mainImage = $shoe->main_image_url ?: ($gallery->first()['src'] ?? null);
+        $mainImage = $shoe->thumbnail_url ?: ($gallery->first()['src'] ?? null);
 
         return response()->json([
             'product' => [
@@ -144,11 +98,13 @@ class ShoeProductViewController extends Controller
                 'slug' => $shoe->slug,
                 'sku' => $shoe->sku,
                 'short_description' => $shoe->short_description,
-                'long_description' => $shoe->long_description,
+                'long_description' => $shoe->full_description,
                 'brand' => [
                     'id' => $shoe->brand?->id,
                     'name' => $shoe->brand?->name,
-                    'logo_url' => $this->brandLogoUrl($shoe->brand),
+                    'logo_url' => data_get($shoe->brand, 'logo_url')
+                        ?? data_get($shoe->brand, 'image_url')
+                        ?? data_get($shoe->brand, 'icon_url'),
                 ],
                 'category' => [
                     'id' => $shoe->category?->id,
@@ -165,74 +121,101 @@ class ShoeProductViewController extends Controller
                 ],
                 'main_image' => $mainImage,
                 'gallery' => $gallery,
-                'sizes' => $sizeOptions,
-                'variants' => $variantRows,
-                'size_chart_image' => $shoe->size_chart_url
-                    ?? $shoe->size_chart_image_url
-                    ?? $shoe->chart_image_url
-                    ?? null,
-                'base_price' => (float) ($shoe->price_lkr ?: 0),
-                'old_price' => $displayVariant['old_price_lkr'] ?? null,
-                'current_price' => $displayVariant['final_price_lkr'] ?? (float) ($shoe->price_lkr ?: 0),
-                'has_discount' => !empty($displayVariant['old_price_lkr'])
-                    && (float) $displayVariant['old_price_lkr'] > (float) ($displayVariant['final_price_lkr'] ?? 0),
-                'discount_label' => $displayVariant['discount_label'] ?? null,
-                'default_size_id' => $displayVariant['size_id'] ?? ($sizeOptions->first()['id'] ?? null),
-                'stock_count' => $displayVariant['stock_count'] ?? $fallbackStock,
-                'in_stock' => $displayVariant['in_stock'] ?? (((bool) $shoe->in_stock) && $fallbackStock > 0),
+                'sizes' => $sizes->values(),
+                'variants' => $variants->values(),
+                'size_chart_image' => data_get($shoe, 'size_chart_image_url')
+                    ?? data_get($shoe, 'size_chart_url')
+                    ?? data_get($shoe, 'chart_image_url'),
+                'base_price' => $pricing['base_price'],
+                'old_price' => $pricing['old_price'],
+                'current_price' => $pricing['current_price'],
+                'has_discount' => $pricing['has_discount'],
+                'discount_label' => $pricing['discount_label'],
+                'default_size_id' => $sizes->first()['id'] ?? null,
+                'stock_count' => $stockCount,
+                'in_stock' => $isInStock,
             ],
         ]);
     }
 
-    private function resolveProduct(string $identifier): ShoeProduct
+    private function findProduct(string $identifier): ?ShoeProduct
     {
         return ShoeProduct::query()
             ->when(
-                is_numeric($identifier),
+                ctype_digit($identifier),
                 fn ($query) => $query->where('id', (int) $identifier)->orWhere('slug', $identifier),
                 fn ($query) => $query->where('slug', $identifier)
             )
-            ->firstOrFail();
+            ->first();
     }
 
-    private function resolveDiscount(float $price, ?string $discountType, $discountValue): array
+    private function resolvePricing(ShoeProduct $shoe): array
     {
-        $price = max(0, round($price, 2));
-        $discountValue = is_numeric($discountValue) ? (float) $discountValue : 0.0;
+        $today = now()->startOfDay();
 
-        if ($discountValue <= 0 || !in_array($discountType, ['percent', 'price'], true)) {
-            return [
-                'old_price' => null,
-                'current_price' => $price,
-                'has_discount' => false,
-                'label' => null,
-            ];
-        }
+        $regularPrice = $shoe->regular_price !== null ? (float) $shoe->regular_price : 0.0;
+        $salePrice = $shoe->sale_price !== null ? (float) $shoe->sale_price : null;
 
-        if ($discountType === 'percent') {
-            $currentPrice = max(0, round($price - (($price * $discountValue) / 100), 2));
-            $label = rtrim(rtrim(number_format($discountValue, 2, '.', ''), '0'), '.') . '% OFF';
-        } else {
-            $currentPrice = max(0, round($price - $discountValue, 2));
-            $label = 'Save Rs ' . number_format($discountValue, 2);
+        $saleStarted = !$shoe->sale_start_date || $shoe->sale_start_date->lte($today);
+        $saleNotEnded = !$shoe->sale_end_date || $shoe->sale_end_date->gte($today);
+
+        $hasActiveSale = $regularPrice > 0
+            && $salePrice !== null
+            && $salePrice > 0
+            && $regularPrice > $salePrice
+            && $saleStarted
+            && $saleNotEnded;
+
+        $discountLabel = null;
+
+        if (!empty($shoe->discount_type) && $shoe->discount_value !== null) {
+            if ($shoe->discount_type === 'percentage') {
+                $discountLabel = 'Sale ' . rtrim(rtrim(number_format((float) $shoe->discount_value, 2), '0'), '.') . '%';
+            } elseif ($shoe->discount_type === 'fixed') {
+                $discountLabel = 'Sale LKR ' . number_format((float) $shoe->discount_value, 0);
+            }
+        } elseif ($hasActiveSale) {
+            $discountPercent = (int) round((($regularPrice - $salePrice) / $regularPrice) * 100);
+            if ($discountPercent > 0) {
+                $discountLabel = 'Sale ' . $discountPercent . '%';
+            }
         }
 
         return [
-            'old_price' => $currentPrice < $price ? $price : null,
-            'current_price' => $currentPrice,
-            'has_discount' => $currentPrice < $price,
-            'label' => $currentPrice < $price ? $label : null,
+            'base_price' => $regularPrice,
+            'old_price' => $hasActiveSale ? $regularPrice : null,
+            'current_price' => $hasActiveSale ? $salePrice : $regularPrice,
+            'has_discount' => $hasActiveSale,
+            'discount_label' => $discountLabel,
         ];
     }
 
-    private function brandLogoUrl($brand): ?string
+    private function resolveSizes(ShoeProduct $shoe)
     {
-        if (!$brand) {
-            return null;
-        }
+        $raw = $shoe->sizes_by_type ?? [];
 
-        return data_get($brand, 'logo_url')
-            ?? data_get($brand, 'image_url')
-            ?? data_get($brand, 'icon_url');
+        return collect($raw)
+            ->flatMap(function ($group, $groupKey) {
+                if (!is_array($group)) {
+                    return [];
+                }
+
+                return collect($group)->map(function ($item, $index) use ($groupKey) {
+                    if (is_array($item)) {
+                        return [
+                            'id' => $item['id'] ?? ($groupKey . '-' . $index),
+                            'label' => $item['label'] ?? $item['name'] ?? $item['size'] ?? '',
+                        ];
+                    }
+
+                    return [
+                        'id' => $groupKey . '-' . $index,
+                        'label' => (string) $item,
+                    ];
+                });
+            })
+            ->filter(fn ($size) => filled($size['label']))
+            ->unique('label')
+            ->values();
     }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\WebShoeProductController;
 use App\Http\Controllers\Frontend\WebTechProductController;
 use App\Http\Controllers\Frontend\TechProductViewController;
+use App\Http\Controllers\Frontend\ShoeProductViewController;
 use App\Http\Controllers\ProductController;
 
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
@@ -27,7 +28,6 @@ Route::get('/tech-products', [WebTechProductController::class, 'index'])
 Route::get('/tech-products/products', [WebTechProductController::class, 'products'])
     ->name('frontend.tech-products.products');
 
-// lightweight page shell -> full data fetched only after page mount
 Route::get('/tech-products/{product}', [TechProductViewController::class, 'index'])
     ->name('frontend.tech-products.show');
 
@@ -39,6 +39,12 @@ Route::get('/shoe-products', [WebShoeProductController::class, 'index'])
 
 Route::get('/shoe-products/products', [WebShoeProductController::class, 'products'])
     ->name('frontend.shoe-products.products');
+
+Route::get('/shoe-products/{product}', [ShoeProductViewController::class, 'index'])
+    ->name('frontend.shoe-products.show');
+
+Route::get('/shoe-products/{product}/data', [ShoeProductViewController::class, 'data'])
+    ->name('frontend.shoe-products.show.data');
 
 Route::get('/search/product-suggestions', [ProductController::class, 'suggestions'])
     ->name('frontend.products.suggestions');

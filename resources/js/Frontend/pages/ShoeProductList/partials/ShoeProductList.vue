@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Link } from '@inertiajs/vue3'
+import { route } from 'ziggy-js'
 
 type ShoeProductCard = {
   id: number | string
@@ -69,6 +71,12 @@ function formatPrice(value: number | null | undefined) {
     maximumFractionDigits: 2,
   })}`
 }
+
+function productHref(product: ShoeProductCard) {
+  return route('frontend.shoe-products.show', {
+    product: product.slug || product.id,
+  })
+}
 </script>
 
 <template>
@@ -110,89 +118,94 @@ function formatPrice(value: number | null | undefined) {
         v-else
         class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5"
       >
-        <article
+        <Link
           v-for="product in products"
           :key="product.id"
-          class="shoe-product-card group overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+          :href="productHref(product)"
+          class="block"
         >
-          <div class="relative overflow-hidden bg-white">
-            <div class="absolute left-3 top-3 z-20 flex flex-col gap-1.5 sm:left-4 sm:top-4 sm:gap-2">
-              <span
-                v-if="product.has_discount && product.discount_label"
-                class="inline-flex w-fit items-center rounded-md bg-[#ef5a4f] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
-              >
-                {{ product.discount_label }}
-              </span>
-
-              <span
-                v-if="product.is_sold_out"
-                class="inline-flex w-fit items-center rounded-md bg-[#bdbdbd] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
-              >
-                Sold Out
-              </span>
-            </div>
-
-            <div class="absolute right-3 top-3 z-20 text-right sm:right-4 sm:top-4">
-              <div class="max-w-[92px] truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-700 sm:max-w-[120px] sm:text-xs sm:tracking-[0.16em]">
-                {{ product.brand_name || 'Featured' }}
-              </div>
-              <div class="max-w-[92px] truncate text-[9px] text-neutral-500 sm:max-w-[120px] sm:text-[11px]">
-                {{ product.category_name || 'shoe collection' }}
-              </div>
-            </div>
-
-            <div class="relative flex h-[180px] items-center justify-center px-3 pb-3 pt-10 sm:h-[235px] sm:px-4 sm:pb-4 sm:pt-12 lg:h-[280px]">
-              <img
-                :src="product.thumbnail_url || product.hover_image_url || ''"
-                :alt="product.name"
-                class="shoe-main-image max-h-full max-w-full object-contain"
-                :class="{ 'opacity-0': !product.thumbnail_url && !product.hover_image_url }"
-              />
-
-              <img
-                v-if="product.hover_image_url"
-                :src="product.hover_image_url"
-                :alt="`${product.name} hover`"
-                class="shoe-hover-image max-h-full max-w-full object-contain"
-              />
-            </div>
-          </div>
-
-          <div class="bg-white p-3 sm:p-4">
-            <div
-              v-if="product.subcategory_name"
-              class="mb-1.5 line-clamp-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-400 sm:mb-2 sm:text-[11px]"
-            >
-              {{ product.subcategory_name }}
-            </div>
-
-            <h3 class="line-clamp-2 min-h-[40px] text-[14px] font-medium leading-snug text-neutral-900 sm:min-h-[46px] sm:text-[16px] lg:text-[17px]">
-              {{ product.name }}
-            </h3>
-
-            <div class="mt-2 space-y-1 sm:mt-3">
-              <p
-                v-if="product.has_discount && product.regular_price !== null && product.display_price !== null"
-                class="flex flex-wrap items-center gap-1.5 text-[12px] leading-5 sm:gap-2 sm:text-[14px] sm:leading-6"
-              >
-                <span class="font-semibold text-neutral-400 line-through">
-                  {{ formatPrice(product.regular_price) }}
+          <article
+            class="shoe-product-card group overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+          >
+            <div class="relative overflow-hidden bg-white">
+              <div class="absolute left-3 top-3 z-20 flex flex-col gap-1.5 sm:left-4 sm:top-4 sm:gap-2">
+                <span
+                  v-if="product.has_discount && product.discount_label"
+                  class="inline-flex w-fit items-center rounded-md bg-[#ef5a4f] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
+                >
+                  {{ product.discount_label }}
                 </span>
 
-                <span class="font-bold text-[#ef5a4f]">
+                <span
+                  v-if="product.is_sold_out"
+                  class="inline-flex w-fit items-center rounded-md bg-[#bdbdbd] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
+                >
+                  Sold Out
+                </span>
+              </div>
+
+              <div class="absolute right-3 top-3 z-20 text-right sm:right-4 sm:top-4">
+                <div class="max-w-[92px] truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-700 sm:max-w-[120px] sm:text-xs sm:tracking-[0.16em]">
+                  {{ product.brand_name || 'Featured' }}
+                </div>
+                <div class="max-w-[92px] truncate text-[9px] text-neutral-500 sm:max-w-[120px] sm:text-[11px]">
+                  {{ product.category_name || 'shoe collection' }}
+                </div>
+              </div>
+
+              <div class="relative flex h-[180px] items-center justify-center px-3 pb-3 pt-10 sm:h-[235px] sm:px-4 sm:pb-4 sm:pt-12 lg:h-[280px]">
+                <img
+                  :src="product.thumbnail_url || product.hover_image_url || ''"
+                  :alt="product.name"
+                  class="shoe-main-image max-h-full max-w-full object-contain"
+                  :class="{ 'opacity-0': !product.thumbnail_url && !product.hover_image_url }"
+                />
+
+                <img
+                  v-if="product.hover_image_url"
+                  :src="product.hover_image_url"
+                  :alt="`${product.name} hover`"
+                  class="shoe-hover-image max-h-full max-w-full object-contain"
+                />
+              </div>
+            </div>
+
+            <div class="bg-white p-3 sm:p-4">
+              <div
+                v-if="product.subcategory_name"
+                class="mb-1.5 line-clamp-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-400 sm:mb-2 sm:text-[11px]"
+              >
+                {{ product.subcategory_name }}
+              </div>
+
+              <h3 class="line-clamp-2 min-h-[40px] text-[14px] font-medium leading-snug text-neutral-900 sm:min-h-[46px] sm:text-[16px] lg:text-[17px]">
+                {{ product.name }}
+              </h3>
+
+              <div class="mt-2 space-y-1 sm:mt-3">
+                <p
+                  v-if="product.has_discount && product.regular_price !== null && product.display_price !== null"
+                  class="flex flex-wrap items-center gap-1.5 text-[12px] leading-5 sm:gap-2 sm:text-[14px] sm:leading-6"
+                >
+                  <span class="font-semibold text-neutral-400 line-through">
+                    {{ formatPrice(product.regular_price) }}
+                  </span>
+
+                  <span class="font-bold text-[#ef5a4f]">
+                    {{ formatPrice(product.display_price) }}
+                  </span>
+                </p>
+
+                <p
+                  v-else
+                  class="text-[15px] font-bold text-neutral-900 sm:text-[17px]"
+                >
                   {{ formatPrice(product.display_price) }}
-                </span>
-              </p>
-
-              <p
-                v-else
-                class="text-[15px] font-bold text-neutral-900 sm:text-[17px]"
-              >
-                {{ formatPrice(product.display_price) }}
-              </p>
+                </p>
+              </div>
             </div>
-          </div>
-        </article>
+          </article>
+        </Link>
 
         <div
           v-for="index in skeletonCount"

@@ -1,0 +1,149 @@
+<script setup lang="ts">
+import { Head } from '@inertiajs/vue3'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import AppLayout from '../../layouts/AppLayout.vue'
+import ShoeView from './partials/shoeview.vue'
+
+defineOptions({
+  layout: AppLayout,
+})
+
+type BreadcrumbItem = {
+  label: string
+  href: string | null
+}
+
+type ShellData = {
+  name?: string | null
+  breadcrumb?: BreadcrumbItem[]
+}
+
+type GalleryItem = {
+  id: string | number
+  src: string
+}
+
+type ShoeSize = {
+  id: number | string
+  label: string
+}
+
+type ShoeVariant = {
+  id: string | number
+  size_id?: number | string | null
+  size_label?: string | null
+  sku?: string | null
+  price_lkr: number
+  old_price_lkr?: number | null
+  final_price_lkr?: number | null
+  stock_count?: number | null
+  in_stock?: boolean
+  status?: string | null
+  discount_label?: string | null
+}
+
+type ProductPayload = {
+  id: number | string
+  name: string
+  slug?: string | null
+  sku?: string | null
+  short_description?: string | null
+  long_description?: string | null
+  brand?: {
+    id?: number | string | null
+    name?: string | null
+    logo_url?: string | null
+  } | null
+  category?: {
+    id?: number | string | null
+    name?: string | null
+  } | null
+  subcategory?: {
+    id?: number | string | null
+    name?: string | null
+  } | null
+  breadcrumb?: BreadcrumbItem[]
+  main_image?: string | null
+  gallery: GalleryItem[]
+  sizes: ShoeSize[]
+  variants: ShoeVariant[]
+  size_chart_image?: string | null
+  base_price?: number | null
+  old_price?: number | null
+  current_price?: number | null
+  has_discount?: boolean
+  discount_label?: string | null
+  default_size_id?: number | string | null
+  stock_count?: number | null
+  in_stock?: boolean
+}
+
+const props = defineProps<{
+  productKey: string | number
+  shell?: ShellData | null
+}>()
+
+const loading = ref(true)
+const error = ref<string | null>(null)
+const product = ref<ProductPayload | null>(null)
+
+let abortController: AbortController | null = null
+
+const pageTitle = computed(() => {
+  return product.value?.name || props.shell?.name || 'Shoe Product Details'
+})
+
+async function fetchProduct() {
+  loading.value = true
+  error.value = null
+
+  try {
+    abortController?.abort()
+    abortController = new AbortController()
+
+    const response = await fetch(`/shoe-products/${props.productKey}/data`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      signal: abortController.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to load shoe product details.')
+    }
+
+    const data = await response.json()
+    product.value = data?.product ?? null
+  } catch (err: unknown) {
+    if ((err as Error)?.name === 'AbortError') return
+    console.error('Shoe product view fetch error:', err)
+    error.value = 'Failed to load shoe product details. Please try again.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchProduct()
+})
+
+onBeforeUnmount(() => {
+  abortController?.abort()
+})
+</script>
+
+<template>
+  <Head :title="pageTitle" />
+
+  <div class="min-h-screen bg-white">
+    <ShoeView
+      :loading="loading"
+      :error="error"
+      :product="product"
+      :shell="shell || null"
+      @retry="fetchProduct"
+    />
+  </div>
+</template>

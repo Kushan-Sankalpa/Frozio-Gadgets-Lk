@@ -4,35 +4,36 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\HomeController;
 use App\Http\Controllers\Frontend\WebShoeProductController;
 use App\Http\Controllers\Frontend\WebTechProductController;
+use App\Http\Controllers\Frontend\TechProductViewController;
 use App\Http\Controllers\ProductController;
 
-// Frontend home (public)
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
 
-// Categories fetch after homepage loads
 Route::get('/home/categories', [HomeController::class, 'categories'])
     ->name('frontend.home.categories');
 
-// Shoe categories fetch only when section is viewed
 Route::get('/home/shoe-categories', [HomeController::class, 'shoeCategories'])
     ->name('frontend.home.shoe-categories');
 
-// Featured shoes fetch only when section is viewed
 Route::get('/home/featured-shoes', [HomeController::class, 'featuredShoes'])
     ->name('frontend.home.featured-shoes');
 
-// Products fetch after homepage loads
 Route::get('/home/products', [HomeController::class, 'products'])
     ->name('frontend.home.products');
 
-// Tech product listing page
 Route::get('/tech-products', [WebTechProductController::class, 'index'])
     ->name('frontend.tech-products.index');
 
 Route::get('/tech-products/products', [WebTechProductController::class, 'products'])
     ->name('frontend.tech-products.products');
 
-// Shoe product listing page
+// lightweight page shell -> full data fetched only after page mount
+Route::get('/tech-products/{product}', [TechProductViewController::class, 'index'])
+    ->name('frontend.tech-products.show');
+
+Route::get('/tech-products/{product}/data', [TechProductViewController::class, 'data'])
+    ->name('frontend.tech-products.show.data');
+
 Route::get('/shoe-products', [WebShoeProductController::class, 'index'])
     ->name('frontend.shoe-products.index');
 
@@ -42,5 +43,4 @@ Route::get('/shoe-products/products', [WebShoeProductController::class, 'product
 Route::get('/search/product-suggestions', [ProductController::class, 'suggestions'])
     ->name('frontend.products.suggestions');
 
-// Optional: keep /home working too
 Route::redirect('/home', '/')->name('frontend.home');

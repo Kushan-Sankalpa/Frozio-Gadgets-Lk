@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { Link } from '@inertiajs/vue3'
 
 type CategoryItem = {
   id: number | string
@@ -27,6 +28,7 @@ type ProductItem = {
   discount_label?: string | null
   is_sold_out: boolean
   colors?: ProductColor[]
+  url?: string | null
 }
 
 const props = defineProps<{
@@ -107,6 +109,10 @@ function colorSwatchStyle(color: ProductColor) {
   return {
     backgroundColor: colorFallbackMap[key] || '#d4d4d8',
   }
+}
+
+function productUrl(product: ProductItem) {
+  return product.url || `/tech-products/${product.id}`
 }
 
 function updateUrl(category?: string | null) {
@@ -389,10 +395,11 @@ onBeforeUnmount(() => {
       v-else-if="visibleProducts.length"
       class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5"
     >
-      <article
+      <Link
         v-for="product in visibleProducts"
         :key="product.id"
-        class="product-card group overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+        :href="productUrl(product)"
+        class="product-card group block overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 sm:rounded-[24px]"
       >
         <div class="relative overflow-hidden bg-white">
           <div class="absolute left-3 top-3 z-20 flex flex-col gap-1.5 sm:left-4 sm:top-4 sm:gap-2">
@@ -477,7 +484,7 @@ onBeforeUnmount(() => {
             />
           </div>
         </div>
-      </article>
+      </Link>
     </div>
 
     <div

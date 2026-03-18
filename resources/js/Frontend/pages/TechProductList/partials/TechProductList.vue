@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Link } from '@inertiajs/vue3'
 
 type ProductColor = {
   id: number | string
@@ -21,6 +22,7 @@ type TechProductCard = {
   discount_label?: string | null
   is_sold_out: boolean
   colors?: ProductColor[]
+  url?: string | null
 }
 
 type PaginationMeta = {
@@ -110,6 +112,10 @@ function colorSwatchStyle(color: ProductColor) {
     backgroundColor: colorFallbackMap[key] || '#d4d4d8',
   }
 }
+
+function productUrl(product: TechProductCard) {
+  return product.url || `/tech-products/${product.id}`
+}
 </script>
 
 <template>
@@ -151,10 +157,11 @@ function colorSwatchStyle(color: ProductColor) {
         v-else
         class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-3 lg:gap-5"
       >
-        <article
+        <Link
           v-for="product in products"
           :key="product.id"
-          class="product-card group overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+          :href="productUrl(product)"
+          class="product-card group block overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-neutral-900 sm:rounded-[24px]"
         >
           <div class="relative overflow-hidden bg-white">
             <div class="absolute left-3 top-3 z-20 flex flex-col gap-1.5 sm:left-4 sm:top-4 sm:gap-2">
@@ -239,7 +246,7 @@ function colorSwatchStyle(color: ProductColor) {
               />
             </div>
           </div>
-        </article>
+        </Link>
 
         <div
           v-for="index in skeletonCount"

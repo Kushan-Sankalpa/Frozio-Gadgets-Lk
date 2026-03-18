@@ -1,1 +1,0 @@
-import{_ as o}from"./RamList.vue_vue_type_script_setup_true_lang-Bk6dRblf.js";import"./Datatable-BS0zvdrb.js";import"./app-Xu6JF1Af.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

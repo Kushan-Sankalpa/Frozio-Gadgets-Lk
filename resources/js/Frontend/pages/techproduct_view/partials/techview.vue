@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 
 type BreadcrumbItem = {
@@ -15,7 +15,6 @@ type ShellData = {
 type GalleryItem = {
   id: string | number
   src: string
-  color_option_id?: number | string | null
 }
 
 type ProductColor = {
@@ -65,6 +64,7 @@ type ProductPayload = {
     name?: string | null
   } | null
   breadcrumb?: BreadcrumbItem[]
+  main_image?: string | null
   gallery: GalleryItem[]
   colors: ProductColor[]
   storage_options: StorageOption[]
@@ -78,6 +78,8 @@ type ProductPayload = {
   specifications: SpecRow[]
   default_color_id?: number | string | null
   default_storage_id?: number | string | null
+  stock_count?: number | null
+  in_stock?: boolean
 }
 
 const props = defineProps<{
@@ -97,10 +99,7 @@ const activeImage = ref<string | null>(null)
 const quantity = ref(1)
 const activeTab = ref<'description' | 'specifications'>('description')
 const flashMessage = ref('')
-let flashTimer: number | null = null
-
-const descriptionSection = ref<HTMLElement | null>(null)
-const specificationSection = ref<HTMLElement | null>(null)
+const hoveredColorName = ref<string | null>(null)
 
 const colorFallbackMap: Record<string, string> = {
   black: '#111111',
@@ -141,7 +140,9 @@ function formatPrice(value: number | null | undefined) {
 
 function colorSwatchStyle(color: ProductColor) {
   if (color.color_code && /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(color.color_code)) {
-    return { backgroundColor: color.color_code }
+    return {
+      backgroundColor: color.color_code,
+    }
   }
 
   const key = normalizeName(color.name)
@@ -158,53 +159,52 @@ const breadcrumbItems = computed(() => {
   ]
 })
 
-const productGallery = computed(() => props.product?.gallery ?? [])
 const productColors = computed(() => props.product?.colors ?? [])
 const productStorages = computed(() => props.product?.storage_options ?? [])
 const productVariants = computed(() => props.product?.variants ?? [])
-
-const galleryForSelection = computed(() => {
-  const items = productGallery.value
-
-  if (!selectedColorId.value) {
-    return items
-  }
-
-  const prioritized = [
-    ...items.filter((item) => item.color_option_id === selectedColorId.value),
-    ...items.filter((item) => item.color_option_id !== selectedColorId.value),
-  ]
-
-  return prioritized
-})
-
-const matchingVariants = computed(() => {
-  return productVariants.value.filter((variant) => {
-    const sameColor = selectedColorId.value ? variant.color_option_id === selectedColorId.value : true
-    const sameStorage = selectedStorageId.value ? variant.storage_option_id === selectedStorageId.value : true
-    return sameColor && sameStorage
-  })
-})
+const thumbnailImages = computed(() => (props.product?.gallery ?? []).slice(0, 4))
 
 const currentVariant = computed<ProductVariant | null>(() => {
-  const exact = matchingVariants.value.find((variant) => variant.status !== 'inactive')
-  if (exact) return exact
-
-  const byStorage = productVariants.value.find((variant) => {
-    return variant.storage_option_id === selectedStorageId.value && variant.status !== 'inactive'
+  const exactInStock = productVariants.value.find((variant) => {
+    return variant.color_option_id === selectedColorId.value
+      && variant.storage_option_id === selectedStorageId.value
+      && variant.status !== 'inactive'
+      && variant.in_stock
   })
-  if (byStorage) return byStorage
+  if (exactInStock) return exactInStock
 
-  const byColor = productVariants.value.find((variant) => {
-    return variant.color_option_id === selectedColorId.value && variant.status !== 'inactive'
+  const exactActive = productVariants.value.find((variant) => {
+    return variant.color_option_id === selectedColorId.value
+      && variant.storage_option_id === selectedStorageId.value
+      && variant.status !== 'inactive'
   })
-  if (byColor) return byColor
+  if (exactActive) return exactActive
 
-  return productVariants.value.find((variant) => variant.in_stock) || productVariants.value[0] || null
+  const colorMatch = productVariants.value.find((variant) => {
+    return variant.color_option_id === selectedColorId.value
+      && variant.status !== 'inactive'
+      && variant.in_stock
+  })
+  if (colorMatch) return colorMatch
+
+  const storageMatch = productVariants.value.find((variant) => {
+    return variant.storage_option_id === selectedStorageId.value
+      && variant.status !== 'inactive'
+      && variant.in_stock
+  })
+  if (storageMatch) return storageMatch
+
+  return productVariants.value.find((variant) => variant.in_stock)
+    || productVariants.value.find((variant) => variant.status !== 'inactive')
+    || productVariants.value[0]
+    || null
 })
 
 const currentPrice = computed(() => {
-  return currentVariant.value?.final_price_lkr ?? props.product?.current_price ?? props.product?.base_price ?? 0
+  return currentVariant.value?.final_price_lkr
+    ?? props.product?.current_price
+    ?? props.product?.base_price
+    ?? 0
 })
 
 const currentOldPrice = computed(() => {
@@ -220,7 +220,7 @@ const hasDiscount = computed(() => {
 })
 
 const stockCount = computed(() => {
-  return Number(currentVariant.value?.stock_count ?? 0)
+  return Number(currentVariant.value?.stock_count ?? props.product?.stock_count ?? 0)
 })
 
 const isInStock = computed(() => {
@@ -228,7 +228,7 @@ const isInStock = computed(() => {
     return !!currentVariant.value.in_stock && stockCount.value > 0
   }
 
-  return stockCount.value > 0
+  return !!props.product?.in_stock && Number(props.product?.stock_count ?? 0) > 0
 })
 
 const availabilityText = computed(() => (isInStock.value ? 'In Stock' : 'Out of Stock'))
@@ -240,63 +240,96 @@ const storageLabel = computed(() => {
 
 const selectedColorName = computed(() => {
   const matched = productColors.value.find((item) => item.id === selectedColorId.value)
-  return matched?.name || 'Default'
+  return matched?.name || ''
 })
+
+const visibleColorName = computed(() => hoveredColorName.value || selectedColorName.value || '')
 
 const canIncreaseQty = computed(() => {
   return isInStock.value && quantity.value < Math.max(1, stockCount.value)
 })
 
+const displayImage = computed(() => {
+  return activeImage.value
+    || props.product?.main_image
+    || thumbnailImages.value[0]?.src
+    || ''
+})
+
 function showMessage(message: string) {
   flashMessage.value = message
-
-  if (flashTimer) {
-    window.clearTimeout(flashTimer)
-  }
-
-  flashTimer = window.setTimeout(() => {
-    flashMessage.value = ''
+  window.setTimeout(() => {
+    if (flashMessage.value === message) {
+      flashMessage.value = ''
+    }
   }, 2200)
 }
 
 function ensureSelections() {
   if (!props.product) return
 
-  if (!selectedColorId.value) {
-    selectedColorId.value = props.product.default_color_id ?? productColors.value[0]?.id ?? null
-  }
+  const defaultVariant = currentVariant.value
 
-  if (!selectedStorageId.value) {
-    selectedStorageId.value = props.product.default_storage_id ?? productStorages.value[0]?.id ?? null
-  }
+  selectedColorId.value = props.product.default_color_id
+    ?? defaultVariant?.color_option_id
+    ?? productColors.value[0]?.id
+    ?? null
 
-  const safeVariant = currentVariant.value
+  selectedStorageId.value = props.product.default_storage_id
+    ?? defaultVariant?.storage_option_id
+    ?? productStorages.value[0]?.id
+    ?? null
 
-  if (safeVariant?.color_option_id) {
-    selectedColorId.value = safeVariant.color_option_id
-  }
+  activeImage.value = props.product.main_image || thumbnailImages.value[0]?.src || null
+  quantity.value = 1
+}
 
-  if (safeVariant?.storage_option_id) {
-    selectedStorageId.value = safeVariant.storage_option_id
-  }
+function findVariantByColor(colorId: number | string) {
+  return productVariants.value.find((variant) => {
+    return variant.color_option_id === colorId
+      && variant.storage_option_id === selectedStorageId.value
+      && variant.status !== 'inactive'
+  }) || productVariants.value.find((variant) => {
+    return variant.color_option_id === colorId
+      && variant.status !== 'inactive'
+      && variant.in_stock
+  }) || productVariants.value.find((variant) => {
+    return variant.color_option_id === colorId
+      && variant.status !== 'inactive'
+  }) || null
+}
 
-  const firstImage = galleryForSelection.value[0]?.src || null
-  if (!activeImage.value && firstImage) {
-    activeImage.value = firstImage
-  }
+function findVariantByStorage(storageId: number | string) {
+  return productVariants.value.find((variant) => {
+    return variant.storage_option_id === storageId
+      && variant.color_option_id === selectedColorId.value
+      && variant.status !== 'inactive'
+  }) || productVariants.value.find((variant) => {
+    return variant.storage_option_id === storageId
+      && variant.status !== 'inactive'
+      && variant.in_stock
+  }) || productVariants.value.find((variant) => {
+    return variant.storage_option_id === storageId
+      && variant.status !== 'inactive'
+  }) || null
 }
 
 function selectColor(colorId: number | string) {
   selectedColorId.value = colorId
 
-  const colorImage = galleryForSelection.value.find((item) => item.color_option_id === colorId)?.src
-  if (colorImage) {
-    activeImage.value = colorImage
+  const matched = findVariantByColor(colorId)
+  if (matched?.storage_option_id !== undefined && matched?.storage_option_id !== null) {
+    selectedStorageId.value = matched.storage_option_id
   }
 }
 
 function selectStorage(storageId: number | string) {
   selectedStorageId.value = storageId
+
+  const matched = findVariantByStorage(storageId)
+  if (matched?.color_option_id !== undefined && matched?.color_option_id !== null) {
+    selectedColorId.value = matched.color_option_id
+  }
 }
 
 function decreaseQuantity() {
@@ -336,46 +369,31 @@ function buyNow() {
   showMessage('Ready for checkout.')
 }
 
-async function scrollToSection(target: 'description' | 'specifications') {
-  activeTab.value = target
-  await nextTick()
-
-  const element = target === 'description' ? descriptionSection.value : specificationSection.value
-  element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
 watch(() => props.product, () => {
-  activeImage.value = null
   selectedColorId.value = null
   selectedStorageId.value = null
-  quantity.value = 1
+  activeImage.value = null
   ensureSelections()
 }, { immediate: true })
 
-watch([selectedColorId, selectedStorageId], () => {
-  const maxQty = Math.max(1, stockCount.value)
-  quantity.value = Math.min(quantity.value, maxQty)
+watch(currentVariant, (variant) => {
+  if (!variant) return
 
-  if (!activeImage.value && galleryForSelection.value[0]?.src) {
-    activeImage.value = galleryForSelection.value[0].src
+  if (variant.color_option_id !== undefined && variant.color_option_id !== null) {
+    selectedColorId.value = variant.color_option_id
   }
-})
 
-onMounted(() => {
-  ensureSelections()
-})
-
-
-onBeforeUnmount(() => {
-  if (flashTimer) {
-    window.clearTimeout(flashTimer)
+  if (variant.storage_option_id !== undefined && variant.storage_option_id !== null) {
+    selectedStorageId.value = variant.storage_option_id
   }
+
+  quantity.value = Math.min(quantity.value, Math.max(1, stockCount.value))
 })
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
-    <nav aria-label="Breadcrumb" class="mb-5">
+  <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <nav aria-label="Breadcrumb" class="mb-6">
       <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-500">
         <li
           v-for="(item, index) in breadcrumbItems"
@@ -395,48 +413,22 @@ onBeforeUnmount(() => {
       </ol>
     </nav>
 
-    <div class="mb-6 rounded-[24px] border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur sm:p-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          class="rounded-full px-4 py-2 text-sm font-semibold transition"
-          :class="activeTab === 'description'
-            ? 'bg-slate-900 text-white shadow-sm'
-            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
-          @click="scrollToSection('description')"
-        >
-          Description
-        </button>
-
-        <button
-          type="button"
-          class="rounded-full px-4 py-2 text-sm font-semibold transition"
-          :class="activeTab === 'specifications'
-            ? 'bg-slate-900 text-white shadow-sm'
-            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
-          @click="scrollToSection('specifications')"
-        >
-          Specifications
-        </button>
-      </div>
-    </div>
-
     <div
       v-if="flashMessage"
-      class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+      class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
     >
       {{ flashMessage }}
     </div>
 
     <div
       v-if="error && !loading"
-      class="rounded-[28px] border border-red-200 bg-red-50 px-6 py-14 text-center"
+      class="py-14 text-center"
     >
       <h2 class="text-xl font-semibold text-red-700">Failed to load product details</h2>
       <p class="mt-2 text-sm text-red-500">{{ error }}</p>
       <button
         type="button"
-        class="mt-5 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+        class="mt-5 border-b border-slate-900 pb-1 text-sm font-semibold text-slate-900 transition hover:opacity-70"
         @click="emit('retry')"
       >
         Retry
@@ -444,182 +436,266 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-8">
-        <section class="rounded-[32px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-5 lg:h-fit">
+      <div class="grid gap-10 lg:grid-cols-[minmax(0,1.02fr)_minmax(360px,0.98fr)] lg:gap-12">
+        <section>
           <template v-if="loading || !product">
-            <div class="grid gap-4 lg:grid-cols-[92px_minmax(0,1fr)]">
-              <div class="order-2 flex gap-3 overflow-x-auto lg:order-1 lg:flex-col">
+            <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
+              <div class="hidden gap-3 md:flex md:flex-col">
                 <div
-                  v-for="index in 5"
+                  v-for="index in 4"
                   :key="`thumb-skeleton-${index}`"
-                  class="h-20 min-w-20 animate-pulse rounded-2xl bg-slate-100"
+                  class="h-20 animate-pulse rounded-2xl bg-slate-100"
                 />
               </div>
-              <div class="order-1 rounded-[28px] bg-gradient-to-br from-slate-50 to-slate-100 p-6 lg:order-2">
-                <div class="flex h-[320px] animate-pulse items-center justify-center rounded-[24px] bg-white/80 sm:h-[420px]" />
+
+              <div class="min-h-[360px] rounded-[28px] border border-slate-200 bg-white p-6 sm:min-h-[460px]">
+                <div class="h-full w-full animate-pulse rounded-[24px] bg-slate-100" />
+              </div>
+            </div>
+
+            <div class="mt-10 border-b border-slate-200" />
+            <div class="pt-6">
+              <div class="space-y-3">
+                <div class="h-6 w-40 animate-pulse rounded bg-slate-200" />
+                <div class="h-5 w-full animate-pulse rounded bg-slate-100" />
+                <div class="h-5 w-11/12 animate-pulse rounded bg-slate-100" />
+                <div class="h-5 w-10/12 animate-pulse rounded bg-slate-100" />
               </div>
             </div>
           </template>
 
           <template v-else>
-            <div class="grid gap-4 lg:grid-cols-[92px_minmax(0,1fr)]">
-              <div class="order-2 flex gap-3 overflow-x-auto lg:order-1 lg:flex-col lg:overflow-visible">
+            <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
+              <div
+                v-if="thumbnailImages.length"
+                class="order-2 flex gap-3 overflow-x-auto md:order-1 md:flex-col md:overflow-visible"
+              >
                 <button
-                  v-for="image in galleryForSelection"
+                  v-for="image in thumbnailImages"
                   :key="image.id"
                   type="button"
-                  class="group relative h-20 min-w-20 overflow-hidden rounded-2xl border bg-white transition sm:h-24 sm:min-w-24"
-                  :class="activeImage === image.src
-                    ? 'border-slate-900 shadow-md'
+                  class="h-20 min-w-20 overflow-hidden rounded-2xl border transition sm:h-[88px] sm:min-w-[88px]"
+                  :class="displayImage === image.src
+                    ? 'border-slate-900'
                     : 'border-slate-200 hover:border-slate-400'"
                   @click="activeImage = image.src"
                 >
                   <img
                     :src="image.src"
-                    alt="Product thumbnail"
-                    class="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.04]"
+                    alt="Product image"
+                    class="h-full w-full object-contain p-2"
                   />
                 </button>
               </div>
 
-              <div class="order-1 rounded-[28px] bg-[radial-gradient(circle_at_top,#f8fafc,white_60%)] p-4 sm:p-6 lg:order-2">
-                <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
-                  <div v-if="hasDiscount && currentDiscountLabel" class="inline-flex items-center rounded-full bg-[#ef5a4f] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm">
-                    {{ currentDiscountLabel }}
-                  </div>
+              <div
+                class="order-1 flex min-h-[360px] items-center justify-center rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2"
+              >
+                <img
+                  v-if="displayImage"
+                  :src="displayImage"
+                  :alt="product.name"
+                  class="max-h-[440px] w-full object-contain"
+                />
+              </div>
+            </div>
 
-                  <div class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold"
-                    :class="isInStock ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-600'">
-                    {{ availabilityText }}
-                  </div>
-                </div>
-
-                <div class="flex min-h-[320px] items-center justify-center sm:min-h-[420px]">
-                  <img
-                    :src="activeImage || galleryForSelection[0]?.src || ''"
-                    :alt="product.name"
-                    class="max-h-[420px] w-full object-contain transition duration-500 ease-out hover:scale-[1.03]"
+            <div class="mt-10 border-b border-slate-200">
+              <div class="flex items-end gap-8">
+                <button
+                  type="button"
+                  class="relative pb-4 text-sm sm:text-base"
+                  :class="activeTab === 'description'
+                    ? 'font-semibold text-slate-950'
+                    : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="activeTab = 'description'"
+                >
+                  Description
+                  <span
+                    v-if="activeTab === 'description'"
+                    class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                   />
-                </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="relative pb-4 text-sm sm:text-base"
+                  :class="activeTab === 'specifications'
+                    ? 'font-semibold text-slate-950'
+                    : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="activeTab = 'specifications'"
+                >
+                  Specifications
+                  <span
+                    v-if="activeTab === 'specifications'"
+                    class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-6">
+              <div
+                v-if="activeTab === 'description'"
+                class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+              />
+
+              <div v-else class="overflow-x-auto">
+                <table class="w-full min-w-[520px] border-collapse">
+                  <tbody>
+                    <tr
+                      v-for="(spec, index) in product.specifications"
+                      :key="`${spec.label}-${index}`"
+                      class="border-b border-slate-200"
+                    >
+                      <td class="w-[240px] py-4 pr-6 text-sm font-semibold text-slate-700">
+                        {{ spec.label }}
+                      </td>
+                      <td class="py-4 text-sm text-slate-600">
+                        {{ spec.value }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </template>
         </section>
 
-        <section class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <section class="pt-1">
           <template v-if="loading || !product">
-            <div class="space-y-4">
-              <div class="h-6 w-32 animate-pulse rounded-full bg-slate-100" />
-              <div class="h-10 w-4/5 animate-pulse rounded-xl bg-slate-200" />
+            <div class="space-y-5">
+              <div class="h-4 w-24 animate-pulse rounded bg-slate-100" />
+              <div class="h-10 w-4/5 animate-pulse rounded bg-slate-200" />
               <div class="h-5 w-full animate-pulse rounded bg-slate-100" />
               <div class="h-5 w-5/6 animate-pulse rounded bg-slate-100" />
-              <div class="h-16 animate-pulse rounded-[24px] bg-slate-100" />
-              <div class="grid gap-3 sm:grid-cols-2">
-                <div class="h-24 animate-pulse rounded-[24px] bg-slate-100" />
-                <div class="h-24 animate-pulse rounded-[24px] bg-slate-100" />
+              <div class="h-10 w-52 animate-pulse rounded bg-slate-200" />
+              <div class="h-12 w-20 animate-pulse rounded bg-slate-100" />
+              <div class="space-y-3 pt-2">
+                <div class="h-5 w-64 animate-pulse rounded bg-slate-100" />
+                <div class="h-5 w-52 animate-pulse rounded bg-slate-100" />
+                <div class="h-5 w-48 animate-pulse rounded bg-slate-100" />
               </div>
-              <div class="h-24 animate-pulse rounded-[24px] bg-slate-100" />
-              <div class="h-14 animate-pulse rounded-[20px] bg-slate-200" />
-              <div class="grid gap-3 sm:grid-cols-2">
-                <div class="h-14 animate-pulse rounded-[20px] bg-slate-100" />
-                <div class="h-14 animate-pulse rounded-[20px] bg-slate-100" />
+              <div class="flex gap-3 pt-2">
+                <div class="h-8 w-8 animate-pulse rounded-full bg-slate-100" />
+                <div class="h-8 w-8 animate-pulse rounded-full bg-slate-100" />
+                <div class="h-8 w-8 animate-pulse rounded-full bg-slate-100" />
               </div>
             </div>
           </template>
 
           <template v-else>
-            <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
-              <span>{{ product.category?.name || 'Tech Product' }}</span>
-            </div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {{ product.category?.name || 'Tech Product' }}
+            </p>
 
-            <h1 class="text-2xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-3xl lg:text-[2.1rem]">
+            <h1 class="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-[2.25rem]">
               {{ product.name }}
             </h1>
 
-            <p v-if="product.short_description" class="mt-3 text-sm leading-7 text-slate-600 sm:text-[15px]">
+            <p
+              v-if="product.short_description"
+              class="mt-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+            >
               {{ product.short_description }}
             </p>
 
-            <div class="mt-5 flex flex-wrap items-center gap-3 rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Price</p>
-                <div class="mt-1 flex flex-wrap items-end gap-2">
-                  <span v-if="hasDiscount && currentOldPrice" class="text-base font-semibold text-slate-400 line-through sm:text-lg">
-                    {{ formatPrice(currentOldPrice) }}
-                  </span>
-                  <span class="text-2xl font-bold text-slate-950 sm:text-3xl">
-                    {{ formatPrice(currentPrice) }}
-                  </span>
-                </div>
+            <div class="mt-6">
+              <div class="flex flex-wrap items-center gap-3">
+                <span
+                  v-if="hasDiscount && currentDiscountLabel"
+                  class="inline-flex items-center text-xs font-semibold uppercase tracking-[0.12em] text-[#ef5a4f]"
+                >
+                  {{ currentDiscountLabel }}
+                </span>
               </div>
 
-              <div class="ml-auto flex items-center gap-3 rounded-2xl bg-white px-3 py-2 shadow-sm">
-                <div v-if="product.brand?.logo_url" class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                  <img :src="product.brand.logo_url" :alt="product.brand?.name || 'Brand logo'" class="h-full w-full object-contain p-2" />
-                </div>
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Brand</p>
-                  <p class="text-sm font-semibold text-slate-900">{{ product.brand?.name || 'Unknown Brand' }}</p>
-                </div>
+              <div class="mt-2 flex flex-wrap items-end gap-3">
+                <span
+                  v-if="hasDiscount && currentOldPrice"
+                  class="text-lg font-medium text-slate-400 line-through"
+                >
+                  {{ formatPrice(currentOldPrice) }}
+                </span>
+
+                <span class="text-3xl font-bold text-slate-950 sm:text-4xl">
+                  {{ formatPrice(currentPrice) }}
+                </span>
+              </div>
+
+              <div v-if="product.brand?.logo_url" class="mt-4">
+                <img
+                  :src="product.brand.logo_url"
+                  :alt="product.brand?.name || 'Brand logo'"
+                  class="h-10 w-auto object-contain"
+                />
               </div>
             </div>
 
-            <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Availability</p>
-                <p class="mt-2 text-sm font-semibold" :class="isInStock ? 'text-emerald-700' : 'text-red-600'">
+            <ul class="mt-8 space-y-3 text-sm text-slate-700">
+              <li class="flex items-start gap-3">
+                <span class="mt-[7px] h-1.5 w-1.5 rounded-full bg-slate-900" />
+                <span>
+                  <span class="font-semibold text-slate-900">Availability:</span>
                   {{ availabilityText }}
-                </p>
-                <p class="mt-1 text-xs text-slate-500">
-                  {{ stockCount > 0 ? `${stockCount} units available` : 'Currently unavailable' }}
-                </p>
-              </div>
+                </span>
+              </li>
 
-              <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Warranty</p>
-                <p class="mt-2 text-sm font-semibold text-slate-900">{{ product.warranty_label || 'No warranty info' }}</p>
-              </div>
+              <li v-if="product.warranty_label" class="flex items-start gap-3">
+                <span class="mt-[7px] h-1.5 w-1.5 rounded-full bg-slate-900" />
+                <span>
+                  <span class="font-semibold text-slate-900">Warranty:</span>
+                  {{ product.warranty_label }}
+                </span>
+              </li>
 
-              <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 sm:col-span-2 xl:col-span-1">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Selected Storage</p>
-                <p class="mt-2 text-sm font-semibold text-slate-900">{{ storageLabel }}</p>
-                <p class="mt-1 text-xs text-slate-500">Color: {{ selectedColorName }}</p>
-              </div>
-            </div>
+              <li v-if="productStorages.length" class="flex items-start gap-3">
+                <span class="mt-[7px] h-1.5 w-1.5 rounded-full bg-slate-900" />
+                <span>
+                  <span class="font-semibold text-slate-900">Selected Storage:</span>
+                  {{ storageLabel }}
+                </span>
+              </li>
+            </ul>
 
-            <div v-if="productColors.length" class="mt-6">
+            <div v-if="productColors.length" class="mt-8">
               <p class="text-sm font-semibold text-slate-900">Available Colors</p>
-              <div class="mt-3 flex flex-wrap gap-3">
+
+              <div class="mt-4 flex flex-wrap items-center gap-3">
                 <button
                   v-for="color in productColors"
                   :key="color.id"
                   type="button"
-                  class="group flex items-center gap-3 rounded-full border px-3 py-2 transition"
+                  class="relative h-8 w-8 rounded-full transition"
                   :class="selectedColorId === color.id
-                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'"
+                    ? 'ring-2 ring-slate-900 ring-offset-2'
+                    : 'ring-1 ring-slate-300 hover:ring-slate-500'"
+                  :style="colorSwatchStyle(color)"
+                  :title="color.name"
+                  @mouseenter="hoveredColorName = color.name"
+                  @mouseleave="hoveredColorName = null"
                   @click="selectColor(color.id)"
-                >
-                  <span
-                    class="h-7 w-7 rounded-full border border-black/10 shadow-inner"
-                    :style="colorSwatchStyle(color)"
-                  />
-                  <span class="text-sm font-medium">{{ color.name }}</span>
-                </button>
+                />
               </div>
+
+              <p v-if="visibleColorName" class="mt-3 text-xs text-slate-500">
+                {{ visibleColorName }}
+              </p>
             </div>
 
-            <div v-if="productStorages.length" class="mt-6">
+            <div v-if="productStorages.length" class="mt-8">
               <p class="text-sm font-semibold text-slate-900">Storage</p>
-              <div class="mt-3 flex flex-wrap gap-3">
+
+              <div class="mt-3 flex flex-wrap items-center gap-5">
                 <button
                   v-for="storage in productStorages"
                   :key="storage.id"
                   type="button"
-                  class="rounded-2xl border px-4 py-3 text-sm font-semibold transition"
+                  class="border-b pb-1 text-sm transition"
                   :class="selectedStorageId === storage.id
-                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400'"
+                    ? 'border-slate-900 font-semibold text-slate-950'
+                    : 'border-transparent font-medium text-slate-500 hover:border-slate-400 hover:text-slate-900'"
                   @click="selectStorage(storage.id)"
                 >
                   {{ storage.label }}
@@ -627,38 +703,39 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div class="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p class="text-sm font-semibold text-slate-900">Quantity</p>
-                  <p class="mt-1 text-xs text-slate-500">Adjust the quantity before purchase.</p>
-                </div>
+            <div class="mt-8 flex flex-wrap items-center gap-6 border-b border-t border-slate-200 py-5">
+              <div class="flex items-center gap-4">
+                <button
+                  type="button"
+                  class="text-2xl leading-none text-slate-700 transition hover:text-slate-950"
+                  @click="decreaseQuantity"
+                >
+                  −
+                </button>
 
-                <div class="inline-flex items-center rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-                  <button
-                    type="button"
-                    class="flex h-11 w-11 items-center justify-center rounded-xl text-xl font-semibold text-slate-700 transition hover:bg-slate-100"
-                    @click="decreaseQuantity"
-                  >
-                    −
-                  </button>
-                  <div class="min-w-[64px] text-center text-lg font-bold text-slate-950">{{ quantity }}</div>
-                  <button
-                    type="button"
-                    class="flex h-11 w-11 items-center justify-center rounded-xl text-xl font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
-                    :disabled="!canIncreaseQty"
-                    @click="increaseQuantity"
-                  >
-                    +
-                  </button>
-                </div>
+                <span class="min-w-[28px] text-center text-lg font-semibold text-slate-950">
+                  {{ quantity }}
+                </span>
+
+                <button
+                  type="button"
+                  class="text-2xl leading-none text-slate-700 transition hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-300"
+                  :disabled="!canIncreaseQty"
+                  @click="increaseQuantity"
+                >
+                  +
+                </button>
               </div>
+
+              <p class="text-sm text-slate-500">
+                {{ stockCount > 0 ? `${stockCount} available` : 'Currently unavailable' }}
+              </p>
             </div>
 
-            <div class="mt-6 grid gap-3 sm:grid-cols-2">
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                class="inline-flex min-h-[56px] items-center justify-center rounded-[20px] border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                class="inline-flex min-h-[52px] items-center justify-center border border-slate-900 px-6 text-sm font-semibold text-slate-950 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                 :disabled="!isInStock"
                 @click="addToCart"
               >
@@ -667,7 +744,7 @@ onBeforeUnmount(() => {
 
               <button
                 type="button"
-                class="inline-flex min-h-[56px] items-center justify-center rounded-[20px] bg-slate-900 px-5 py-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                class="inline-flex min-h-[52px] items-center justify-center bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                 :disabled="!isInStock"
                 @click="buyNow"
               >
@@ -675,65 +752,37 @@ onBeforeUnmount(() => {
               </button>
             </div>
 
-            <div class="mt-5 rounded-[24px] border border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500">
+            <div class="mt-6 text-sm text-slate-500">
               <p><span class="font-semibold text-slate-800">SKU:</span> {{ currentVariant?.sku || product.sku || 'N/A' }}</p>
-              <p class="mt-1"><span class="font-semibold text-slate-800">Variant:</span> {{ selectedColorName }} / {{ storageLabel }}</p>
             </div>
           </template>
         </section>
       </div>
-
-      <section ref="descriptionSection" class="mt-6 rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:mt-8 sm:p-6">
-        <template v-if="loading || !product">
-          <div class="space-y-3">
-            <div class="h-7 w-48 animate-pulse rounded bg-slate-200" />
-            <div class="h-5 w-full animate-pulse rounded bg-slate-100" />
-            <div class="h-5 w-11/12 animate-pulse rounded bg-slate-100" />
-            <div class="h-5 w-10/12 animate-pulse rounded bg-slate-100" />
-            <div class="h-5 w-8/12 animate-pulse rounded bg-slate-100" />
-          </div>
-        </template>
-
-        <template v-else>
-          <h2 class="text-xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-2xl">Description</h2>
-          <div
-            class="prose prose-slate mt-4 max-w-none text-sm leading-8 sm:text-[15px]"
-            v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
-          />
-        </template>
-      </section>
-
-      <section ref="specificationSection" class="mt-6 rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:mt-8 sm:p-6">
-        <template v-if="loading || !product">
-          <div class="space-y-3">
-            <div class="h-7 w-52 animate-pulse rounded bg-slate-200" />
-            <div
-              v-for="index in 8"
-              :key="`spec-skeleton-${index}`"
-              class="grid grid-cols-[160px_minmax(0,1fr)] gap-3 rounded-2xl border border-slate-100 px-4 py-4"
-            >
-              <div class="h-4 animate-pulse rounded bg-slate-200" />
-              <div class="h-4 animate-pulse rounded bg-slate-100" />
-            </div>
-          </div>
-        </template>
-
-        <template v-else>
-          <h2 class="text-xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-2xl">Specifications</h2>
-
-          <div class="mt-5 overflow-hidden rounded-[24px] border border-slate-200">
-            <div
-              v-for="(spec, index) in product.specifications"
-              :key="`${spec.label}-${index}`"
-              class="grid gap-3 border-b border-slate-200 px-4 py-4 text-sm last:border-b-0 sm:grid-cols-[240px_minmax(0,1fr)] sm:px-5"
-              :class="index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'"
-            >
-              <div class="font-semibold text-slate-700">{{ spec.label }}</div>
-              <div class="text-slate-600">{{ spec.value }}</div>
-            </div>
-          </div>
-        </template>
-      </section>
     </template>
   </div>
 </template>
+
+<style scoped>
+.prose :deep(p) {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.prose :deep(ul),
+.prose :deep(ol) {
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.prose :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+</style>

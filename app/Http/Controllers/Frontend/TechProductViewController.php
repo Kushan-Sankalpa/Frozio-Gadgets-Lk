@@ -41,6 +41,10 @@ class TechProductViewController extends Controller
             'variants',
         ]);
 
+        $fallbackProductStock = $product->stock_count !== null
+            ? (int) $product->stock_count
+            : ((bool) $product->in_stock ? 1 : 0);
+
         $storageIds = collect($product->storage_option_ids ?: [])
             ->merge($product->storage_option_id ? [$product->storage_option_id] : [])
             ->filter()
@@ -82,9 +86,16 @@ class TechProductViewController extends Controller
             ->values();
 
         $variantRows = $product->variants
-            ->map(function ($variant) use ($product) {
+            ->map(function ($variant) use ($product, $fallbackProductStock) {
                 $price = (float) ($variant->price_lkr ?: $product->price_lkr ?: 0);
                 $discount = $this->resolveDiscount($price, $product->discount_type, $product->discount_value);
+
+                $resolvedStock = $variant->stock_count !== null
+                    ? (int) $variant->stock_count
+                    : $fallbackProductStock;
+
+                $variantStatus = $variant->status ?: 'active';
+                $inStock = $variantStatus !== 'inactive' && $resolvedStock > 0;
 
                 return [
                     'id' => $variant->id,
@@ -94,16 +105,20 @@ class TechProductViewController extends Controller
                     'price_lkr' => $price,
                     'old_price_lkr' => $discount['old_price'],
                     'final_price_lkr' => $discount['current_price'],
-                    'stock_count' => (int) ($variant->stock_count ?? 0),
-                    'in_stock' => (int) ($variant->stock_count ?? 0) > 0 && $variant->status !== 'inactive',
-                    'status' => $variant->status,
+                    'stock_count' => $resolvedStock,
+                    'in_stock' => $inStock,
+                    'status' => $variantStatus,
                     'discount_label' => $discount['label'],
                 ];
             })
             ->values();
 
         if ($variantRows->isEmpty()) {
-            $discount = $this->resolveDiscount((float) ($product->price_lkr ?: 0), $product->discount_type, $product->discount_value);
+            $discount = $this->resolveDiscount(
+                (float) ($product->price_lkr ?: 0),
+                $product->discount_type,
+                $product->discount_value
+            );
 
             $variantRows = collect([[
                 'id' => 'default',
@@ -113,14 +128,16 @@ class TechProductViewController extends Controller
                 'price_lkr' => (float) ($product->price_lkr ?: 0),
                 'old_price_lkr' => $discount['old_price'],
                 'final_price_lkr' => $discount['current_price'],
-                'stock_count' => (int) ($product->stock_count ?? 0),
-                'in_stock' => (bool) $product->in_stock,
+                'stock_count' => $fallbackProductStock,
+                'in_stock' => ((bool) $product->in_stock) && $fallbackProductStock > 0,
                 'status' => 'active',
                 'discount_label' => $discount['label'],
             ]]);
         }
 
-        $displayVariant = $variantRows->firstWhere('in_stock', true) ?: $variantRows->first();
+        $displayVariant = $variantRows->first(fn ($variant) => ($variant['in_stock'] ?? false) === true)
+            ?: $variantRows->first(fn ($variant) => ($variant['status'] ?? 'active') !== 'inactive')
+            ?: $variantRows->first();
 
         $specifications = collect([
             ['label' => 'Operating System', 'value' => $product->os],
@@ -133,30 +150,23 @@ class TechProductViewController extends Controller
             ['label' => 'Battery', 'value' => $product->battery_mah ? $product->battery_mah . ' mAh' : null],
             ['label' => 'Device Status', 'value' => ucfirst((string) $product->device_status)],
             ['label' => 'Warranty', 'value' => $this->warrantyLabel($product)],
-            ['label' => 'Category', 'value' => $product->category?->name],
-            ['label' => 'Brand', 'value' => $product->brand?->name],
             ['label' => 'SKU', 'value' => $product->sku],
         ])
             ->filter(fn ($row) => filled($row['value']))
             ->values();
 
-        $gallery = collect([
-            ['id' => 'main', 'src' => $product->main_image_url, 'color_option_id' => null],
-            ['id' => 'hover', 'src' => $product->hover_image_url, 'color_option_id' => null],
-            ...collect($product->gallery_urls ?? [])->map(fn ($url, $index) => [
+        $gallery = collect($product->gallery_urls ?? [])
+            ->filter()
+            ->unique()
+            ->take(4)
+            ->values()
+            ->map(fn ($url, $index) => [
                 'id' => 'gallery-' . $index,
                 'src' => $url,
-                'color_option_id' => null,
-            ])->all(),
-            ...$colorOptions->filter(fn ($item) => filled($item['image_url']))->map(fn ($item) => [
-                'id' => 'color-' . $item['id'],
-                'src' => $item['image_url'],
-                'color_option_id' => $item['id'],
-            ])->all(),
-        ])
-            ->filter(fn ($row) => filled($row['src']))
-            ->unique('src')
+            ])
             ->values();
+
+        $mainImage = $product->main_image_url ?: ($gallery->first()['src'] ?? null);
 
         return response()->json([
             'product' => [
@@ -179,6 +189,7 @@ class TechProductViewController extends Controller
                     ['label' => 'Tech Products', 'href' => '/tech-products'],
                     ['label' => $product->model, 'href' => null],
                 ],
+                'main_image' => $mainImage,
                 'gallery' => $gallery,
                 'colors' => $colorOptions,
                 'storage_options' => $storageOptions,
@@ -193,6 +204,8 @@ class TechProductViewController extends Controller
                 'specifications' => $specifications,
                 'default_color_id' => $displayVariant['color_option_id'] ?? ($colorOptions->first()['id'] ?? null),
                 'default_storage_id' => $displayVariant['storage_option_id'] ?? ($storageOptions->first()['id'] ?? null),
+                'stock_count' => $displayVariant['stock_count'] ?? $fallbackProductStock,
+                'in_stock' => $displayVariant['in_stock'] ?? (((bool) $product->in_stock) && $fallbackProductStock > 0),
             ],
         ]);
     }

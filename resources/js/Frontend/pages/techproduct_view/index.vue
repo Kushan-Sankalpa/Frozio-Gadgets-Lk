@@ -16,7 +16,6 @@ type ShellData = {
 type GalleryItem = {
   id: string | number
   src: string
-  color_option_id?: number | string | null
 }
 
 type ProductVariant = {
@@ -66,6 +65,7 @@ type ProductPayload = {
     name?: string | null
   } | null
   breadcrumb?: BreadcrumbItem[]
+  main_image?: string | null
   gallery: GalleryItem[]
   colors: ProductColor[]
   storage_options: StorageOption[]
@@ -79,6 +79,8 @@ type ProductPayload = {
   specifications: SpecRow[]
   default_color_id?: number | string | null
   default_storage_id?: number | string | null
+  stock_count?: number | null
+  in_stock?: boolean
 }
 
 const props = defineProps<{
@@ -120,10 +122,7 @@ async function fetchProduct() {
     const data = await response.json()
     product.value = data?.product ?? null
   } catch (err: unknown) {
-    if ((err as Error)?.name === 'AbortError') {
-      return
-    }
-
+    if ((err as Error)?.name === 'AbortError') return
     console.error('Tech product view fetch error:', err)
     error.value = 'Failed to load product details. Please try again.'
   } finally {
@@ -143,7 +142,7 @@ onBeforeUnmount(() => {
 <template>
   <Head :title="pageTitle" />
 
-  <div class="min-h-screen bg-[#f8fafc]">
+  <div class="min-h-screen bg-white">
     <TechView
       :loading="loading"
       :error="error"

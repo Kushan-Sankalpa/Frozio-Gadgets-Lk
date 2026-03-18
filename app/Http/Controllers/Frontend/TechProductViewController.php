@@ -16,7 +16,7 @@ class TechProductViewController extends Controller
     {
         abort_if($product->status !== 'active', 404);
 
-        return Inertia::render('techproduct_view/index', [
+        return Inertia::render('Frontend/techproduct_view/index', [
             'productId' => $product->id,
             'shell' => [
                 'name' => $product->model,

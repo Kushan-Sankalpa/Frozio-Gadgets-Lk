@@ -99,6 +99,7 @@ const breadcrumbItems = computed(() => {
 
 const shoeSizes = computed(() => props.product?.sizes ?? [])
 const productVariants = computed(() => props.product?.variants ?? [])
+
 const thumbnailImages = computed(() => {
   const gallery = props.product?.gallery ?? []
   const mainImage = props.product?.main_image
@@ -179,6 +180,10 @@ const displayImage = computed(() => {
     || ''
 })
 
+const sizeChartImage = computed(() => {
+  return props.product?.size_chart_image || '/assets/images/shoechart.webp'
+})
+
 const deliveryParagraphs = [
   'We partner with dependable courier providers to ensure each parcel reaches you securely and within the usual delivery window.',
   'Dispatches are handled from Monday through Saturday. Deliveries are not scheduled on Sundays or mercantile holidays, and shipping charges are applied separately.',
@@ -222,6 +227,14 @@ function ensureSelections() {
 
 function selectSize(sizeId: number | string) {
   selectedSizeId.value = sizeId
+}
+
+function selectImage(src: string) {
+  activeImage.value = src
+}
+
+function setTab(tab: 'description' | 'size-chart' | 'delivery') {
+  activeTab.value = tab
 }
 
 function decreaseQuantity() {
@@ -274,7 +287,7 @@ watch(currentVariant, () => {
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-    <nav aria-label="Breadcrumb" class="mb-6">
+    <nav aria-label="Breadcrumb" class="mb-6 page-enter">
       <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-500">
         <li
           v-for="(item, index) in breadcrumbItems"
@@ -294,16 +307,19 @@ watch(currentVariant, () => {
       </ol>
     </nav>
 
-    <div
-      v-if="flashMessage"
-      class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
-    >
-      {{ flashMessage }}
-    </div>
+    <Transition name="fade-slide" mode="out-in">
+      <div
+        v-if="flashMessage"
+        key="flash-message"
+        class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
+      >
+        {{ flashMessage }}
+      </div>
+    </Transition>
 
     <div
       v-if="error && !loading"
-      class="py-14 text-center"
+      class="py-14 text-center page-enter"
     >
       <h2 class="text-xl font-semibold text-red-700">Failed to load product details</h2>
       <p class="mt-2 text-sm text-red-500">{{ error }}</p>
@@ -318,7 +334,7 @@ watch(currentVariant, () => {
 
     <template v-else>
       <div class="grid gap-10 lg:grid-cols-[minmax(0,1.02fr)_minmax(360px,0.98fr)] lg:gap-12">
-        <section>
+        <section class="page-enter page-enter-delay-1">
           <template v-if="loading || !product">
             <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
               <div class="hidden gap-3 md:flex md:flex-col">
@@ -354,29 +370,32 @@ watch(currentVariant, () => {
                   v-for="image in thumbnailImages"
                   :key="image.id"
                   type="button"
-                  class="h-20 min-w-20 overflow-hidden rounded-2xl border transition sm:h-[88px] sm:min-w-[88px]"
+                  class="thumb-button h-20 min-w-20 overflow-hidden rounded-2xl border bg-white sm:h-[88px] sm:min-w-[88px]"
                   :class="displayImage === image.src
-                    ? 'border-slate-900'
+                    ? 'border-slate-900 shadow-sm'
                     : 'border-slate-200 hover:border-slate-400'"
-                  @click="activeImage = image.src"
+                  @click="selectImage(image.src)"
                 >
                   <img
                     :src="image.src"
                     alt="Shoe image"
-                    class="h-full w-full object-contain p-2"
+                    class="thumb-image h-full w-full object-contain p-2"
                   />
                 </button>
               </div>
 
               <div
-                class="order-1 flex min-h-[360px] items-center justify-center rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2"
+                class="order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2"
               >
-                <img
-                  v-if="displayImage"
-                  :src="displayImage"
-                  :alt="product.name"
-                  class="max-h-[440px] w-full object-contain"
-                />
+                <Transition name="image-swap" mode="out-in">
+                  <img
+                    v-if="displayImage"
+                    :key="displayImage"
+                    :src="displayImage"
+                    :alt="product.name"
+                    class="max-h-[440px] w-full object-contain"
+                  />
+                </Transition>
               </div>
             </div>
 
@@ -384,11 +403,11 @@ watch(currentVariant, () => {
               <div class="flex items-end gap-8">
                 <button
                   type="button"
-                  class="relative pb-4 text-sm sm:text-base"
+                  class="relative pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'description'
                     ? 'font-semibold text-slate-950'
                     : 'font-medium text-slate-500 hover:text-slate-900'"
-                  @click="activeTab = 'description'"
+                  @click="setTab('description')"
                 >
                   Description
                   <span
@@ -399,11 +418,11 @@ watch(currentVariant, () => {
 
                 <button
                   type="button"
-                  class="relative pb-4 text-sm sm:text-base"
+                  class="relative pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'size-chart'
                     ? 'font-semibold text-slate-950'
                     : 'font-medium text-slate-500 hover:text-slate-900'"
-                  @click="activeTab = 'size-chart'"
+                  @click="setTab('size-chart')"
                 >
                   Size Chart
                   <span
@@ -414,11 +433,11 @@ watch(currentVariant, () => {
 
                 <button
                   type="button"
-                  class="relative pb-4 text-sm sm:text-base"
+                  class="relative pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'delivery'
                     ? 'font-semibold text-slate-950'
                     : 'font-medium text-slate-500 hover:text-slate-900'"
-                  @click="activeTab = 'delivery'"
+                  @click="setTab('delivery')"
                 >
                   Delivery Information
                   <span
@@ -430,39 +449,41 @@ watch(currentVariant, () => {
             </div>
 
             <div class="pt-6">
-              <div
-                v-if="activeTab === 'description'"
-                class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
-                v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
-              />
-
-              <div v-else-if="activeTab === 'size-chart'">
+              <Transition name="tab-fade-up" mode="out-in">
                 <div
-                  v-if="product.size_chart_image"
+                  v-if="activeTab === 'description'"
+                  key="description"
+                  class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                  v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+                />
+
+                <div
+                  v-else-if="activeTab === 'size-chart'"
+                  key="size-chart"
                   class="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4"
                 >
                   <img
-                    :src="product.size_chart_image"
+                    :src="sizeChartImage"
                     alt="Size chart"
                     class="w-full object-contain"
                   />
                 </div>
 
-                <p v-else class="text-sm text-slate-500">
-                  Size chart image not available yet.
-                </p>
-              </div>
-
-              <div v-else class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]">
-                <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">
-                  {{ paragraph }}
-                </p>
-              </div>
+                <div
+                  v-else
+                  key="delivery"
+                  class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+                >
+                  <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">
+                    {{ paragraph }}
+                  </p>
+                </div>
+              </Transition>
             </div>
           </template>
         </section>
 
-        <section class="pt-1">
+        <section class="pt-1 page-enter page-enter-delay-2">
           <template v-if="loading || !product">
             <div class="space-y-5">
               <div class="h-4 w-24 animate-pulse rounded bg-slate-100" />
@@ -634,10 +655,97 @@ watch(currentVariant, () => {
   height: auto;
 }
 
+.page-enter {
+  animation: pageFadeUp 0.55s ease both;
+}
+
+.page-enter-delay-1 {
+  animation-delay: 0.04s;
+}
+
+.page-enter-delay-2 {
+  animation-delay: 0.1s;
+}
+
+.thumb-button {
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background-color 0.22s ease;
+}
+
+.thumb-button:hover {
+  transform: translateY(-2px);
+}
+
+.thumb-image {
+  transition:
+    transform 0.28s ease,
+    opacity 0.28s ease;
+}
+
+.thumb-button:hover .thumb-image {
+  transform: scale(1.04);
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.tab-fade-up-enter-active,
+.tab-fade-up-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+.tab-fade-up-enter-from,
+.tab-fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.image-swap-enter-active,
+.image-swap-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    filter 0.3s ease;
+}
+
+.image-swap-enter-from,
+.image-swap-leave-to {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  filter: blur(2px);
+}
+
+@keyframes pageFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
     transition: none !important;
+    animation: none !important;
   }
 }
 </style>

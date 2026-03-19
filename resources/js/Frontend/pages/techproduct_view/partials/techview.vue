@@ -162,7 +162,17 @@ const breadcrumbItems = computed(() => {
 const productColors = computed(() => props.product?.colors ?? [])
 const productStorages = computed(() => props.product?.storage_options ?? [])
 const productVariants = computed(() => props.product?.variants ?? [])
-const thumbnailImages = computed(() => (props.product?.gallery ?? []).slice(0, 4))
+
+const thumbnailImages = computed(() => {
+  const gallery = props.product?.gallery ?? []
+  const mainImage = props.product?.main_image
+
+  if (mainImage && !gallery.some((item) => item.src === mainImage)) {
+    return [{ id: 'main-image', src: mainImage }, ...gallery].slice(0, 6)
+  }
+
+  return gallery.slice(0, 6)
+})
 
 const currentVariant = computed<ProductVariant | null>(() => {
   const exactInStock = productVariants.value.find((variant) => {
@@ -256,6 +266,15 @@ const displayImage = computed(() => {
     || ''
 })
 
+const priceTransitionKey = computed(() => {
+  return [
+    currentVariant.value?.id ?? 'default',
+    currentPrice.value ?? '',
+    currentOldPrice.value ?? '',
+    currentDiscountLabel.value ?? '',
+  ].join('-')
+})
+
 function showMessage(message: string) {
   flashMessage.value = message
   window.setTimeout(() => {
@@ -332,6 +351,14 @@ function selectStorage(storageId: number | string) {
   }
 }
 
+function selectImage(src: string) {
+  activeImage.value = src
+}
+
+function setTab(tab: 'description' | 'specifications') {
+  activeTab.value = tab
+}
+
 function decreaseQuantity() {
   quantity.value = Math.max(1, quantity.value - 1)
 }
@@ -393,7 +420,7 @@ watch(currentVariant, (variant) => {
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-    <nav aria-label="Breadcrumb" class="mb-6">
+    <nav aria-label="Breadcrumb" class="mb-6 page-enter">
       <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-500">
         <li
           v-for="(item, index) in breadcrumbItems"
@@ -413,16 +440,19 @@ watch(currentVariant, (variant) => {
       </ol>
     </nav>
 
-    <div
-      v-if="flashMessage"
-      class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
-    >
-      {{ flashMessage }}
-    </div>
+    <Transition name="fade-slide" mode="out-in">
+      <div
+        v-if="flashMessage"
+        key="flash-message"
+        class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
+      >
+        {{ flashMessage }}
+      </div>
+    </Transition>
 
     <div
       v-if="error && !loading"
-      class="py-14 text-center"
+      class="py-14 text-center page-enter"
     >
       <h2 class="text-xl font-semibold text-red-700">Failed to load product details</h2>
       <p class="mt-2 text-sm text-red-500">{{ error }}</p>
@@ -437,7 +467,7 @@ watch(currentVariant, (variant) => {
 
     <template v-else>
       <div class="grid gap-10 lg:grid-cols-[minmax(0,1.02fr)_minmax(360px,0.98fr)] lg:gap-12">
-        <section>
+        <section class="page-enter page-enter-delay-1">
           <template v-if="loading || !product">
             <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
               <div class="hidden gap-3 md:flex md:flex-col">
@@ -474,41 +504,44 @@ watch(currentVariant, (variant) => {
                   v-for="image in thumbnailImages"
                   :key="image.id"
                   type="button"
-                  class="h-20 min-w-20 overflow-hidden rounded-2xl border transition sm:h-[88px] sm:min-w-[88px]"
+                  class="thumb-button h-20 min-w-20 overflow-hidden rounded-2xl border bg-white sm:h-[88px] sm:min-w-[88px]"
                   :class="displayImage === image.src
-                    ? 'border-slate-900'
+                    ? 'border-slate-900 shadow-sm'
                     : 'border-slate-200 hover:border-slate-400'"
-                  @click="activeImage = image.src"
+                  @click="selectImage(image.src)"
                 >
                   <img
                     :src="image.src"
                     alt="Product image"
-                    class="h-full w-full object-contain p-2"
+                    class="thumb-image h-full w-full object-contain p-2"
                   />
                 </button>
               </div>
 
               <div
-                class="order-1 flex min-h-[360px] items-center justify-center rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2"
+                class="order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2"
               >
-                <img
-                  v-if="displayImage"
-                  :src="displayImage"
-                  :alt="product.name"
-                  class="max-h-[440px] w-full object-contain"
-                />
+                <Transition name="image-swap" mode="out-in">
+                  <img
+                    v-if="displayImage"
+                    :key="displayImage"
+                    :src="displayImage"
+                    :alt="product.name"
+                    class="max-h-[440px] w-full object-contain"
+                  />
+                </Transition>
               </div>
             </div>
 
             <div class="mt-10 border-b border-slate-200">
-              <div class="flex items-end gap-8">
+              <div class="flex items-end gap-8 overflow-x-auto">
                 <button
                   type="button"
-                  class="relative pb-4 text-sm sm:text-base"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'description'
                     ? 'font-semibold text-slate-950'
                     : 'font-medium text-slate-500 hover:text-slate-900'"
-                  @click="activeTab = 'description'"
+                  @click="setTab('description')"
                 >
                   Description
                   <span
@@ -519,11 +552,11 @@ watch(currentVariant, (variant) => {
 
                 <button
                   type="button"
-                  class="relative pb-4 text-sm sm:text-base"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'specifications'
                     ? 'font-semibold text-slate-950'
                     : 'font-medium text-slate-500 hover:text-slate-900'"
-                  @click="activeTab = 'specifications'"
+                  @click="setTab('specifications')"
                 >
                   Specifications
                   <span
@@ -535,35 +568,78 @@ watch(currentVariant, (variant) => {
             </div>
 
             <div class="pt-6">
-              <div
-                v-if="activeTab === 'description'"
-                class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
-                v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
-              />
+              <Transition name="tab-fade-up" mode="out-in">
+                <div
+                  v-if="activeTab === 'description'"
+                  key="description"
+                  class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                  v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+                />
 
-              <div v-else class="overflow-x-auto">
-                <table class="w-full min-w-[520px] border-collapse">
-                  <tbody>
-                    <tr
+                <div
+                  v-else
+                  key="specifications"
+                  class="space-y-3"
+                >
+                  <div
+                    v-if="!product.specifications?.length"
+                    class="text-sm text-slate-500"
+                  >
+                    No specifications available.
+                  </div>
+
+                  <div
+                    v-else
+                    class="space-y-3 md:hidden"
+                  >
+                    <div
                       v-for="(spec, index) in product.specifications"
                       :key="`${spec.label}-${index}`"
-                      class="border-b border-slate-200"
+                      class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4"
                     >
-                      <td class="w-[240px] py-4 pr-6 text-sm font-semibold text-slate-700">
+                      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                         {{ spec.label }}
-                      </td>
-                      <td class="py-4 text-sm text-slate-600">
+                      </div>
+                      <div class="mt-2 break-words text-sm leading-6 text-slate-700">
                         {{ spec.value }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="product.specifications?.length"
+                    class="hidden md:block"
+                  >
+                    <div class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                      <table class="w-full border-collapse table-fixed">
+                        <tbody>
+                          <tr
+                            v-for="(spec, index) in product.specifications"
+                            :key="`${spec.label}-${index}`"
+                            class="border-b border-slate-200 last:border-b-0"
+                          >
+                            <td class="w-[34%] px-6 py-4 align-top text-sm font-semibold text-slate-700 xl:w-[30%]">
+                              <div class="break-words">
+                                {{ spec.label }}
+                              </div>
+                            </td>
+                            <td class="px-6 py-4 align-top text-sm text-slate-600">
+                              <div class="break-words">
+                                {{ spec.value }}
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
             </div>
           </template>
         </section>
 
-        <section class="pt-1">
+        <section class="pt-1 page-enter page-enter-delay-2">
           <template v-if="loading || !product">
             <div class="space-y-5">
               <div class="h-4 w-24 animate-pulse rounded bg-slate-100" />
@@ -602,27 +678,31 @@ watch(currentVariant, (variant) => {
             </p>
 
             <div class="mt-6">
-              <div class="flex flex-wrap items-center gap-3">
-                <span
-                  v-if="hasDiscount && currentDiscountLabel"
-                  class="inline-flex items-center text-xs font-semibold uppercase tracking-[0.12em] text-[#ef5a4f]"
-                >
-                  {{ currentDiscountLabel }}
-                </span>
-              </div>
+              <Transition name="price-fade-up" mode="out-in">
+                <div :key="priceTransitionKey">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span
+                      v-if="hasDiscount && currentDiscountLabel"
+                      class="inline-flex items-center text-xs font-semibold uppercase tracking-[0.12em] text-[#ef5a4f]"
+                    >
+                      {{ currentDiscountLabel }}
+                    </span>
+                  </div>
 
-              <div class="mt-2 flex flex-wrap items-end gap-3">
-                <span
-                  v-if="hasDiscount && currentOldPrice"
-                  class="text-lg font-medium text-slate-400 line-through"
-                >
-                  {{ formatPrice(currentOldPrice) }}
-                </span>
+                  <div class="mt-2 flex flex-wrap items-end gap-3">
+                    <span
+                      v-if="hasDiscount && currentOldPrice"
+                      class="text-lg font-medium text-slate-400 line-through"
+                    >
+                      {{ formatPrice(currentOldPrice) }}
+                    </span>
 
-                <span class="text-3xl font-bold text-slate-950 sm:text-4xl">
-                  {{ formatPrice(currentPrice) }}
-                </span>
-              </div>
+                    <span class="text-3xl font-bold text-slate-950 sm:text-4xl">
+                      {{ formatPrice(currentPrice) }}
+                    </span>
+                  </div>
+                </div>
+              </Transition>
 
               <div v-if="product.brand?.logo_url" class="mt-4">
                 <img
@@ -667,7 +747,7 @@ watch(currentVariant, (variant) => {
                   v-for="color in productColors"
                   :key="color.id"
                   type="button"
-                  class="relative h-8 w-8 rounded-full transition"
+                  class="color-swatch relative h-8 w-8 rounded-full"
                   :class="selectedColorId === color.id
                     ? 'ring-2 ring-slate-900 ring-offset-2'
                     : 'ring-1 ring-slate-300 hover:ring-slate-500'"
@@ -679,9 +759,11 @@ watch(currentVariant, (variant) => {
                 />
               </div>
 
-              <p v-if="visibleColorName" class="mt-3 text-xs text-slate-500">
-                {{ visibleColorName }}
-              </p>
+              <Transition name="fade-slide" mode="out-in">
+                <p v-if="visibleColorName" :key="visibleColorName" class="mt-3 text-xs text-slate-500">
+                  {{ visibleColorName }}
+                </p>
+              </Transition>
             </div>
 
             <div v-if="productStorages.length" class="mt-8">
@@ -779,10 +861,123 @@ watch(currentVariant, (variant) => {
   height: auto;
 }
 
+.page-enter {
+  animation: pageFadeUp 0.55s ease both;
+}
+
+.page-enter-delay-1 {
+  animation-delay: 0.04s;
+}
+
+.page-enter-delay-2 {
+  animation-delay: 0.1s;
+}
+
+.thumb-button {
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background-color 0.22s ease;
+}
+
+.thumb-button:hover {
+  transform: translateY(-2px);
+}
+
+.thumb-image {
+  transition:
+    transform 0.28s ease,
+    opacity 0.28s ease;
+}
+
+.thumb-button:hover .thumb-image {
+  transform: scale(1.04);
+}
+
+.color-swatch {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    ring-color 0.22s ease;
+}
+
+.color-swatch:hover {
+  transform: translateY(-2px) scale(1.04);
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.tab-fade-up-enter-active,
+.tab-fade-up-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+.tab-fade-up-enter-from,
+.tab-fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.image-swap-enter-active,
+.image-swap-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    filter 0.3s ease;
+}
+
+.image-swap-enter-from,
+.image-swap-leave-to {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  filter: blur(2px);
+}
+
+.price-fade-up-enter-active,
+.price-fade-up-leave-active {
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s ease,
+    filter 0.26s ease;
+}
+
+.price-fade-up-enter-from,
+.price-fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(14px);
+  filter: blur(1px);
+}
+
+@keyframes pageFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
     transition: none !important;
+    animation: none !important;
   }
 }
 </style>

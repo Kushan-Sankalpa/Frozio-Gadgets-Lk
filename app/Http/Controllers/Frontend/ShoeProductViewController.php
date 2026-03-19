@@ -78,18 +78,24 @@ class ShoeProductViewController extends Controller
                 'discount_label' => $pricing['discount_label'],
             ]]);
 
-        $gallery = collect($shoe->gallery_urls ?? [])
-            ->filter()
-            ->unique()
-            ->take(4)
-            ->values()
-            ->map(fn ($url, $index) => [
-                'id' => 'gallery-' . $index,
-                'src' => $url,
-            ])
-            ->values();
+        $gallery = collect([
+        $shoe->thumbnail_url,
+        $shoe->hover_image_url,
+        ...($shoe->gallery_urls ?? []),
+    ])
+    ->filter()
+    ->unique()
+    ->take(6)
+    ->values()
+    ->map(fn ($url, $index) => [
+        'id' => 'gallery-' . $index,
+        'src' => $url,
+    ])
+    ->values();
 
-        $mainImage = $shoe->thumbnail_url ?: ($gallery->first()['src'] ?? null);
+$mainImage = $shoe->thumbnail_url
+    ?: $shoe->hover_image_url
+    ?: ($gallery->first()['src'] ?? null);
 
         return response()->json([
             'product' => [
@@ -191,31 +197,49 @@ class ShoeProductViewController extends Controller
     }
 
     private function resolveSizes(ShoeProduct $shoe)
-    {
-        $raw = $shoe->sizes_by_type ?? [];
+{
+    $raw = $shoe->sizes_by_type ?? [];
 
-        return collect($raw)
-            ->flatMap(function ($group, $groupKey) {
-                if (!is_array($group)) {
-                    return [];
+    return collect($raw)
+        ->flatMap(function ($group, $groupIndex) {
+            if (!is_array($group)) {
+                return [];
+            }
+
+            $typeLabel = trim((string) (
+                $group['type_code']
+                ?? $group['type_name']
+                ?? 'Size'
+            ));
+
+            $sizes = $group['sizes'] ?? [];
+
+            return collect($sizes)->map(function ($size, $sizeIndex) use ($group, $groupIndex, $typeLabel) {
+                $sizeValue = '';
+
+                if (is_array($size)) {
+                    $sizeValue = trim((string) (
+                        $size['label']
+                        ?? $size['name']
+                        ?? $size['size']
+                        ?? ''
+                    ));
+                } else {
+                    $sizeValue = trim((string) $size);
                 }
 
-                return collect($group)->map(function ($item, $index) use ($groupKey) {
-                    if (is_array($item)) {
-                        return [
-                            'id' => $item['id'] ?? ($groupKey . '-' . $index),
-                            'label' => $item['label'] ?? $item['name'] ?? $item['size'] ?? '',
-                        ];
-                    }
+                if ($sizeValue === '') {
+                    return null;
+                }
 
-                    return [
-                        'id' => $groupKey . '-' . $index,
-                        'label' => (string) $item,
-                    ];
-                });
-            })
-            ->filter(fn ($size) => filled($size['label']))
-            ->unique('label')
-            ->values();
-    }
+                return [
+                    'id' => ($group['type_id'] ?? $groupIndex) . '-' . $sizeIndex,
+                    'label' => $typeLabel . ' ' . $sizeValue,
+                ];
+            });
+        })
+        ->filter()
+        ->unique('label')
+        ->values();
+}
 }

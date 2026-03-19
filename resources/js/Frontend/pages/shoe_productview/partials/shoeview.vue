@@ -99,7 +99,16 @@ const breadcrumbItems = computed(() => {
 
 const shoeSizes = computed(() => props.product?.sizes ?? [])
 const productVariants = computed(() => props.product?.variants ?? [])
-const thumbnailImages = computed(() => (props.product?.gallery ?? []).slice(0, 4))
+const thumbnailImages = computed(() => {
+  const gallery = props.product?.gallery ?? []
+  const mainImage = props.product?.main_image
+
+  if (mainImage && !gallery.some((item) => item.src === mainImage)) {
+    return [{ id: 'main-image', src: mainImage }, ...gallery].slice(0, 6)
+  }
+
+  return gallery.slice(0, 6)
+})
 
 const currentVariant = computed<ShoeVariant | null>(() => {
   const exactInStock = productVariants.value.find((variant) => {
@@ -166,7 +175,7 @@ const canIncreaseQty = computed(() => {
 const displayImage = computed(() => {
   return activeImage.value
     || props.product?.main_image
-    || thumbnailImages.value[0]?.src
+    || props.product?.gallery?.[0]?.src
     || ''
 })
 

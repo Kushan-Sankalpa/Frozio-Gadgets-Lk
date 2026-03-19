@@ -2,11 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\HomeController;
+use App\Http\Controllers\Frontend\ProductSuggestionController;
 use App\Http\Controllers\Frontend\WebShoeProductController;
 use App\Http\Controllers\Frontend\WebTechProductController;
 use App\Http\Controllers\Frontend\TechProductViewController;
 use App\Http\Controllers\Frontend\ShoeProductViewController;
-use App\Http\Controllers\ProductController;
 
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
 
@@ -46,7 +46,7 @@ Route::get('/shoe-products/{product}', [ShoeProductViewController::class, 'index
 Route::get('/shoe-products/{product}/data', [ShoeProductViewController::class, 'data'])
     ->name('frontend.shoe-products.show.data');
 
-Route::get('/search/product-suggestions', [ProductController::class, 'suggestions'])
+Route::get('/search/product-suggestions', [ProductSuggestionController::class, 'suggestions'])
     ->name('frontend.products.suggestions');
 
 Route::redirect('/home', '/')->name('frontend.home');

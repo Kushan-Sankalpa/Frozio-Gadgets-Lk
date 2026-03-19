@@ -35,6 +35,9 @@ type SearchSuggestion = {
   id: number | string
   name: string
   image_url?: string | null
+  type?: 'tech' | 'shoe' | string
+  type_label?: string | null
+  target_url?: string | null
 }
 
 const page = usePage()
@@ -98,11 +101,11 @@ const currentShoeSubcategory = computed(() => currentParams.value.get('shoe_subc
 const currentSearch = computed(() => currentParams.value.get('search') || '')
 
 const isHomeActive = computed(() => {
-  return currentPath.value === '/' &&
-    !currentCategory.value &&
-    !currentBrand.value &&
-    !currentShoeCategory.value &&
-    !currentShoeSubcategory.value
+  return currentPath.value === '/'
+    && !currentCategory.value
+    && !currentBrand.value
+    && !currentShoeCategory.value
+    && !currentShoeSubcategory.value
 })
 
 const isTechMenuActive = computed(() => !!currentCategory.value || !!currentBrand.value)
@@ -356,7 +359,7 @@ function scheduleSuggestionFetch(value: string) {
 
   searchDebounceTimer = setTimeout(() => {
     fetchSearchSuggestions(query)
-  }, 220)
+  }, 180)
 }
 
 async function fetchSearchSuggestions(query: string) {
@@ -394,16 +397,20 @@ async function fetchSearchSuggestions(query: string) {
     if (Array.isArray(payload)) {
       payload.forEach((item: any) => {
         const name = String(item?.name ?? '').trim()
+        const targetUrl = String(item?.target_url ?? '').trim()
 
-        if (!name) return
+        if (!name || !targetUrl) return
 
-        const key = name.toLowerCase()
+        const key = `${String(item?.type ?? 'product').toLowerCase()}::${name.toLowerCase()}::${targetUrl}`
 
         if (!uniqueMap.has(key)) {
           uniqueMap.set(key, {
             id: item?.id ?? key,
             name,
             image_url: item?.image_url ?? null,
+            type: item?.type ?? 'product',
+            type_label: item?.type_label ?? 'Product',
+            target_url: targetUrl,
           })
         }
       })
@@ -433,20 +440,30 @@ async function fetchSearchSuggestions(query: string) {
   }
 }
 
-function selectSuggestion(suggestion: SearchSuggestion) {
+function goToSuggestion(suggestion: SearchSuggestion) {
+  if (!suggestion?.target_url) return
+
   skipNextSuggestionFetch = true
   searchQuery.value = suggestion.name
+
+  cancelSuggestionRequest()
+  searchSuggestions.value = []
   closeSuggestionDropdown()
 
-  nextTick(() => {
-    if (openMobileMenu.value) {
-      mobileSearchInputRef.value?.focus()
-      return
-    }
+  activeDropdown.value = null
+  activeTechSubMenu.value = null
+  activeShoeSubMenu.value = null
 
-    if (searchOpen.value) {
-      desktopSearchInputRef.value?.focus()
-    }
+  openMobileMenu.value = false
+  openMobileTech.value = false
+  openMobileShoe.value = false
+  openMobileTechCategoryId.value = null
+  openMobileShoeCategoryId.value = null
+  searchOpen.value = false
+
+  router.visit(suggestion.target_url, {
+    preserveScroll: true,
+    preserveState: false,
   })
 }
 
@@ -478,7 +495,8 @@ function handleSearchInputKeydown(event: KeyboardEvent) {
       searchSuggestions.value[highlightedSuggestionIndex.value]
     ) {
       event.preventDefault()
-      selectSuggestion(searchSuggestions.value[highlightedSuggestionIndex.value])
+      goToSuggestion(searchSuggestions.value[highlightedSuggestionIndex.value])
+      return
     }
 
     return
@@ -910,7 +928,7 @@ onBeforeUnmount(() => {
                         : '',
                     ]"
                     @mouseenter="highlightedSuggestionIndex = index"
-                    @mousedown.prevent="selectSuggestion(suggestion)"
+                    @mousedown.prevent="goToSuggestion(suggestion)"
                   >
                     <div class="suggestion-thumb">
                       <img
@@ -930,6 +948,9 @@ onBeforeUnmount(() => {
                     <div class="min-w-0 flex-1">
                       <div class="suggestion-name" :class="scrolled ? 'text-black' : 'text-white'">
                         {{ suggestion.name }}
+                      </div>
+                      <div class="suggestion-type" :class="scrolled ? 'text-black/55' : 'text-white/55'">
+                        {{ suggestion.type_label || 'Product' }}
                       </div>
                     </div>
                   </button>
@@ -1117,7 +1138,7 @@ onBeforeUnmount(() => {
                     class="suggestion-item"
                     :class="index === highlightedSuggestionIndex ? 'bg-white/[0.07]' : ''"
                     @mouseenter="highlightedSuggestionIndex = index"
-                    @mousedown.prevent="selectSuggestion(suggestion)"
+                    @mousedown.prevent="goToSuggestion(suggestion)"
                   >
                     <div class="suggestion-thumb">
                       <img
@@ -1133,6 +1154,9 @@ onBeforeUnmount(() => {
                     <div class="min-w-0 flex-1">
                       <div class="suggestion-name text-white">
                         {{ suggestion.name }}
+                      </div>
+                      <div class="suggestion-type text-white/55">
+                        {{ suggestion.type_label || 'Product' }}
                       </div>
                     </div>
                   </button>
@@ -1389,33 +1413,23 @@ onBeforeUnmount(() => {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 48px;
-  padding: 0;
-  font-size: 0.96rem;
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+  font-size: 0.95rem;
   font-weight: 600;
-  transition:
-    color 260ms ease,
-    opacity 260ms ease,
-    transform 260ms ease;
-}
-
-.nav-link:hover {
-  transform: translateY(-1px);
+  transition: color 0.25s ease, opacity 0.25s ease;
 }
 
 .nav-link-indicator {
   position: absolute;
   left: 0;
-  bottom: 9px;
+  right: 0;
+  bottom: -0.35rem;
   height: 2px;
-  width: 100%;
+  border-radius: 9999px;
   transform: scaleX(0);
   transform-origin: center;
-  border-radius: 9999px;
-  opacity: 0.9;
-  transition:
-    transform 240ms ease,
-    opacity 240ms ease;
+  transition: transform 0.28s ease;
 }
 
 .nav-link:hover .nav-link-indicator,
@@ -1424,43 +1438,80 @@ onBeforeUnmount(() => {
   transform: scaleX(1);
 }
 
+.search-shell-wrap {
+  position: relative;
+  overflow: visible;
+  transition: max-width 0.38s ease, opacity 0.28s ease;
+}
+
+.search-shell-wrap--closed {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.search-shell-wrap--open {
+  max-width: 24rem;
+  opacity: 1;
+}
+
+.search-shell {
+  width: 24rem;
+  max-width: 24rem;
+}
+
+.search-shell-input {
+  transition: border-color 0.22s ease, background-color 0.22s ease, color 0.22s ease;
+}
+
+.navbar-icon-btn {
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 9999px;
+  transition: all 0.25s ease;
+}
+
 .dropdown-panel {
   position: absolute;
   top: calc(100% + 14px);
-  z-index: 60;
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(9, 9, 11, 0.96);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(18px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.94);
+  color: white;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(24px);
+  padding: 0.25rem;
 }
 
 .submenu-panel {
   position: absolute;
-  left: calc(100% + 14px);
-  top: 0;
-  z-index: 70;
-  min-width: 240px;
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(9, 9, 11, 0.96);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(18px);
+  left: calc(100% + 12px);
+  top: -0.25rem;
+  min-width: 260px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.94);
+  color: white;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(24px);
+  padding: 0.25rem;
 }
 
 .dropdown-link {
   display: flex;
   align-items: center;
-  min-height: 42px;
-  border-radius: 14px;
-  padding: 0 12px;
+  min-height: 44px;
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border-radius: 16px;
   font-size: 0.92rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.84);
-  transition:
-    background-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.86);
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .dropdown-link:hover {
@@ -1470,103 +1521,79 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-link--active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   color: white;
 }
 
-.navbar-icon-btn {
-  height: 44px;
-  width: 44px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  border-width: 1px;
-  transition:
-    background-color 240ms ease,
-    border-color 240ms ease,
-    color 240ms ease,
-    transform 240ms ease;
+.mobile-group {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.navbar-icon-btn:hover {
-  transform: translateY(-1px);
-}
-
-.search-shell-wrap {
-  position: relative;
-  transition:
-    width 320ms ease,
-    opacity 220ms ease,
-    margin-right 320ms ease;
-}
-
-.search-shell-wrap--open {
-  width: clamp(280px, 30vw, 380px);
-  opacity: 1;
-  margin-right: 2px;
-}
-
-.search-shell-wrap--closed {
-  width: 0;
-  opacity: 0;
-  margin-right: 0;
-}
-
-.search-shell {
+.mobile-link,
+.mobile-accordion {
+  display: flex;
   width: 100%;
-  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: white;
+  transition: background-color 0.2s ease;
 }
 
-.search-shell-input {
-  transition:
-    opacity 220ms ease,
-    transform 320ms ease,
-    background-color 240ms ease,
-    border-color 240ms ease,
-    color 240ms ease;
+.mobile-link:hover,
+.mobile-accordion:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.search-shell-wrap--open .search-shell-input {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
+.mobile-sub-link {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  border-radius: 0.85rem;
+  padding: 0.72rem 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-.search-shell-wrap--closed .search-shell-input {
-  opacity: 0;
-  transform: translateX(14px);
-  pointer-events: none;
+.mobile-sub-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateX(2px);
 }
 
 .suggestion-item {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 0.8rem;
+  padding: 0.8rem 1rem;
   text-align: left;
-  transition:
-    background-color 180ms ease,
-    transform 180ms ease;
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .suggestion-item:hover {
-  transform: translateX(2px);
+  transform: translateY(-1px);
 }
 
 .suggestion-thumb {
-  height: 44px;
-  width: 44px;
+  display: flex;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.12);
 }
 
 .suggestion-thumb img {
-  height: 100%;
   width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -1574,69 +1601,17 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
-.mobile-link {
-  display: flex;
-  align-items: center;
-  min-height: 52px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 0 16px;
   font-size: 0.95rem;
-  font-weight: 700;
-  color: white;
-  transition:
-    background-color 200ms ease,
-    transform 200ms ease,
-    border-color 200ms ease;
-}
-
-.mobile-link:hover {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
-}
-
-.mobile-group {
-  overflow: hidden;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.mobile-accordion {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 52px;
-  padding: 0 16px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: white;
-}
-
-.mobile-sub-link {
-  display: block;
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-size: 0.9rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.84);
-  transition:
-    background-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
+  line-height: 1.35;
 }
 
-.mobile-sub-link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
-  transform: translateX(2px);
+.suggestion-type {
+  margin-top: 0.16rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .dropdown-fade-enter-active,
@@ -1644,48 +1619,52 @@ onBeforeUnmount(() => {
 .submenu-fade-enter-active,
 .submenu-fade-leave-active,
 .overlay-fade-enter-active,
-.overlay-fade-leave-active,
-.panel-slide-enter-active,
-.panel-slide-leave-active,
-.accordion-enter-active,
-.accordion-leave-active {
-  transition: all 240ms ease;
+.overlay-fade-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .dropdown-fade-enter-from,
-.dropdown-fade-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
+.dropdown-fade-leave-to,
 .submenu-fade-enter-from,
-.submenu-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-8px);
-}
-
+.submenu-fade-leave-to,
 .overlay-fade-enter-from,
 .overlay-fade-leave-to {
   opacity: 0;
 }
 
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to,
+.submenu-fade-enter-from,
+.submenu-fade-leave-to {
+  transform: translateY(8px);
+}
+
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
 .panel-slide-enter-from,
 .panel-slide-leave-to {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateX(18px);
+}
+
+.accordion-enter-active,
+.accordion-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
 }
 
 .accordion-enter-from,
 .accordion-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
   max-height: 0;
 }
 
 .accordion-enter-to,
 .accordion-leave-from {
   opacity: 1;
-  transform: translateY(0);
   max-height: 500px;
 }
 </style>

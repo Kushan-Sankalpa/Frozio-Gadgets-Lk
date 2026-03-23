@@ -7,6 +7,7 @@ import ShoeCategories from './shoecategories.vue'
 import ShoeFeaturedProducts from './ShoeFeaturedProducts.vue'
 import ThreeDPhone from '../../components/3dphone.vue'
 import ThreeDShoe from '../../components/3dshoe.vue'
+import CardSwiper from './cardsswiper.vue'
 
 defineOptions({
   layout: AppLayout,
@@ -75,6 +76,8 @@ defineProps<{
 
   <TechCategories :categories="categories" />
 
+  
+
   <ThreeDPhone
     model-path="/models/iphone_17_pro_max.glb"
     height="700px"
@@ -94,4 +97,6 @@ defineProps<{
   />
 
   <ShoeFeaturedProducts :products="featuredShoes" />
+
+  <CardSwiper />
 </template>

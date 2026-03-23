@@ -823,7 +823,7 @@ watch(currentVariant, (variant) => {
                 />
               </div>
 
-              <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <!-- <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                   Selected Variant Price
                 </p>
@@ -845,7 +845,7 @@ watch(currentVariant, (variant) => {
                   {{ selectedColorName || 'No color selected' }}
                   <span v-if="storageLabel && storageLabel !== 'N/A'"> • {{ storageLabel }}</span>
                 </p>
-              </div>
+              </div> -->
             </div>
 
             <ul class="mt-8 space-y-3 text-sm text-slate-700">

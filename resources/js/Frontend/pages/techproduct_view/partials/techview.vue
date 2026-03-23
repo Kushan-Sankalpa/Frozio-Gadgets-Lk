@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, watchEffect } from 'vue'
 import { Link } from '@inertiajs/vue3'
 
 type BreadcrumbItem = {
@@ -275,6 +275,19 @@ const priceTransitionKey = computed(() => {
   ].join('-')
 })
 
+const selectedVariantPrice = computed(() => {
+  return currentVariant.value?.final_price_lkr
+    ?? props.product?.current_price
+    ?? props.product?.base_price
+    ?? 0
+})
+
+const selectedVariantOldPrice = computed(() => {
+  return currentVariant.value?.old_price_lkr
+    ?? props.product?.old_price
+    ?? null
+})
+
 function showMessage(message: string) {
   flashMessage.value = message
   window.setTimeout(() => {
@@ -334,20 +347,46 @@ function findVariantByStorage(storageId: number | string) {
 }
 
 function selectColor(colorId: number | string) {
-  selectedColorId.value = colorId
+  try {
+    selectedColorId.value = colorId
 
-  const matched = findVariantByColor(colorId)
-  if (matched?.storage_option_id !== undefined && matched?.storage_option_id !== null) {
-    selectedStorageId.value = matched.storage_option_id
+    const matched = findVariantByColor(colorId)
+    if (matched?.storage_option_id !== undefined && matched?.storage_option_id !== null) {
+      selectedStorageId.value = matched.storage_option_id
+    }
+
+    console.log('Color selected:', {
+      color_id: colorId,
+      color_name: productColors.value.find((item) => item.id === colorId)?.name ?? null,
+      storage_id: selectedStorageId.value,
+      storage_label: productStorages.value.find((item) => item.id === selectedStorageId.value)?.label ?? null,
+      variant_id: currentVariant.value?.id ?? null,
+      final_price: selectedVariantPrice.value,
+    })
+  } catch (error) {
+    console.error('Error while selecting color:', error)
   }
 }
 
 function selectStorage(storageId: number | string) {
-  selectedStorageId.value = storageId
+  try {
+    selectedStorageId.value = storageId
 
-  const matched = findVariantByStorage(storageId)
-  if (matched?.color_option_id !== undefined && matched?.color_option_id !== null) {
-    selectedColorId.value = matched.color_option_id
+    const matched = findVariantByStorage(storageId)
+    if (matched?.color_option_id !== undefined && matched?.color_option_id !== null) {
+      selectedColorId.value = matched.color_option_id
+    }
+
+    console.log('Storage selected:', {
+      storage_id: storageId,
+      storage_label: productStorages.value.find((item) => item.id === storageId)?.label ?? null,
+      color_id: selectedColorId.value,
+      color_name: productColors.value.find((item) => item.id === selectedColorId.value)?.name ?? null,
+      variant_id: currentVariant.value?.id ?? null,
+      final_price: selectedVariantPrice.value,
+    })
+  } catch (error) {
+    console.error('Error while selecting storage:', error)
   }
 }
 
@@ -369,52 +408,124 @@ function increaseQuantity() {
 }
 
 function addToCart() {
-  if (!props.product || !currentVariant.value || !isInStock.value) return
+  try {
+    if (!props.product || !currentVariant.value || !isInStock.value) return
 
-  window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
-    detail: {
-      productId: props.product.id,
-      variantId: currentVariant.value.id,
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
+      detail: {
+        productId: props.product.id,
+        variantId: currentVariant.value.id,
+        quantity: quantity.value,
+        colorId: selectedColorId.value,
+        storageId: selectedStorageId.value,
+        price: selectedVariantPrice.value,
+      },
+    }))
+
+    console.log('Add to cart:', {
+      product_id: props.product.id,
+      variant_id: currentVariant.value.id,
+      color_id: selectedColorId.value,
+      storage_id: selectedStorageId.value,
       quantity: quantity.value,
-    },
-  }))
+      final_price: selectedVariantPrice.value,
+    })
 
-  showMessage('Product added to cart.')
+    showMessage('Product added to cart.')
+  } catch (error) {
+    console.error('Error while adding product to cart:', error)
+  }
 }
 
 function buyNow() {
-  if (!props.product || !currentVariant.value || !isInStock.value) return
+  try {
+    if (!props.product || !currentVariant.value || !isInStock.value) return
 
-  window.dispatchEvent(new CustomEvent('tech-product:buy-now', {
-    detail: {
-      productId: props.product.id,
-      variantId: currentVariant.value.id,
+    window.dispatchEvent(new CustomEvent('tech-product:buy-now', {
+      detail: {
+        productId: props.product.id,
+        variantId: currentVariant.value.id,
+        quantity: quantity.value,
+        colorId: selectedColorId.value,
+        storageId: selectedStorageId.value,
+        price: selectedVariantPrice.value,
+      },
+    }))
+
+    console.log('Buy now:', {
+      product_id: props.product.id,
+      variant_id: currentVariant.value.id,
+      color_id: selectedColorId.value,
+      storage_id: selectedStorageId.value,
       quantity: quantity.value,
-    },
-  }))
+      final_price: selectedVariantPrice.value,
+    })
 
-  showMessage('Ready for checkout.')
+    showMessage('Ready for checkout.')
+  } catch (error) {
+    console.error('Error while processing buy now:', error)
+  }
 }
 
+watchEffect(() => {
+  try {
+    if (!props.product) return
+
+    const selectedColor = productColors.value.find(
+      (item) => item.id === selectedColorId.value,
+    )
+
+    const selectedStorage = productStorages.value.find(
+      (item) => item.id === selectedStorageId.value,
+    )
+
+    console.log('Selected variant details:', {
+      product_id: props.product.id,
+      product_name: props.product.name,
+      color_id: selectedColorId.value,
+      color_name: selectedColor?.name ?? null,
+      storage_id: selectedStorageId.value,
+      storage_label: selectedStorage?.label ?? null,
+      variant_id: currentVariant.value?.id ?? null,
+      sku: currentVariant.value?.sku ?? null,
+      base_price: currentVariant.value?.price_lkr ?? props.product?.base_price ?? 0,
+      old_price: selectedVariantOldPrice.value,
+      final_price: selectedVariantPrice.value,
+      stock_count: stockCount.value,
+      in_stock: isInStock.value,
+    })
+  } catch (error) {
+    console.error('Error while logging selected color/storage price:', error)
+  }
+})
+
 watch(() => props.product, () => {
-  selectedColorId.value = null
-  selectedStorageId.value = null
-  activeImage.value = null
-  ensureSelections()
+  try {
+    selectedColorId.value = null
+    selectedStorageId.value = null
+    activeImage.value = null
+    ensureSelections()
+  } catch (error) {
+    console.error('Error while initializing product selections:', error)
+  }
 }, { immediate: true })
 
 watch(currentVariant, (variant) => {
-  if (!variant) return
+  try {
+    if (!variant) return
 
-  if (variant.color_option_id !== undefined && variant.color_option_id !== null) {
-    selectedColorId.value = variant.color_option_id
+    if (variant.color_option_id !== undefined && variant.color_option_id !== null) {
+      selectedColorId.value = variant.color_option_id
+    }
+
+    if (variant.storage_option_id !== undefined && variant.storage_option_id !== null) {
+      selectedStorageId.value = variant.storage_option_id
+    }
+
+    quantity.value = Math.min(quantity.value, Math.max(1, stockCount.value))
+  } catch (error) {
+    console.error('Error while watching current variant:', error)
   }
-
-  if (variant.storage_option_id !== undefined && variant.storage_option_id !== null) {
-    selectedStorageId.value = variant.storage_option_id
-  }
-
-  quantity.value = Math.min(quantity.value, Math.max(1, stockCount.value))
 })
 </script>
 
@@ -710,6 +821,30 @@ watch(currentVariant, (variant) => {
                   :alt="product.brand?.name || 'Brand logo'"
                   class="h-10 w-auto object-contain"
                 />
+              </div>
+
+              <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Selected Variant Price
+                </p>
+
+                <div class="mt-2 flex flex-wrap items-center gap-3">
+                  <span
+                    v-if="selectedVariantOldPrice && Number(selectedVariantOldPrice) > Number(selectedVariantPrice)"
+                    class="text-sm font-medium text-slate-400 line-through"
+                  >
+                    {{ formatPrice(selectedVariantOldPrice) }}
+                  </span>
+
+                  <span class="text-lg font-semibold text-slate-950">
+                    {{ formatPrice(selectedVariantPrice) }}
+                  </span>
+                </div>
+
+                <p class="mt-1 text-xs text-slate-500">
+                  {{ selectedColorName || 'No color selected' }}
+                  <span v-if="storageLabel && storageLabel !== 'N/A'"> • {{ storageLabel }}</span>
+                </p>
               </div>
             </div>
 

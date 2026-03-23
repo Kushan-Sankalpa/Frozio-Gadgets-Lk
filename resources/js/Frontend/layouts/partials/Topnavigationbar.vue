@@ -830,14 +830,14 @@ onBeforeUnmount(() => {
             </Transition>
           </div>
 
-          <Link
+          <!-- <Link
             :href="`${route('frontend.root')}#about-us`"
             class="nav-link"
             :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
           >
             <span>About Us</span>
             <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
-          </Link>
+          </Link> -->
 
           <Link
             :href="`${route('frontend.root')}#contact-us`"
@@ -1369,13 +1369,13 @@ onBeforeUnmount(() => {
             </Transition>
           </div>
 
-          <Link
+          <!-- <Link
             :href="`${route('frontend.root')}#about-us`"
             class="mobile-link"
             @click="openMobileMenu = false"
           >
             About Us
-          </Link>
+          </Link> -->
 
           <Link
             :href="`${route('frontend.root')}#contact-us`"

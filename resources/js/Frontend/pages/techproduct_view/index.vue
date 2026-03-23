@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppLayout from '../../layouts/AppLayout.vue'
+import RelatedProducts from './partials/relatedproducts.vue'
 import TechView from './partials/techview.vue'
 
 defineOptions({
@@ -88,6 +89,22 @@ type ProductPayload = {
   in_stock?: boolean
 }
 
+type TechProductCard = {
+  id: number | string
+  name: string
+  category_name?: string | null
+  brand_name?: string | null
+  thumbnail_url: string | null
+  hover_image_url: string | null
+  regular_price: number | null
+  display_price: number | null
+  has_discount: boolean
+  discount_label?: string | null
+  is_sold_out: boolean
+  colors?: ProductColor[]
+  url?: string | null
+}
+
 const props = defineProps<{
   productId: number | string
   shell?: ShellData | null
@@ -96,6 +113,7 @@ const props = defineProps<{
 const loading = ref(true)
 const error = ref<string | null>(null)
 const product = ref<ProductPayload | null>(null)
+const relatedProducts = ref<TechProductCard[]>([])
 
 let abortController: AbortController | null = null
 
@@ -126,10 +144,13 @@ async function fetchProduct() {
 
     const data = await response.json()
     product.value = data?.product ?? null
+    relatedProducts.value = data?.related_products ?? []
   } catch (err: unknown) {
     if ((err as Error)?.name === 'AbortError') return
     console.error('Tech product view fetch error:', err)
     error.value = 'Failed to load product details. Please try again.'
+    product.value = null
+    relatedProducts.value = []
   } finally {
     loading.value = false
   }
@@ -153,6 +174,15 @@ onBeforeUnmount(() => {
       :error="error"
       :product="product"
       :shell="shell || null"
+      @retry="fetchProduct"
+    />
+
+    <RelatedProducts
+      v-if="loading || product"
+      :products="relatedProducts"
+      :loading="loading"
+      :load-error="null"
+      :category-name="product?.category?.name || null"
       @retry="fetchProduct"
     />
   </div>

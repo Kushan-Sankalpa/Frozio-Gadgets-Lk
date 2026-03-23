@@ -168,6 +168,8 @@ class TechProductViewController extends Controller
 
         $mainImage = $product->main_image_url ?: ($gallery->first()['src'] ?? null);
 
+        $relatedProducts = $this->relatedProducts($product);
+
         return response()->json([
             'product' => [
                 'id' => $product->id,
@@ -207,7 +209,113 @@ class TechProductViewController extends Controller
                 'stock_count' => $displayVariant['stock_count'] ?? $fallbackProductStock,
                 'in_stock' => $displayVariant['in_stock'] ?? (((bool) $product->in_stock) && $fallbackProductStock > 0),
             ],
+            'related_products' => $relatedProducts,
         ]);
+    }
+
+    private function relatedProducts(Product $product)
+    {
+        if (!$product->category_id) {
+            return collect([]);
+        }
+
+        return Product::query()
+            ->with(['category', 'brand', 'colors', 'variants'])
+            ->where('status', 'active')
+            ->where('category_id', $product->category_id)
+            ->whereKeyNot($product->id)
+            ->latest('id')
+            ->take(4)
+            ->get()
+            ->map(fn (Product $item) => $this->mapProductCard($item))
+            ->values();
+    }
+
+    private function mapProductCard(Product $product): array
+    {
+        $product->loadMissing(['category', 'brand', 'colors', 'variants']);
+
+        $fallbackProductStock = $product->stock_count !== null
+            ? (int) $product->stock_count
+            : ((bool) $product->in_stock ? 1 : 0);
+
+        $displayVariant = $product->variants
+            ->map(function ($variant) use ($product, $fallbackProductStock) {
+                $price = (float) ($variant->price_lkr ?: $product->price_lkr ?: 0);
+                $resolvedStock = $variant->stock_count !== null
+                    ? (int) $variant->stock_count
+                    : $fallbackProductStock;
+
+                $variantStatus = $variant->status ?: 'active';
+                $inStock = $variantStatus !== 'inactive' && $resolvedStock > 0;
+
+                return [
+                    'id' => $variant->id,
+                    'price_lkr' => $price,
+                    'stock_count' => $resolvedStock,
+                    'in_stock' => $inStock,
+                    'status' => $variantStatus,
+                ];
+            })
+            ->first(fn ($variant) => ($variant['in_stock'] ?? false) === true)
+            ?: $product->variants
+                ->map(function ($variant) use ($product, $fallbackProductStock) {
+                    $price = (float) ($variant->price_lkr ?: $product->price_lkr ?: 0);
+                    $resolvedStock = $variant->stock_count !== null
+                        ? (int) $variant->stock_count
+                        : $fallbackProductStock;
+
+                    $variantStatus = $variant->status ?: 'active';
+                    $inStock = $variantStatus !== 'inactive' && $resolvedStock > 0;
+
+                    return [
+                        'id' => $variant->id,
+                        'price_lkr' => $price,
+                        'stock_count' => $resolvedStock,
+                        'in_stock' => $inStock,
+                        'status' => $variantStatus,
+                    ];
+                })
+                ->first(fn ($variant) => ($variant['status'] ?? 'active') !== 'inactive');
+
+        $basePrice = (float) ($displayVariant['price_lkr'] ?? $product->price_lkr ?? 0);
+        $discount = $this->resolveDiscount($basePrice, $product->discount_type, $product->discount_value);
+
+        $galleryUrls = collect($product->gallery_urls ?? [])
+            ->filter()
+            ->values();
+
+        $thumbnailUrl = $product->main_image_url ?: $galleryUrls->first();
+        $hoverImageUrl = $galleryUrls->first(fn ($url) => $url !== $thumbnailUrl)
+            ?: data_get($product, 'hover_image_url')
+            ?: $thumbnailUrl;
+
+        $resolvedStock = (int) ($displayVariant['stock_count'] ?? $fallbackProductStock);
+        $inStock = (bool) ($displayVariant['in_stock'] ?? (((bool) $product->in_stock) && $resolvedStock > 0));
+
+        return [
+            'id' => $product->id,
+            'name' => $product->model,
+            'category_name' => $product->category?->name,
+            'brand_name' => $product->brand?->name,
+            'thumbnail_url' => $thumbnailUrl,
+            'hover_image_url' => $hoverImageUrl,
+            'regular_price' => $discount['old_price'],
+            'display_price' => $discount['current_price'],
+            'has_discount' => $discount['has_discount'],
+            'discount_label' => $discount['label'],
+            'is_sold_out' => !$inStock || $resolvedStock <= 0,
+            'colors' => $product->colors
+                ->sortBy('name')
+                ->map(fn ($color) => [
+                    'id' => $color->id,
+                    'name' => $color->name,
+                    'color_code' => $color->color_code,
+                    'image_url' => $color->image_url,
+                ])
+                ->values(),
+            'url' => '/tech-products/' . $product->id,
+        ];
     }
 
     private function resolveDiscount(float $price, ?string $discountType, $discountValue): array
@@ -255,9 +363,6 @@ class TechProductViewController extends Controller
         if (!$brand) {
             return null;
         }
-
-
-        
 
         return data_get($brand, 'logo_url')
             ?? data_get($brand, 'image_url')

@@ -969,9 +969,9 @@ watch(currentVariant, (variant) => {
               </button>
             </div>
 
-            <div class="mt-6 text-sm text-slate-500">
+            <!-- <div class="mt-6 text-sm text-slate-500">
               <p><span class="font-semibold text-slate-800">SKU:</span> {{ currentVariant?.sku || product.sku || 'N/A' }}</p>
-            </div>
+            </div> -->
           </template>
         </section>
       </div>

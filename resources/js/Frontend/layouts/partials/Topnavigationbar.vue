@@ -112,6 +112,7 @@ const isTechMenuActive = computed(() => !!currentCategory.value || !!currentBran
 const isShoeMenuActive = computed(() => {
   return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
 })
+const isContactUsActive = computed(() => currentPath.value === '/contact-us')
 
 watch(
   () => page.url,
@@ -839,14 +840,23 @@ onBeforeUnmount(() => {
             <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
           </Link> -->
 
-         <Link
-  :href="route('frontend.contact-us.index')"
-  class="nav-link"
-  :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
->
-  <span>Contact Us</span>
-  <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
-</Link>
+          <Link
+            :href="route('frontend.contact-us.index')"
+            class="nav-link"
+            :class="[
+              scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+              isContactUsActive ? 'nav-link--active' : '',
+            ]"
+          >
+            <span>Contact Us</span>
+            <span
+              class="nav-link-indicator"
+              :class="[
+                isContactUsActive ? 'nav-link-indicator--active' : '',
+                scrolled ? 'bg-black' : 'bg-white',
+              ]"
+            />
+          </Link>
         </nav>
 
         <div class="hidden items-center gap-2.5 xl:flex">

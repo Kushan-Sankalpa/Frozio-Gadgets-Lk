@@ -79,23 +79,23 @@ class ShoeProductViewController extends Controller
             ]]);
 
         $gallery = collect([
-        $shoe->thumbnail_url,
-        $shoe->hover_image_url,
-        ...($shoe->gallery_urls ?? []),
-    ])
-    ->filter()
-    ->unique()
-    ->take(6)
-    ->values()
-    ->map(fn ($url, $index) => [
-        'id' => 'gallery-' . $index,
-        'src' => $url,
-    ])
-    ->values();
+            $shoe->thumbnail_url,
+            $shoe->hover_image_url,
+            ...($shoe->gallery_urls ?? []),
+        ])
+            ->filter()
+            ->unique()
+            ->take(6)
+            ->values()
+            ->map(fn ($url, $index) => [
+                'id' => 'gallery-' . $index,
+                'src' => $url,
+            ])
+            ->values();
 
-$mainImage = $shoe->thumbnail_url
-    ?: $shoe->hover_image_url
-    ?: ($gallery->first()['src'] ?? null);
+        $mainImage = $shoe->thumbnail_url
+            ?: $shoe->hover_image_url
+            ?: ($gallery->first()['src'] ?? null);
 
         return response()->json([
             'product' => [
@@ -141,6 +141,7 @@ $mainImage = $shoe->thumbnail_url
                 'stock_count' => $stockCount,
                 'in_stock' => $isInStock,
             ],
+            'related_products' => $this->relatedProducts($shoe),
         ]);
     }
 
@@ -197,49 +198,96 @@ $mainImage = $shoe->thumbnail_url
     }
 
     private function resolveSizes(ShoeProduct $shoe)
-{
-    $raw = $shoe->sizes_by_type ?? [];
+    {
+        $raw = $shoe->sizes_by_type ?? [];
 
-    return collect($raw)
-        ->flatMap(function ($group, $groupIndex) {
-            if (!is_array($group)) {
-                return [];
-            }
-
-            $typeLabel = trim((string) (
-                $group['type_code']
-                ?? $group['type_name']
-                ?? 'Size'
-            ));
-
-            $sizes = $group['sizes'] ?? [];
-
-            return collect($sizes)->map(function ($size, $sizeIndex) use ($group, $groupIndex, $typeLabel) {
-                $sizeValue = '';
-
-                if (is_array($size)) {
-                    $sizeValue = trim((string) (
-                        $size['label']
-                        ?? $size['name']
-                        ?? $size['size']
-                        ?? ''
-                    ));
-                } else {
-                    $sizeValue = trim((string) $size);
+        return collect($raw)
+            ->flatMap(function ($group, $groupIndex) {
+                if (!is_array($group)) {
+                    return [];
                 }
 
-                if ($sizeValue === '') {
-                    return null;
-                }
+                $typeLabel = trim((string) (
+                    $group['type_code']
+                    ?? $group['type_name']
+                    ?? 'Size'
+                ));
 
-                return [
-                    'id' => ($group['type_id'] ?? $groupIndex) . '-' . $sizeIndex,
-                    'label' => $typeLabel . ' ' . $sizeValue,
-                ];
-            });
-        })
-        ->filter()
-        ->unique('label')
-        ->values();
-}
+                $sizes = $group['sizes'] ?? [];
+
+                return collect($sizes)->map(function ($size, $sizeIndex) use ($group, $groupIndex, $typeLabel) {
+                    $sizeValue = '';
+
+                    if (is_array($size)) {
+                        $sizeValue = trim((string) (
+                            $size['label']
+                            ?? $size['name']
+                            ?? $size['size']
+                            ?? ''
+                        ));
+                    } else {
+                        $sizeValue = trim((string) $size);
+                    }
+
+                    if ($sizeValue === '') {
+                        return null;
+                    }
+
+                    return [
+                        'id' => ($group['type_id'] ?? $groupIndex) . '-' . $sizeIndex,
+                        'label' => $typeLabel . ' ' . $sizeValue,
+                    ];
+                });
+            })
+            ->filter()
+            ->unique('label')
+            ->values();
+    }
+
+    private function relatedProducts(ShoeProduct $shoe)
+    {
+        if (!$shoe->category_id) {
+            return collect([]);
+        }
+
+        return ShoeProduct::query()
+            ->with(['brand', 'category', 'subcategory'])
+            ->where('status', 'published')
+            ->where('category_id', $shoe->category_id)
+            ->whereKeyNot($shoe->id)
+            ->latest('id')
+            ->take(4)
+            ->get()
+            ->map(fn (ShoeProduct $item) => $this->mapRelatedProductCard($item))
+            ->values();
+    }
+
+    private function mapRelatedProductCard(ShoeProduct $shoe): array
+    {
+        $shoe->loadMissing(['brand', 'category', 'subcategory']);
+
+        $pricing = $this->resolvePricing($shoe);
+        $stockCount = $shoe->stock_quantity !== null ? (int) $shoe->stock_quantity : 0;
+        $isSoldOut = $shoe->stock_status === 'out_of_stock' || $stockCount <= 0;
+
+        return [
+            'id' => $shoe->id,
+            'name' => $shoe->name,
+            'slug' => $shoe->slug,
+            'brand_name' => $shoe->brand?->name,
+            'category_name' => $shoe->category?->name,
+            'subcategory_name' => $shoe->subcategory?->name,
+            'thumbnail_url' => $shoe->thumbnail_url,
+            'hover_image_url' => $shoe->hover_image_url ?: $shoe->thumbnail_url,
+            'currency' => 'LKR',
+            'regular_price' => $pricing['old_price'],
+            'sale_price' => $pricing['has_discount'] ? $pricing['current_price'] : null,
+            'display_price' => $pricing['current_price'],
+            'has_discount' => $pricing['has_discount'],
+            'discount_label' => $pricing['discount_label'],
+            'is_sold_out' => $isSoldOut,
+            'status' => $shoe->status,
+            'stock_status' => $shoe->stock_status,
+        ];
+    }
 }

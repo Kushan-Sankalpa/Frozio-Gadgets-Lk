@@ -97,9 +97,17 @@ const selectedColorId = ref<number | string | null>(null)
 const selectedStorageId = ref<number | string | null>(null)
 const activeImage = ref<string | null>(null)
 const quantity = ref(1)
-const activeTab = ref<'description' | 'specifications'>('description')
+const activeTab = ref<'description' | 'specifications' | 'delivery'>('description')
 const flashMessage = ref('')
 const hoveredColorName = ref<string | null>(null)
+const deliveryParagraphs = [
+  'We partner with dependable courier providers to ensure each parcel reaches you securely and within the usual delivery window.',
+  'Dispatches are handled from Monday through Saturday. Deliveries are not scheduled on Sundays or mercantile holidays, and shipping charges are applied separately.',
+  'Orders confirmed during weekends will be processed from Monday. We always try to respect special delivery notes where possible, although that may slightly extend the standard delivery timeline.',
+  'While we make every effort to send and deliver orders on time, occasional delays can happen due to circumstances outside normal operations. When that occurs, we will move your order forward as quickly as possible.',
+]
+
+  
 
 const colorFallbackMap: Record<string, string> = {
   black: '#111111',
@@ -122,6 +130,8 @@ const colorFallbackMap: Record<string, string> = {
   midnight: '#1f2937',
   starlight: '#f5deb3',
 }
+
+
 
 function normalizeName(value: string | null | undefined) {
   return String(value ?? '').trim().toLowerCase()
@@ -394,7 +404,7 @@ function selectImage(src: string) {
   activeImage.value = src
 }
 
-function setTab(tab: 'description' | 'specifications') {
+function setTab(tab: 'description' | 'specifications' | 'delivery') {
   activeTab.value = tab
 }
 
@@ -675,77 +685,102 @@ watch(currentVariant, (variant) => {
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                   />
                 </button>
+
+                <button
+  type="button"
+  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+  :class="activeTab === 'delivery'
+    ? 'font-semibold text-slate-950'
+    : 'font-medium text-slate-500 hover:text-slate-900'"
+  @click="setTab('delivery')"
+>
+  Delivery Information
+  <span
+    v-if="activeTab === 'delivery'"
+    class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+  />
+</button>
               </div>
             </div>
 
             <div class="pt-6">
-              <Transition name="tab-fade-up" mode="out-in">
-                <div
-                  v-if="activeTab === 'description'"
-                  key="description"
-                  class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
-                  v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
-                />
+             <Transition name="tab-fade-up" mode="out-in">
+  <div
+    v-if="activeTab === 'description'"
+    key="description"
+    class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+    v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+  />
 
-                <div
-                  v-else
-                  key="specifications"
-                  class="space-y-3"
-                >
-                  <div
-                    v-if="!product.specifications?.length"
-                    class="text-sm text-slate-500"
-                  >
-                    No specifications available.
-                  </div>
+  <div
+    v-else-if="activeTab === 'specifications'"
+    key="specifications"
+    class="space-y-3"
+  >
+    <div
+      v-if="!product.specifications?.length"
+      class="text-sm text-slate-500"
+    >
+      No specifications available.
+    </div>
 
-                  <div
-                    v-else
-                    class="space-y-3 md:hidden"
-                  >
-                    <div
-                      v-for="(spec, index) in product.specifications"
-                      :key="`${spec.label}-${index}`"
-                      class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4"
-                    >
-                      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                        {{ spec.label }}
-                      </div>
-                      <div class="mt-2 break-words text-sm leading-6 text-slate-700">
-                        {{ spec.value }}
-                      </div>
-                    </div>
-                  </div>
+    <div
+      v-else
+      class="space-y-3 md:hidden"
+    >
+      <div
+        v-for="(spec, index) in product.specifications"
+        :key="`${spec.label}-${index}`"
+        class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4"
+      >
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+          {{ spec.label }}
+        </div>
+        <div class="mt-2 break-words text-sm leading-6 text-slate-700">
+          {{ spec.value }}
+        </div>
+      </div>
+    </div>
 
-                  <div
-                    v-if="product.specifications?.length"
-                    class="hidden md:block"
-                  >
-                    <div class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-                      <table class="w-full border-collapse table-fixed">
-                        <tbody>
-                          <tr
-                            v-for="(spec, index) in product.specifications"
-                            :key="`${spec.label}-${index}`"
-                            class="border-b border-slate-200 last:border-b-0"
-                          >
-                            <td class="w-[34%] px-6 py-4 align-top text-sm font-semibold text-slate-700 xl:w-[30%]">
-                              <div class="break-words">
-                                {{ spec.label }}
-                              </div>
-                            </td>
-                            <td class="px-6 py-4 align-top text-sm text-slate-600">
-                              <div class="break-words">
-                                {{ spec.value }}
-                              </div>
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+    <div
+      v-if="product.specifications?.length"
+      class="hidden md:block"
+    >
+      <div class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+        <table class="w-full border-collapse table-fixed">
+          <tbody>
+            <tr
+              v-for="(spec, index) in product.specifications"
+              :key="`${spec.label}-${index}`"
+              class="border-b border-slate-200 last:border-b-0"
+            >
+              <td class="w-[34%] px-6 py-4 align-top text-sm font-semibold text-slate-700 xl:w-[30%]">
+                <div class="break-words">
+                  {{ spec.label }}
                 </div>
-              </Transition>
+              </td>
+              <td class="px-6 py-4 align-top text-sm text-slate-600">
+                <div class="break-words">
+                  {{ spec.value }}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-else
+    key="delivery"
+    class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+  >
+    <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">
+      {{ paragraph }}
+    </p>
+  </div>
+</Transition>
             </div>
           </template>
         </section>

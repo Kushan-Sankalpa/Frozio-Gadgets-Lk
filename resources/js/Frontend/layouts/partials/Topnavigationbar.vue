@@ -839,14 +839,14 @@ onBeforeUnmount(() => {
             <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
           </Link> -->
 
-          <Link
-            :href="`${route('frontend.root')}#contact-us`"
-            class="nav-link"
-            :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
-          >
-            <span>Contact Us</span>
-            <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
-          </Link>
+         <Link
+  :href="route('frontend.contact-us.index')"
+  class="nav-link"
+  :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
+>
+  <span>Contact Us</span>
+  <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
+</Link>
         </nav>
 
         <div class="hidden items-center gap-2.5 xl:flex">
@@ -1378,12 +1378,12 @@ onBeforeUnmount(() => {
           </Link> -->
 
           <Link
-            :href="`${route('frontend.root')}#contact-us`"
-            class="mobile-link"
-            @click="openMobileMenu = false"
-          >
-            Contact Us
-          </Link>
+  :href="route('frontend.contact-us.index')"
+  class="mobile-link"
+  @click="openMobileMenu = false"
+>
+  Contact Us
+</Link>
 
           <button
             type="button"

@@ -256,6 +256,9 @@ class TechProductViewController extends Controller
             return null;
         }
 
+
+        
+
         return data_get($brand, 'logo_url')
             ?? data_get($brand, 'image_url')
             ?? data_get($brand, 'icon_url');

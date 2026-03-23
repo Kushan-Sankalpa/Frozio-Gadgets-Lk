@@ -132,6 +132,7 @@ class ProductSuggestionController extends Controller
             }
         }
 
+        
         if (str_contains($normalizedName, $query)) {
             return 3;
         }

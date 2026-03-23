@@ -12,6 +12,9 @@ class ShoeMaterialController extends Controller
 {
     public function index()
     {
+
+
+    
         return Inertia::render('Shoes/Materials/index');
     }
 

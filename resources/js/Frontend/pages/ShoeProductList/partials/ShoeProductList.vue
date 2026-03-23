@@ -61,6 +61,8 @@ const skeletonCount = computed(() => {
   return 0
 })
 
+
+
 function formatPrice(value: number | null | undefined) {
   if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) {
     return 'Rs 0.00'
@@ -82,6 +84,7 @@ function productHref(product: ShoeProductCard) {
 <template>
   <div class="space-y-6">
     <div
+    
       v-if="loadError"
       class="rounded-[28px] border border-red-200 bg-red-50 px-6 py-12 text-center"
     >
@@ -89,7 +92,7 @@ function productHref(product: ShoeProductCard) {
         Failed to load products
       </h3>
       <p class="mt-2 text-sm text-red-500">
-        Please try again.
+        Please try again 1.
       </p>
 
       <button

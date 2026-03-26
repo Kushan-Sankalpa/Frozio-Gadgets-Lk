@@ -110,7 +110,6 @@ const infoCompleted = computed(() => {
     && phoneIsValid.value
     && !!contactForm.value.address_line_1.trim()
     && !!contactForm.value.city.trim()
-    && !!contactForm.value.postal_code.trim()
 })
 
 const displayPhone = computed(() => {
@@ -379,11 +378,11 @@ function submitOrder() {
                   </label>
 
                   <label class="space-y-2 sm:col-span-2">
-                    <span class="text-sm font-medium text-slate-700">Address line 2</span>
+                    <span class="text-sm font-medium text-slate-700">Address line 2 <span class="text-slate-400">(optional)</span></span>
                     <input
                       v-model="contactForm.address_line_2"
                       type="text"
-                      placeholder="Apartment, suite, unit, etc. (optional)"
+                      placeholder="Apartment, suite, unit, etc."
                       class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-slate-900"
                     />
                   </label>
@@ -399,7 +398,7 @@ function submitOrder() {
                   </label>
 
                   <label class="space-y-2">
-                    <span class="text-sm font-medium text-slate-700">Postal code</span>
+                    <span class="text-sm font-medium text-slate-700">Postal code <span class="text-slate-400">(optional)</span></span>
                     <input
                       v-model="contactForm.postal_code"
                       type="text"
@@ -409,11 +408,11 @@ function submitOrder() {
                   </label>
 
                   <label class="space-y-2 sm:col-span-2">
-                    <span class="text-sm font-medium text-slate-700">Delivery note</span>
+                    <span class="text-sm font-medium text-slate-700">Delivery note <span class="text-slate-400">(optional)</span></span>
                     <textarea
                       v-model="contactForm.delivery_note"
                       rows="4"
-                      placeholder="Add a note for delivery (optional)"
+                      placeholder="Add a note for delivery"
                       class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-slate-900"
                     />
                   </label>
@@ -451,7 +450,7 @@ function submitOrder() {
                     </div>
                     <button
                       type="button"
-                      class="text-sm font-medium text-slate-500 transition hover:text-slate-950"
+                     class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
                       @click="goToInformation"
                     >
                       Change
@@ -465,7 +464,7 @@ function submitOrder() {
                     </div>
                     <button
                       type="button"
-                      class="text-sm font-medium text-slate-500 transition hover:text-slate-950"
+                      class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
                       @click="goToInformation"
                     >
                       Change
@@ -479,7 +478,7 @@ function submitOrder() {
                     </div>
                     <button
                       type="button"
-                      class="text-sm font-medium text-slate-500 transition hover:text-slate-950"
+                     class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
                       @click="goToInformation"
                     >
                       Change
@@ -556,7 +555,7 @@ function submitOrder() {
               :key="item.key"
               class="flex gap-3 py-4"
             >
-              <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+              <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-white">
                 <img
                   v-if="item.image"
                   :src="item.image"

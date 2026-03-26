@@ -240,7 +240,7 @@ onBeforeUnmount(() => {
                 :key="item.key"
                 class="grid grid-cols-[72px_minmax(0,1fr)] gap-4 py-5 first:pt-0 last:pb-0 sm:grid-cols-[88px_minmax(0,1fr)_auto] sm:gap-6"
               >
-                <div class="flex h-[72px] w-[72px] items-center justify-center overflow-hidden sm:h-[88px] sm:w-[88px]">
+               <div class="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[18px] sm:h-[88px] sm:w-[88px] sm:rounded-[22px]">
                   <img
                     v-if="item.image"
                     :src="item.image"

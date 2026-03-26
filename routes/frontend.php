@@ -2,17 +2,25 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Frontend\HomeController;
+use App\Http\Controllers\Frontend\CartPageController;
+use App\Http\Controllers\Frontend\ContactUsController;
+use App\Http\Controllers\Frontend\CheckoutPageController;
 use App\Http\Controllers\Frontend\ProductSuggestionController;
 use App\Http\Controllers\Frontend\WebShoeProductController;
 use App\Http\Controllers\Frontend\WebTechProductController;
 use App\Http\Controllers\Frontend\TechProductViewController;
 use App\Http\Controllers\Frontend\ShoeProductViewController;
-use App\Http\Controllers\Frontend\ContactUsController;
 
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
 
 Route::get('/contact-us', [ContactUsController::class, 'index'])
     ->name('frontend.contact-us.index');
+
+Route::get('/cart', [CartPageController::class, 'index'])
+    ->name('frontend.cart.index');
+
+Route::get('/checkout', [CheckoutPageController::class, 'index'])
+    ->name('frontend.checkout.index');
 
 Route::get('/home/categories', [HomeController::class, 'categories'])
     ->name('frontend.home.categories');

@@ -1,6 +1,8 @@
+
 <script setup lang="ts">
 import { computed, ref, watch, watchEffect } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
+import { route } from 'ziggy-js'
 
 type BreadcrumbItem = {
   label: string
@@ -100,14 +102,13 @@ const quantity = ref(1)
 const activeTab = ref<'description' | 'specifications' | 'delivery'>('description')
 const flashMessage = ref('')
 const hoveredColorName = ref<string | null>(null)
+
 const deliveryParagraphs = [
   'We partner with dependable courier providers to ensure each parcel reaches you securely and within the usual delivery window.',
   'Dispatches are handled from Monday through Saturday. Deliveries are not scheduled on Sundays or mercantile holidays, and shipping charges are applied separately.',
   'Orders confirmed during weekends will be processed from Monday. We always try to respect special delivery notes where possible, although that may slightly extend the standard delivery timeline.',
   'While we make every effort to send and deliver orders on time, occasional delays can happen due to circumstances outside normal operations. When that occurs, we will move your order forward as quickly as possible.',
 ]
-
-  
 
 const colorFallbackMap: Record<string, string> = {
   black: '#111111',
@@ -130,8 +131,6 @@ const colorFallbackMap: Record<string, string> = {
   midnight: '#1f2937',
   starlight: '#f5deb3',
 }
-
-
 
 function normalizeName(value: string | null | undefined) {
   return String(value ?? '').trim().toLowerCase()
@@ -298,6 +297,14 @@ const selectedVariantOldPrice = computed(() => {
     ?? null
 })
 
+const currentProductUrl = computed(() => {
+  if (typeof window !== 'undefined') {
+    return window.location.pathname
+  }
+
+  return props.product ? route('frontend.tech-products.show', { product: props.product.id }) : null
+})
+
 function showMessage(message: string) {
   flashMessage.value = message
   window.setTimeout(() => {
@@ -364,15 +371,6 @@ function selectColor(colorId: number | string) {
     if (matched?.storage_option_id !== undefined && matched?.storage_option_id !== null) {
       selectedStorageId.value = matched.storage_option_id
     }
-
-    console.log('Color selected:', {
-      color_id: colorId,
-      color_name: productColors.value.find((item) => item.id === colorId)?.name ?? null,
-      storage_id: selectedStorageId.value,
-      storage_label: productStorages.value.find((item) => item.id === selectedStorageId.value)?.label ?? null,
-      variant_id: currentVariant.value?.id ?? null,
-      final_price: selectedVariantPrice.value,
-    })
   } catch (error) {
     console.error('Error while selecting color:', error)
   }
@@ -386,15 +384,6 @@ function selectStorage(storageId: number | string) {
     if (matched?.color_option_id !== undefined && matched?.color_option_id !== null) {
       selectedColorId.value = matched.color_option_id
     }
-
-    console.log('Storage selected:', {
-      storage_id: storageId,
-      storage_label: productStorages.value.find((item) => item.id === storageId)?.label ?? null,
-      color_id: selectedColorId.value,
-      color_name: productColors.value.find((item) => item.id === selectedColorId.value)?.name ?? null,
-      variant_id: currentVariant.value?.id ?? null,
-      final_price: selectedVariantPrice.value,
-    })
   } catch (error) {
     console.error('Error while selecting storage:', error)
   }
@@ -417,29 +406,36 @@ function increaseQuantity() {
   quantity.value += 1
 }
 
+function cartPayload() {
+  if (!props.product || !currentVariant.value) return null
+
+  return {
+    productId: props.product.id,
+    variantId: currentVariant.value.id,
+    quantity: quantity.value,
+    colorId: selectedColorId.value,
+    colorName: selectedColorName.value || null,
+    storageId: selectedStorageId.value,
+    storageLabel: storageLabel.value !== 'N/A' ? storageLabel.value : null,
+    price: selectedVariantPrice.value,
+    oldPrice: selectedVariantOldPrice.value,
+    stockCount: stockCount.value,
+    name: props.product.name,
+    image: displayImage.value || props.product.main_image || null,
+    url: currentProductUrl.value,
+  }
+}
+
 function addToCart() {
   try {
     if (!props.product || !currentVariant.value || !isInStock.value) return
 
-    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
-      detail: {
-        productId: props.product.id,
-        variantId: currentVariant.value.id,
-        quantity: quantity.value,
-        colorId: selectedColorId.value,
-        storageId: selectedStorageId.value,
-        price: selectedVariantPrice.value,
-      },
-    }))
+    const payload = cartPayload()
+    if (!payload) return
 
-    console.log('Add to cart:', {
-      product_id: props.product.id,
-      variant_id: currentVariant.value.id,
-      color_id: selectedColorId.value,
-      storage_id: selectedStorageId.value,
-      quantity: quantity.value,
-      final_price: selectedVariantPrice.value,
-    })
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
+      detail: payload,
+    }))
 
     showMessage('Product added to cart.')
   } catch (error) {
@@ -451,27 +447,15 @@ function buyNow() {
   try {
     if (!props.product || !currentVariant.value || !isInStock.value) return
 
-    window.dispatchEvent(new CustomEvent('tech-product:buy-now', {
-      detail: {
-        productId: props.product.id,
-        variantId: currentVariant.value.id,
-        quantity: quantity.value,
-        colorId: selectedColorId.value,
-        storageId: selectedStorageId.value,
-        price: selectedVariantPrice.value,
-      },
+    const payload = cartPayload()
+    if (!payload) return
+
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
+      detail: payload,
     }))
 
-    console.log('Buy now:', {
-      product_id: props.product.id,
-      variant_id: currentVariant.value.id,
-      color_id: selectedColorId.value,
-      storage_id: selectedStorageId.value,
-      quantity: quantity.value,
-      final_price: selectedVariantPrice.value,
-    })
-
     showMessage('Ready for checkout.')
+    router.visit(route('frontend.checkout.index'))
   } catch (error) {
     console.error('Error while processing buy now:', error)
   }
@@ -565,7 +549,7 @@ watch(currentVariant, (variant) => {
       <div
         v-if="flashMessage"
         key="flash-message"
-        class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
+        class="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
       >
         {{ flashMessage }}
       </div>
@@ -604,8 +588,8 @@ watch(currentVariant, (variant) => {
               </div>
             </div>
 
-            <div class="mt-10 border-b border-slate-200" />
-            <div class="pt-6">
+            <div class="mt-10 hidden border-b border-slate-200 lg:block" />
+            <div class="hidden pt-6 lg:block">
               <div class="space-y-3">
                 <div class="h-6 w-40 animate-pulse rounded bg-slate-200" />
                 <div class="h-5 w-full animate-pulse rounded bg-slate-100" />
@@ -654,7 +638,7 @@ watch(currentVariant, (variant) => {
               </div>
             </div>
 
-            <div class="mt-10 border-b border-slate-200">
+            <div class="mt-10 hidden border-b border-slate-200 lg:block">
               <div class="flex items-end gap-8 overflow-x-auto">
                 <button
                   type="button"
@@ -687,100 +671,82 @@ watch(currentVariant, (variant) => {
                 </button>
 
                 <button
-  type="button"
-  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
-  :class="activeTab === 'delivery'
-    ? 'font-semibold text-slate-950'
-    : 'font-medium text-slate-500 hover:text-slate-900'"
-  @click="setTab('delivery')"
->
-  Delivery Information
-  <span
-    v-if="activeTab === 'delivery'"
-    class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
-  />
-</button>
+                  type="button"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                  :class="activeTab === 'delivery'
+                    ? 'font-semibold text-slate-950'
+                    : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="setTab('delivery')"
+                >
+                  Delivery Information
+                  <span
+                    v-if="activeTab === 'delivery'"
+                    class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                  />
+                </button>
               </div>
             </div>
 
-            <div class="pt-6">
-             <Transition name="tab-fade-up" mode="out-in">
-  <div
-    v-if="activeTab === 'description'"
-    key="description"
-    class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
-    v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
-  />
+            <div class="hidden pt-6 lg:block">
+              <Transition name="tab-fade-up" mode="out-in">
+                <div
+                  v-if="activeTab === 'description'"
+                  key="description-desktop"
+                  class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                  v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+                />
 
-  <div
-    v-else-if="activeTab === 'specifications'"
-    key="specifications"
-    class="space-y-3"
-  >
-    <div
-      v-if="!product.specifications?.length"
-      class="text-sm text-slate-500"
-    >
-      No specifications available.
-    </div>
+                <div
+                  v-else-if="activeTab === 'specifications'"
+                  key="specifications-desktop"
+                  class="space-y-3"
+                >
+                  <div
+                    v-if="!product.specifications?.length"
+                    class="text-sm text-slate-500"
+                  >
+                    No specifications available.
+                  </div>
 
-    <div
-      v-else
-      class="space-y-3 md:hidden"
-    >
-      <div
-        v-for="(spec, index) in product.specifications"
-        :key="`${spec.label}-${index}`"
-        class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4"
-      >
-        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-          {{ spec.label }}
-        </div>
-        <div class="mt-2 break-words text-sm leading-6 text-slate-700">
-          {{ spec.value }}
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="product.specifications?.length"
-      class="hidden md:block"
-    >
-      <div class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-        <table class="w-full border-collapse table-fixed">
-          <tbody>
-            <tr
-              v-for="(spec, index) in product.specifications"
-              :key="`${spec.label}-${index}`"
-              class="border-b border-slate-200 last:border-b-0"
-            >
-              <td class="w-[34%] px-6 py-4 align-top text-sm font-semibold text-slate-700 xl:w-[30%]">
-                <div class="break-words">
-                  {{ spec.label }}
+                  <div
+                    v-if="product.specifications?.length"
+                    class="hidden md:block"
+                  >
+                    <div class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                      <table class="w-full border-collapse table-fixed">
+                        <tbody>
+                          <tr
+                            v-for="(spec, index) in product.specifications"
+                            :key="`${spec.label}-${index}`"
+                            class="border-b border-slate-200 last:border-b-0"
+                          >
+                            <td class="w-[34%] px-6 py-4 align-top text-sm font-semibold text-slate-700 xl:w-[30%]">
+                              <div class="break-words">
+                                {{ spec.label }}
+                              </div>
+                            </td>
+                            <td class="px-6 py-4 align-top text-sm text-slate-600">
+                              <div class="break-words">
+                                {{ spec.value }}
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              </td>
-              <td class="px-6 py-4 align-top text-sm text-slate-600">
-                <div class="break-words">
-                  {{ spec.value }}
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
-  <div
-    v-else
-    key="delivery"
-    class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
-  >
-    <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">
-      {{ paragraph }}
-    </p>
-  </div>
-</Transition>
+                <div
+                  v-else
+                  key="delivery-desktop"
+                  class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+                >
+                  <p v-for="(paragraph, index) in deliveryParagraphs" :key="`desktop-delivery-${index}`">
+                    {{ paragraph }}
+                  </p>
+                </div>
+              </Transition>
             </div>
           </template>
         </section>
@@ -857,30 +823,6 @@ watch(currentVariant, (variant) => {
                   class="h-10 w-auto object-contain"
                 />
               </div>
-
-              <!-- <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  Selected Variant Price
-                </p>
-
-                <div class="mt-2 flex flex-wrap items-center gap-3">
-                  <span
-                    v-if="selectedVariantOldPrice && Number(selectedVariantOldPrice) > Number(selectedVariantPrice)"
-                    class="text-sm font-medium text-slate-400 line-through"
-                  >
-                    {{ formatPrice(selectedVariantOldPrice) }}
-                  </span>
-
-                  <span class="text-lg font-semibold text-slate-950">
-                    {{ formatPrice(selectedVariantPrice) }}
-                  </span>
-                </div>
-
-                <p class="mt-1 text-xs text-slate-500">
-                  {{ selectedColorName || 'No color selected' }}
-                  <span v-if="storageLabel && storageLabel !== 'N/A'"> • {{ storageLabel }}</span>
-                </p>
-              </div> -->
             </div>
 
             <ul class="mt-8 space-y-3 text-sm text-slate-700">
@@ -1004,9 +946,108 @@ watch(currentVariant, (variant) => {
               </button>
             </div>
 
-            <!-- <div class="mt-6 text-sm text-slate-500">
-              <p><span class="font-semibold text-slate-800">SKU:</span> {{ currentVariant?.sku || product.sku || 'N/A' }}</p>
-            </div> -->
+            <div class="mt-10 lg:hidden">
+              <div class="border-b border-slate-200">
+                <div class="flex items-end gap-8 overflow-x-auto">
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'description'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('description')"
+                  >
+                    Description
+                    <span
+                      v-if="activeTab === 'description'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'specifications'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('specifications')"
+                  >
+                    Specifications
+                    <span
+                      v-if="activeTab === 'specifications'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'delivery'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('delivery')"
+                  >
+                    Delivery Information
+                    <span
+                      v-if="activeTab === 'delivery'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div class="pt-6">
+                <Transition name="tab-fade-up" mode="out-in">
+                  <div
+                    v-if="activeTab === 'description'"
+                    key="description-mobile"
+                    class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                    v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+                  />
+
+                  <div
+                    v-else-if="activeTab === 'specifications'"
+                    key="specifications-mobile"
+                    class="space-y-3"
+                  >
+                    <div
+                      v-if="!product.specifications?.length"
+                      class="text-sm text-slate-500"
+                    >
+                      No specifications available.
+                    </div>
+
+                    <div
+                      v-else
+                      class="space-y-3"
+                    >
+                      <div
+                        v-for="(spec, index) in product.specifications"
+                        :key="`${spec.label}-${index}`"
+                        class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4"
+                      >
+                        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                          {{ spec.label }}
+                        </div>
+                        <div class="mt-2 break-words text-sm leading-6 text-slate-700">
+                          {{ spec.value }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-else
+                    key="delivery-mobile"
+                    class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+                  >
+                    <p v-for="(paragraph, index) in deliveryParagraphs" :key="`mobile-delivery-${index}`">
+                      {{ paragraph }}
+                    </p>
+                  </div>
+                </Transition>
+              </div>
+            </div>
           </template>
         </section>
       </div>

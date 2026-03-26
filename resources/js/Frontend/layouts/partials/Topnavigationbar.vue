@@ -1,7 +1,10 @@
+
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
+import CartDrawer from '@/Frontend/pages/shop/components/CartDrawer.vue'
+import { useCart } from '@/Frontend/pages/shop/composables/useCart'
 
 type TechBrand = {
   id: number | string
@@ -41,6 +44,7 @@ type SearchSuggestion = {
 }
 
 const page = usePage()
+const { totalItems, openCart } = useCart()
 
 const navRef = ref<HTMLElement | null>(null)
 const mobilePanelRef = ref<HTMLElement | null>(null)
@@ -113,6 +117,7 @@ const isShoeMenuActive = computed(() => {
   return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
 })
 const isContactUsActive = computed(() => currentPath.value === '/contact-us')
+const cartBadgeCount = computed(() => totalItems.value > 99 ? '99+' : String(totalItems.value))
 
 watch(
   () => page.url,
@@ -512,6 +517,13 @@ function handleSearchInputKeydown(event: KeyboardEvent) {
   }
 }
 
+function openCartDrawer() {
+  if (openMobileMenu.value) {
+    openMobileMenu.value = false
+  }
+  openCart()
+}
+
 onMounted(() => {
   handleScroll()
   handleResize()
@@ -831,15 +843,6 @@ onBeforeUnmount(() => {
             </Transition>
           </div>
 
-          <!-- <Link
-            :href="`${route('frontend.root')}#about-us`"
-            class="nav-link"
-            :class="scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85'"
-          >
-            <span>About Us</span>
-            <span class="nav-link-indicator" :class="scrolled ? 'bg-black' : 'bg-white'" />
-          </Link> -->
-
           <Link
             :href="route('frontend.contact-us.index')"
             class="nav-link"
@@ -1025,6 +1028,7 @@ onBeforeUnmount(() => {
                 ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
                 : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
             "
+            @click="openCartDrawer"
           >
             <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.4 10.2a1 1 0 00.98.8H18.8a1 1 0 00.97-.76L21 7H7" />
@@ -1033,7 +1037,7 @@ onBeforeUnmount(() => {
             </svg>
 
             <span class="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#f04f45] px-1 text-[10px] font-bold text-white">
-              0
+              {{ cartBadgeCount }}
             </span>
           </button>
         </div>
@@ -1379,25 +1383,18 @@ onBeforeUnmount(() => {
             </Transition>
           </div>
 
-          <!-- <Link
-            :href="`${route('frontend.root')}#about-us`"
+          <Link
+            :href="route('frontend.contact-us.index')"
             class="mobile-link"
             @click="openMobileMenu = false"
           >
-            About Us
-          </Link> -->
-
-          <Link
-  :href="route('frontend.contact-us.index')"
-  class="mobile-link"
-  @click="openMobileMenu = false"
->
-  Contact Us
-</Link>
+            Contact Us
+          </Link>
 
           <button
             type="button"
             class="mt-3 inline-flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-transparent"
+            @click="openCartDrawer"
           >
             <span class="inline-flex items-center gap-3">
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
@@ -1409,13 +1406,15 @@ onBeforeUnmount(() => {
             </span>
 
             <span class="inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#f04f45] px-1 text-[11px] font-bold text-white">
-              0
+              {{ cartBadgeCount }}
             </span>
           </button>
         </div>
       </div>
     </Transition>
   </Teleport>
+
+  <CartDrawer />
 </template>
 
 <style scoped>

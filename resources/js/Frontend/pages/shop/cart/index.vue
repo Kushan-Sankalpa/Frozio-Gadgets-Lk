@@ -190,6 +190,19 @@ onBeforeUnmount(() => {
 
   <div class="min-h-screen bg-[#f8f8fa] text-slate-950">
     <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+      <nav aria-label="Breadcrumb" class="mb-6">
+  <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+    <li class="flex items-center gap-2">
+      <Link :href="route('frontend.root')" class="transition hover:text-slate-900">
+        Home
+      </Link>
+      <span class="text-slate-300">/</span>
+    </li>
+    <li>
+      <span class="font-medium text-slate-900">Cart</span>
+    </li>
+  </ol>
+</nav>
       <div class="flex flex-col gap-3 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Cart Page</p>

@@ -356,9 +356,7 @@ function submitOrder() {
                       />
                     </div>
 
-                    <p class="text-xs text-slate-400">
-                      Enter 9 digits without the first 0.
-                    </p>
+                   
                   </label>
                 </div>
               </div>

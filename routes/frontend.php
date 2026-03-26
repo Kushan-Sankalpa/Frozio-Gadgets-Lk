@@ -40,6 +40,9 @@ Route::get('/tech-products', [WebTechProductController::class, 'index'])
 Route::get('/tech-products/products', [WebTechProductController::class, 'products'])
     ->name('frontend.tech-products.products');
 
+Route::get('/tech-products/related/cart', [WebTechProductController::class, 'cartRelated'])
+    ->name('frontend.tech-products.cart-related');
+
 Route::get('/tech-products/{product}', [TechProductViewController::class, 'index'])
     ->name('frontend.tech-products.show');
 

@@ -208,6 +208,80 @@ class WebTechProductController extends Controller
         ]);
     }
 
+    public function cartRelated(Request $request): JsonResponse
+    {
+        $productIds = collect($request->input('product_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($productIds->isEmpty()) {
+            return response()->json([
+                'products' => [],
+            ]);
+        }
+
+        $categoryIds = Product::query()
+            ->whereIn('id', $productIds)
+            ->pluck('category_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $sameCategoryProducts = Product::query()
+            ->with(['category:id,name', 'brand:id,name,logo_path'])
+            ->where('status', 'active')
+            ->whereIn('category_id', $categoryIds)
+            ->whereNotIn('id', $productIds)
+            ->latest('id')
+            ->take(8)
+            ->get();
+
+        $fallbackProducts = collect();
+
+        if ($sameCategoryProducts->count() < 4) {
+            $excludeIds = $sameCategoryProducts->pluck('id')
+                ->merge($productIds)
+                ->unique()
+                ->values();
+
+            $fallbackProducts = Product::query()
+                ->with(['category:id,name', 'brand:id,name,logo_path'])
+                ->where('status', 'active')
+                ->whereNotIn('id', $excludeIds)
+                ->latest('id')
+                ->take(8)
+                ->get();
+        }
+
+        $products = $sameCategoryProducts
+            ->concat($fallbackProducts)
+            ->unique('id')
+            ->take(4)
+            ->values();
+
+        $colorIds = $products
+            ->flatMap(function (Product $product) {
+                return collect($product->color_ids ?? [])->map(fn ($id) => (int) $id);
+            })
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        $colorMap = ColorOption::query()
+            ->select('id', 'name', 'color_code')
+            ->whereIn('id', $colorIds)
+            ->get()
+            ->keyBy('id');
+
+        return response()->json([
+            'products' => $products
+                ->map(fn (Product $product) => $this->transformProduct($product, $colorMap))
+                ->values(),
+        ]);
+    }
+
     protected function transformProduct(Product $product, $colorMap): array
     {
         $regularPrice = (float) ($product->price_lkr ?? 0);
@@ -269,6 +343,7 @@ class WebTechProductController extends Controller
             'discount_label' => $discountLabel,
             'is_sold_out' => $isSoldOut,
             'colors' => $colors,
+            'url' => '/tech-products/' . $product->id,
         ];
     }
 

@@ -1,10 +1,13 @@
-
 <script setup lang="ts">
+import { Head, Link } from '@inertiajs/vue3'
 import { computed, ref } from 'vue'
-import { Link } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
-import TopNavigator from '@/Frontend/layouts/partials/Topnavigationbar.vue'
+import AppLayout from '@/Frontend/layouts/AppLayout.vue'
 import { useCart } from '../composables/useCart'
+
+defineOptions({
+  layout: AppLayout,
+})
 
 function formatPrice(value: number | null | undefined) {
   if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) {
@@ -50,9 +53,9 @@ function submitOrder() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f8f8fa] text-slate-950">
-    <TopNavigator />
+  <Head title="Checkout" />
 
+  <div class="min-h-screen bg-[#f8f8fa] text-slate-950">
     <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <div class="flex flex-col gap-3 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>

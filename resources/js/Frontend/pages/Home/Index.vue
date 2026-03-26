@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppLayout from '../../layouts/AppLayout.vue'
+import AppLayout from '@/Frontend/layouts/AppLayout.vue'
 import Product from './Product.vue'
 import HomeBanner from './HomeBanner.vue'
 import TechCategories from './techcategories.vue'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 import { useCart } from '../composables/useCart'
@@ -27,6 +27,25 @@ const {
 } = useCart()
 
 const hasItems = computed(() => items.value.length > 0)
+
+function lockPageScroll(locked: boolean) {
+  if (typeof document === 'undefined') return
+
+  document.documentElement.style.overflow = locked ? 'hidden' : ''
+  document.body.style.overflow = locked ? 'hidden' : ''
+}
+
+watch(
+  isCartOpen,
+  (open) => {
+    lockPageScroll(!!open)
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  lockPageScroll(false)
+})
 </script>
 
 <template>
@@ -145,10 +164,10 @@ const hasItems = computed(() => items.value.length > 0)
                         v-if="item.oldPrice && item.oldPrice > item.price"
                         class="text-xs text-slate-400 line-through"
                       >
-                        {{ formatPrice(item.oldPrice * item.quantity) }}
+                        {{ formatPrice(item.oldPrice) }}
                       </p>
                       <p class="text-[15px] font-medium text-slate-800 sm:text-[16px]">
-                        {{ formatPrice(item.price * item.quantity) }}
+                        {{ formatPrice(item.price) }}
                       </p>
                     </div>
                   </div>

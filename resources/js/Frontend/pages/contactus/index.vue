@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3'
-import AppLayout from '../../layouts/AppLayout.vue'
+import AppLayout from '@/Frontend/layouts/AppLayout.vue'
 import Banner from './partials/banner.vue'
 import ContactUsSection from './partials/contactus.vue'
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import AppLayout from '../../layouts/AppLayout.vue'
+import AppLayout from '@/Frontend/layouts/AppLayout.vue'
 import RelatedProducts from './partials/relatedproducts.vue'
 import TechView from './partials/techview.vue'
 

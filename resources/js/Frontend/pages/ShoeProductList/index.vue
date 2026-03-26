@@ -2,7 +2,7 @@
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
-import AppLayout from '../../layouts/AppLayout.vue'
+import AppLayout from '@/Frontend/layouts/AppLayout.vue'
 import ShoeProductFilter from './partials/ShoeProductFilter.vue'
 import ShoeProductList from './partials/ShoeProductList.vue'
 

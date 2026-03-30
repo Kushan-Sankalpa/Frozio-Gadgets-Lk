@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NewOrderAdminNotificationMail;
 use App\Mail\OrderConfirmationMail;
 use App\Models\Order;
 use Illuminate\Http\JsonResponse;
@@ -104,16 +105,48 @@ class CheckoutPageController extends Controller
             return $order->load('items');
         });
 
+        $customerMailSent = false;
+        $adminMailSent = false;
+        $adminNotificationEmail = env('ORDER_NOTIFICATION_EMAIL', config('mail.from.address'));
+
         try {
             Mail::to($order->email)->send(new OrderConfirmationMail($order));
-            $order->forceFill([
-                'email_sent_at' => now(),
-            ])->save();
+            $customerMailSent = true;
         } catch (Throwable $throwable) {
             report($throwable);
+        }
 
+        try {
+            if (!empty($adminNotificationEmail)) {
+                Mail::to($adminNotificationEmail)->send(new NewOrderAdminNotificationMail($order));
+                $adminMailSent = true;
+            }
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+
+        $order->forceFill([
+            'email_sent_at' => $customerMailSent ? now() : null,
+            'admin_email_sent_at' => $adminMailSent ? now() : null,
+        ])->save();
+
+        if (!$customerMailSent && !$adminMailSent) {
             return response()->json([
-                'message' => 'Order saved, but the confirmation email could not be sent.',
+                'message' => 'Order saved, but both emails could not be sent.',
+                'order_number' => $order->order_number,
+            ], 201);
+        }
+
+        if (!$customerMailSent) {
+            return response()->json([
+                'message' => 'Order saved. Admin email sent, but customer email could not be sent.',
+                'order_number' => $order->order_number,
+            ], 201);
+        }
+
+        if (!$adminMailSent) {
+            return response()->json([
+                'message' => 'Order saved. Customer email sent, but admin order email could not be sent.',
                 'order_number' => $order->order_number,
             ], 201);
         }

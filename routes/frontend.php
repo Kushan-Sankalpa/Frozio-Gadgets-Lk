@@ -22,6 +22,9 @@ Route::get('/cart', [CartPageController::class, 'index'])
 Route::get('/checkout', [CheckoutPageController::class, 'index'])
     ->name('frontend.checkout.index');
 
+Route::post('/checkout/place-order', [CheckoutPageController::class, 'store'])
+    ->name('frontend.checkout.store');
+
 Route::get('/home/categories', [HomeController::class, 'categories'])
     ->name('frontend.home.categories');
 

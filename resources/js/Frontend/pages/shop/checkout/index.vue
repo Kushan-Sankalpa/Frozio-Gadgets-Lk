@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { Head, Link } from '@inertiajs/vue3'
 import { computed, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
@@ -18,6 +19,21 @@ type ShippingMethod = {
   name: string
   description: string
   fee: number
+}
+
+type CartItem = {
+  key: string
+  id?: number | string | null
+  productType?: string | null
+  name: string
+  image?: string | null
+  quantity: number
+  price: number
+  colorName?: string | null
+  storageLabel?: string | null
+  sizeLabel?: string | null
+  variantLabel?: string | null
+  sku?: string | null
 }
 
 function formatPrice(value: number | null | undefined) {
@@ -41,6 +57,10 @@ const {
 const step = ref<CheckoutStep>('information')
 const shippingUnlocked = ref(false)
 const orderPlaced = ref(false)
+const placingOrder = ref(false)
+const serverMessage = ref('')
+const orderNumber = ref('')
+const formErrors = ref<Record<string, string[]>>({})
 
 const contactForm = ref({
   full_name: '',
@@ -127,29 +147,91 @@ const displayAddress = computed(() => {
     .join(', ')
 })
 
+function fieldError(field: string) {
+  return formErrors.value[field]?.[0] || ''
+}
+
+function clearServerState() {
+  serverMessage.value = ''
+  formErrors.value = {}
+}
+
 function goToShipping() {
   if (!infoCompleted.value) return
+  clearServerState()
   shippingUnlocked.value = true
   step.value = 'shipping'
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function goToInformation() {
+  clearServerState()
   step.value = 'information'
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function openShippingFromBreadcrumb() {
   if (!shippingUnlocked.value) return
+  clearServerState()
   step.value = 'shipping'
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function submitOrder() {
-  if (!items.value.length || !selectedShippingMethod.value) return
-  orderPlaced.value = true
-  clearCart()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+function mappedItems() {
+  return (items.value as CartItem[]).map((item) => ({
+    key: item.key,
+    id: item.id ?? null,
+    productType: item.productType ?? null,
+    name: item.name,
+    sku: item.sku ?? null,
+    price: Number(item.price || 0),
+    quantity: Number(item.quantity || 1),
+    image: item.image ?? null,
+    colorName: item.colorName ?? null,
+    storageLabel: item.storageLabel ?? null,
+    sizeLabel: item.sizeLabel ?? null,
+    variantLabel: item.variantLabel ?? null,
+  }))
+}
+
+async function submitOrder() {
+  if (!items.value.length || !selectedShippingMethod.value || placingOrder.value) return
+
+  clearServerState()
+  placingOrder.value = true
+
+  try {
+    const response = await axios.post(route('frontend.checkout.store'), {
+      ...contactForm.value,
+      shipping_method: {
+        code: selectedShippingMethod.value.code,
+        name: selectedShippingMethod.value.name,
+        fee: selectedShippingMethod.value.fee,
+      },
+      items: mappedItems(),
+    })
+
+    orderNumber.value = response.data?.order_number || ''
+    serverMessage.value = response.data?.message || 'Order placed successfully.'
+    orderPlaced.value = true
+    clearCart()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (error: any) {
+    if (error?.response?.status === 422) {
+      formErrors.value = error.response.data?.errors || {}
+      serverMessage.value = 'Please check the checkout details and try again.'
+
+      if (formErrors.value.email || formErrors.value.full_name || formErrors.value.phone || formErrors.value.address_line_1 || formErrors.value.city) {
+        step.value = 'information'
+      }
+    } else {
+      serverMessage.value = error?.response?.data?.message || 'Something went wrong while placing the order.'
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } finally {
+    placingOrder.value = false
+  }
 }
 </script>
 
@@ -234,6 +316,13 @@ function submitOrder() {
       </div>
 
       <div
+        v-if="serverMessage && !orderPlaced"
+        class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+      >
+        {{ serverMessage }}
+      </div>
+
+      <div
         v-if="orderPlaced"
         class="mt-8 rounded-[30px] border border-emerald-200 bg-emerald-50 px-6 py-10 text-center shadow-sm"
       >
@@ -249,7 +338,10 @@ function submitOrder() {
 
         <h2 class="mt-5 text-2xl font-semibold text-emerald-700">Order placed successfully</h2>
         <p class="mx-auto mt-3 max-w-2xl text-sm leading-7 text-emerald-700/80 sm:text-[15px]">
-          Your order has been confirmed. You can continue shopping or go back to the cart.
+          {{ serverMessage || 'Your order has been confirmed. A confirmation email has been sent to your email address.' }}
+        </p>
+        <p v-if="orderNumber" class="mt-3 text-sm font-semibold text-emerald-800">
+          Order Number: {{ orderNumber }}
         </p>
 
         <div class="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
@@ -325,6 +417,7 @@ function submitOrder() {
                       placeholder="Enter your full name"
                       class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-slate-900"
                     />
+                    <p v-if="fieldError('full_name')" class="text-xs text-rose-600">{{ fieldError('full_name') }}</p>
                   </label>
 
                   <label class="space-y-2">
@@ -335,6 +428,7 @@ function submitOrder() {
                       placeholder="your@email.com"
                       class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-slate-900"
                     />
+                    <p v-if="fieldError('email')" class="text-xs text-rose-600">{{ fieldError('email') }}</p>
                   </label>
 
                   <label class="space-y-2">
@@ -355,8 +449,7 @@ function submitOrder() {
                         class="w-full border-0 bg-transparent px-4 py-3.5 text-sm outline-none"
                       />
                     </div>
-
-                   
+                    <p v-if="fieldError('phone')" class="text-xs text-rose-600">{{ fieldError('phone') }}</p>
                   </label>
                 </div>
               </div>
@@ -373,6 +466,7 @@ function submitOrder() {
                       placeholder="Street address"
                       class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-slate-900"
                     />
+                    <p v-if="fieldError('address_line_1')" class="text-xs text-rose-600">{{ fieldError('address_line_1') }}</p>
                   </label>
 
                   <label class="space-y-2 sm:col-span-2">
@@ -393,6 +487,7 @@ function submitOrder() {
                       placeholder="City"
                       class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm outline-none transition focus:border-slate-900"
                     />
+                    <p v-if="fieldError('city')" class="text-xs text-rose-600">{{ fieldError('city') }}</p>
                   </label>
 
                   <label class="space-y-2">
@@ -448,7 +543,7 @@ function submitOrder() {
                     </div>
                     <button
                       type="button"
-                     class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
+                      class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
                       @click="goToInformation"
                     >
                       Change
@@ -476,7 +571,7 @@ function submitOrder() {
                     </div>
                     <button
                       type="button"
-                     class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
+                      class="text-sm font-medium text-blue-600 transition hover:text-blue-700"
                       @click="goToInformation"
                     >
                       Change
@@ -520,6 +615,7 @@ function submitOrder() {
                     </div>
                   </label>
                 </div>
+                <p v-if="fieldError('shipping_method.code')" class="mt-3 text-xs text-rose-600">{{ fieldError('shipping_method.code') }}</p>
               </div>
 
               <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -534,10 +630,10 @@ function submitOrder() {
                 <button
                   type="button"
                   class="inline-flex min-h-[52px] items-center justify-center rounded-full bg-slate-950 px-7 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                  :disabled="!selectedShippingMethod"
+                  :disabled="!selectedShippingMethod || placingOrder"
                   @click="submitOrder"
                 >
-                  Confirm order
+                  {{ placingOrder ? 'Placing order...' : 'Confirm order' }}
                 </button>
               </div>
             </div>
@@ -570,6 +666,7 @@ function submitOrder() {
                   Qty {{ item.quantity }}
                   <span v-if="item.colorName"> • {{ item.colorName }}</span>
                   <span v-if="item.storageLabel"> • {{ item.storageLabel }}</span>
+                  <span v-if="item.sizeLabel"> • {{ item.sizeLabel }}</span>
                 </p>
                 <p class="mt-2 text-sm font-semibold text-slate-950">
                   {{ formatPrice(item.price * item.quantity) }}

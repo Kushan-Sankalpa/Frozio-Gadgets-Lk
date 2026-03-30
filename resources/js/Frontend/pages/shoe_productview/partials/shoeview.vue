@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
 import { computed, ref, watch } from 'vue'
+import { route } from 'ziggy-js'
 
 type BreadcrumbItem = {
   label: string
@@ -184,6 +185,17 @@ const sizeChartImage = computed(() => {
   return props.product?.size_chart_image || '/assets/images/shoechart.webp'
 })
 
+const currentProductUrl = computed(() => {
+  if (typeof window !== 'undefined') {
+    return window.location.pathname
+  }
+
+  const key = props.product?.slug || props.product?.id
+  return props.product && key
+    ? route('frontend.shoe-products.show', { product: key })
+    : null
+})
+
 const deliveryParagraphs = [
   'We partner with dependable courier providers to ensure each parcel reaches you securely and within the usual delivery window.',
   'Dispatches are handled from Monday through Saturday. Deliveries are not scheduled on Sundays or mercantile holidays, and shipping charges are applied separately.',
@@ -246,32 +258,59 @@ function increaseQuantity() {
   quantity.value += 1
 }
 
+function cartPayload() {
+  if (!props.product || !currentVariant.value) return null
+
+  return {
+    productId: props.product.id,
+    variantId: currentVariant.value.id,
+    quantity: quantity.value,
+    colorId: null,
+    colorName: null,
+    storageId: selectedSizeId.value,
+    storageLabel: selectedSizeLabel.value !== 'N/A' ? selectedSizeLabel.value : null,
+    price: currentPrice.value,
+    oldPrice: currentOldPrice.value,
+    stockCount: stockCount.value,
+    name: props.product.name,
+    image: displayImage.value || props.product.main_image || null,
+    url: currentProductUrl.value,
+  }
+}
+
 function addToCart() {
-  if (!props.product || !currentVariant.value || !isInStock.value) return
+  try {
+    if (!props.product || !currentVariant.value || !isInStock.value) return
 
-  window.dispatchEvent(new CustomEvent('shoe-product:add-to-cart', {
-    detail: {
-      productId: props.product.id,
-      variantId: currentVariant.value.id,
-      quantity: quantity.value,
-    },
-  }))
+    const payload = cartPayload()
+    if (!payload) return
 
-  showMessage('Shoe added to cart.')
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
+      detail: payload,
+    }))
+
+    showMessage('Product added to cart.')
+  } catch (error) {
+    console.error('Error while adding product to cart:', error)
+  }
 }
 
 function buyNow() {
-  if (!props.product || !currentVariant.value || !isInStock.value) return
+  try {
+    if (!props.product || !currentVariant.value || !isInStock.value) return
 
-  window.dispatchEvent(new CustomEvent('shoe-product:buy-now', {
-    detail: {
-      productId: props.product.id,
-      variantId: currentVariant.value.id,
-      quantity: quantity.value,
-    },
-  }))
+    const payload = cartPayload()
+    if (!payload) return
 
-  showMessage('Ready for checkout.')
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', {
+      detail: payload,
+    }))
+
+    showMessage('Ready for checkout.')
+    router.visit(route('frontend.checkout.index'))
+  } catch (error) {
+    console.error('Error while processing buy now:', error)
+  }
 }
 
 watch(() => props.product, () => {

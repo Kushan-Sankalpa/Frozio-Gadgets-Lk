@@ -152,7 +152,7 @@ const form = useForm({
   device_status: props.product?.device_status ?? 'brandnew',
   price_lkr: props.product?.price_lkr ?? '',
 
-  discount_type: props.product?.discount_type ?? null,
+  discount_type: props.product?.discount_type ?? '',
   discount_value: props.product?.discount_value ?? null,
   in_stock: props.product?.in_stock ?? true,
   stock_count: props.product?.stock_count ?? null,
@@ -256,6 +256,15 @@ watch(
   }
 )
 
+watch(
+  () => form.discount_type,
+  (val) => {
+    if (!val) {
+      form.discount_value = null
+    }
+  }
+)
+
 function syncVariantRows() {
   const selectedStorageIds = (form.storage_option_ids || []).map(Number).filter(Boolean)
   const selectedColorIds = (form.color_ids || []).map(Number).filter(Boolean)
@@ -330,6 +339,12 @@ function submit() {
   const payloadTransform = (data: any) => ({
     ...data,
     sku: normalizeSku(data.sku),
+    discount_type: data.discount_type ? data.discount_type : null,
+    discount_value: data.discount_type
+      ? (data.discount_value === '' || data.discount_value === null || typeof data.discount_value === 'undefined'
+          ? null
+          : Number(data.discount_value))
+      : null,
     color_ids: (data.color_ids || []).map((id: any) => Number(id)),
     storage_option_ids: (data.storage_option_ids || []).map((id: any) => Number(id)),
     ram_option_ids: (data.ram_option_ids || []).map((id: any) => Number(id)),
@@ -375,12 +390,6 @@ function submit() {
 const deviceStatusOptions = [
   { id: 'brandnew', name: 'Brand New' },
   { id: 'used', name: 'Used' },
-]
-
-const discountTypeOptions = [
-  { id: null, name: 'None' },
-  { id: 'percent', name: '%' },
-  { id: 'price', name: 'Price' },
 ]
 
 const inStockOptions = [
@@ -514,17 +523,16 @@ const statusOptions = [
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <SelectInputComponent
-                id="discount_type"
-                label="Discount Type"
-                :options="discountTypeOptions"
+              <label class="block text-sm font-medium text-neutral-700 mb-1">Discount Type</label>
+              <select
                 v-model="form.discount_type"
-                :error="form.errors.discount_type"
-                :isRequired="false"
-                valueKey="id"
-                labelKey="name"
-                placeholder="None"
-              />
+                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+              >
+                <option value="">None</option>
+                <option value="percent">%</option>
+                <option value="price">Price</option>
+              </select>
+              <p v-if="form.errors.discount_type" class="mt-1 text-sm text-red-600">{{ form.errors.discount_type }}</p>
             </div>
 
             <div>
@@ -534,7 +542,8 @@ const statusOptions = [
                 type="number"
                 step="0.01"
                 min="0"
-                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                :disabled="!form.discount_type"
+                class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500 disabled:bg-neutral-100"
                 placeholder="e.g. 10 or 5000"
               />
               <p v-if="form.errors.discount_value" class="mt-1 text-sm text-red-600">{{ form.errors.discount_value }}</p>

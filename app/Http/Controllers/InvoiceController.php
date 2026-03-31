@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\InvoiceOrderStatusMail;
 use App\Models\ColorOption;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ShoeProduct;
 use App\Models\StorageOption;
@@ -12,11 +14,31 @@ use App\Models\WarrantyOption;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class InvoiceController extends Controller
 {
+    protected const ORDER_STATUSES = [
+        'reserved',
+        'confirmed',
+        'dispatched',
+        'delivered',
+        'cancelled',
+    ];
+
+    protected const PAYMENT_TYPES = [
+        'unpaid',
+        'mixed',
+        'cash',
+        'card',
+        'advance',
+    ];
+
     public function index()
     {
         return Inertia::render('Invoice/index', [
@@ -72,6 +94,7 @@ class InvoiceController extends Controller
                 'notes' => $invoice->notes,
                 'terms' => $invoice->terms,
                 'status' => $invoice->status,
+                'order_status' => $invoice->order_status ?? 'reserved',
                 'pdf_path' => $invoice->pdf_path,
                 'pdf_url' => $invoice->pdf_url,
                 'items' => $invoice->items->map(fn (InvoiceItem $item) => [
@@ -108,7 +131,10 @@ class InvoiceController extends Controller
         $draw = (int) $request->input('draw', 1);
         $start = (int) $request->input('start', 0);
         $length = (int) $request->input('length', 10);
-        $searchValue = trim((string) $request->input('search.value', ''));
+
+        $searchValue = trim((string) $request->input('q', $request->input('search.value', '')));
+        $orderStatusFilter = trim((string) $request->input('order_status_filter', ''));
+        $paymentTypeFilter = trim((string) $request->input('payment_type_filter', ''));
 
         $baseQuery = Invoice::query();
 
@@ -118,14 +144,16 @@ class InvoiceController extends Controller
             $baseQuery->where(function ($q) use ($searchValue) {
                 $q->where('invoice_no', 'like', "%{$searchValue}%")
                     ->orWhere('customer_name', 'like', "%{$searchValue}%")
-                    ->orWhere('customer_contact_number', 'like', "%{$searchValue}%")
-                    ->orWhere('sales_person', 'like', "%{$searchValue}%")
-                    ->orWhere('payment_type', 'like', "%{$searchValue}%")
-                    ->orWhere('delivery_method', 'like', "%{$searchValue}%")
-                    ->orWhere('tracking_id', 'like', "%{$searchValue}%")
-                    ->orWhere('delivery_agent', 'like', "%{$searchValue}%")
-                    ->orWhere('status', 'like', "%{$searchValue}%");
+                    ->orWhere('customer_contact_number', 'like', "%{$searchValue}%");
             });
+        }
+
+        if (in_array($orderStatusFilter, self::ORDER_STATUSES, true)) {
+            $baseQuery->where('order_status', $orderStatusFilter);
+        }
+
+        if (in_array($paymentTypeFilter, self::PAYMENT_TYPES, true)) {
+            $baseQuery->where('payment_type', $paymentTypeFilter);
         }
 
         $recordsFiltered = (clone $baseQuery)->count();
@@ -140,11 +168,12 @@ class InvoiceController extends Controller
             3 => 'customer_name',
             4 => 'customer_contact_number',
             5 => 'sales_person',
-            6 => 'payment_type',
-            7 => 'grand_total',
-            8 => 'paid_amount',
-            9 => 'balance_due',
-            10 => 'status',
+            6 => 'order_status',
+            7 => 'status',
+            8 => 'payment_type',
+            9 => 'grand_total',
+            10 => 'paid_amount',
+            11 => 'balance_due',
         ];
 
         $orderBy = $columns[$orderColIndex] ?? 'id';
@@ -156,58 +185,6 @@ class InvoiceController extends Controller
             ->get();
 
         $data = $rows->map(function (Invoice $invoice) {
-            $statusBadge = match ($invoice->status) {
-                'finalized' => '<span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">Finalized</span>',
-                'cancelled' => '<span class="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Cancelled</span>',
-                default => '<span class="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">Draft</span>',
-            };
-
-            $viewBtn = '
-                <button
-                    type="button"
-                    data-action="view"
-                    data-id="' . $invoice->id . '"
-                    class="rounded-full border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
-                >
-                    View PDF
-                </button>
-            ';
-
-            $downloadBtn = '
-                <button
-                    type="button"
-                    data-action="download"
-                    data-id="' . $invoice->id . '"
-                    class="rounded-full border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50"
-                >
-                    Download
-                </button>
-            ';
-
-            $editBtn = '
-                <button
-                    type="button"
-                    data-action="edit"
-                    data-id="' . $invoice->id . '"
-                    data-name="' . e($invoice->invoice_no) . '"
-                    class="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
-                >
-                    Edit
-                </button>
-            ';
-
-            $deleteBtn = '
-                <button
-                    type="button"
-                    data-action="delete"
-                    data-id="' . $invoice->id . '"
-                    data-name="' . e($invoice->invoice_no) . '"
-                    class="rounded-full border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                >
-                    Delete
-                </button>
-            ';
-
             return [
                 'id' => $invoice->id,
                 'invoice_no' => e($invoice->invoice_no),
@@ -215,12 +192,13 @@ class InvoiceController extends Controller
                 'customer_name' => e($invoice->customer_name),
                 'customer_contact_number' => e($invoice->customer_contact_number),
                 'sales_person' => e($invoice->sales_person ?? '-'),
-                'payment_type' => e(ucfirst(str_replace('_', ' ', $invoice->payment_type ?? 'unpaid'))),
+                'order_status_dropdown' => $this->renderOrderStatusDropdown($invoice),
+                'status_badge' => $this->invoiceStatusBadge($invoice->status),
+                'payment_type_badge' => $this->paymentTypeBadge($invoice->payment_type),
                 'grand_total' => number_format((float) $invoice->grand_total, 2),
                 'paid_amount' => number_format((float) $invoice->paid_amount, 2),
                 'balance_due' => number_format((float) $invoice->balance_due, 2),
-                'status_badge' => $statusBadge,
-                'actions' => '<div class="flex flex-wrap items-center gap-2">' . $viewBtn . $downloadBtn . $editBtn . $deleteBtn . '</div>',
+                'actions_dropdown' => $this->renderActionsDropdown($invoice),
             ];
         });
 
@@ -232,94 +210,12 @@ class InvoiceController extends Controller
         ]);
     }
 
-   public function store(Request $request)
-{
-    $validated = $this->validateInvoice($request);
-    $submitAction = $request->input('submit_action', 'draft');
-
-    $invoice = DB::transaction(function () use ($validated, $submitAction) {
-        $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
-
-        $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
-        $cardPaid = round((float) ($validated['card_paid'] ?? 0), 2);
-        $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
-        $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
-
-        $deliveryEnabled = (bool) ($validated['delivery_enabled'] ?? false);
-        $deliveryAmount = $deliveryEnabled
-            ? round((float) ($validated['delivery_amount'] ?? 0), 2)
-            : 0;
-
-        $totals = $this->calculateTotals(
-            $itemsPayload,
-            $cashPaid,
-            $cardPaid,
-            $advanceAmount,
-            $taxAmount,
-            $deliveryAmount
-        );
-
-        $invoiceNo = $this->nextInvoiceNumberForUpdate();
-
-        $invoice = Invoice::create([
-            'invoice_no' => $invoiceNo,
-            'invoice_date' => $validated['invoice_date'],
-            'customer_name' => $validated['customer_name'],
-            'customer_contact_number' => $validated['customer_contact_number'],
-            'customer_address' => $validated['customer_address'] ?? null,
-            'customer_email' => $validated['customer_email'] ?? null,
-            'sales_person' => $validated['sales_person'] ?? null,
-            'ship_date' => $validated['ship_date'] ?? null,
-            'ship_via' => $validated['ship_via'] ?? null,
-            'delivery_enabled' => $deliveryEnabled,
-            'delivery_method' => $deliveryEnabled ? ($validated['delivery_method'] ?? null) : null,
-            'delivery_payment_status' => $deliveryEnabled ? ($validated['delivery_payment_status'] ?? null) : null,
-            'tracking_id' => $deliveryEnabled ? ($validated['tracking_id'] ?? null) : null,
-            'delivery_agent' => $deliveryEnabled ? ($validated['delivery_agent'] ?? null) : null,
-            'delivery_amount' => $deliveryEnabled ? $totals['delivery_amount'] : null,
-            'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
-            'cash_paid' => $totals['cash_paid'],
-            'card_paid' => $totals['card_paid'],
-            'advance_amount' => $totals['advance_amount'],
-            'paid_amount' => $totals['paid_amount'],
-            'subtotal' => $totals['subtotal'],
-            'total_discount' => $totals['total_discount'],
-            'tax_amount' => $totals['tax_amount'],
-            'grand_total' => $totals['grand_total'],
-            'balance_due' => $totals['balance_due'],
-            'notes' => $validated['notes'] ?? null,
-            'terms' => $validated['terms'] ?? null,
-            'status' => $submitAction === 'finalize' ? 'finalized' : ($validated['status'] ?? 'draft'),
-        ]);
-
-        foreach ($itemsPayload as $index => $item) {
-            $invoice->items()->create([
-                ...$item,
-                'item_no' => $index + 1,
-            ]);
-        }
-
-        if ($submitAction === 'finalize') {
-            $path = $this->generateAndStorePdf($invoice->fresh('items'));
-            $invoice->update(['pdf_path' => $path]);
-        }
-
-        return $invoice;
-    });
-
-    return redirect()
-        ->route('invoices.edit', $invoice)
-        ->with('success', $submitAction === 'finalize'
-            ? 'Invoice created and PDF generated.'
-            : 'Invoice saved as draft.');
-}
-
-    public function update(Request $request, Invoice $invoice)
+    public function store(Request $request)
     {
-        $validated = $this->validateInvoice($request, $invoice->id);
+        $validated = $this->validateInvoice($request);
         $submitAction = $request->input('submit_action', 'draft');
 
-        DB::transaction(function () use ($validated, $invoice, $submitAction) {
+        $result = DB::transaction(function () use ($validated, $submitAction) {
             $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
 
             $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
@@ -341,7 +237,110 @@ class InvoiceController extends Controller
                 $deliveryAmount
             );
 
-            $invoice->update([
+            $invoiceNo = $this->nextInvoiceNumberForUpdate();
+            $orderStatus = $validated['order_status'] ?? 'reserved';
+
+            $payload = [
+                'invoice_no' => $invoiceNo,
+                'invoice_date' => $validated['invoice_date'],
+                'customer_name' => $validated['customer_name'],
+                'customer_contact_number' => $validated['customer_contact_number'],
+                'customer_address' => $validated['customer_address'] ?? null,
+                'customer_email' => $validated['customer_email'] ?? null,
+                'sales_person' => $validated['sales_person'] ?? null,
+                'ship_date' => $validated['ship_date'] ?? null,
+                'ship_via' => $validated['ship_via'] ?? null,
+                'delivery_enabled' => $deliveryEnabled,
+                'delivery_method' => $deliveryEnabled ? ($validated['delivery_method'] ?? null) : null,
+                'delivery_payment_status' => $deliveryEnabled ? ($validated['delivery_payment_status'] ?? null) : null,
+                'tracking_id' => $deliveryEnabled ? ($validated['tracking_id'] ?? null) : null,
+                'delivery_agent' => $deliveryEnabled ? ($validated['delivery_agent'] ?? null) : null,
+                'delivery_amount' => $deliveryEnabled ? $totals['delivery_amount'] : null,
+                'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
+                'cash_paid' => $totals['cash_paid'],
+                'card_paid' => $totals['card_paid'],
+                'advance_amount' => $totals['advance_amount'],
+                'paid_amount' => $totals['paid_amount'],
+                'subtotal' => $totals['subtotal'],
+                'total_discount' => $totals['total_discount'],
+                'tax_amount' => $totals['tax_amount'],
+                'grand_total' => $totals['grand_total'],
+                'balance_due' => $totals['balance_due'],
+                'notes' => $validated['notes'] ?? null,
+                'terms' => $validated['terms'] ?? null,
+                'status' => $submitAction === 'finalize' ? 'finalized' : ($validated['status'] ?? 'draft'),
+                'order_status' => $orderStatus,
+            ];
+
+            $payload = $this->applyOrderStatusMutations($payload, $orderStatus);
+            $this->guardOrderStatusRequirements($payload);
+
+            $invoice = Invoice::create($payload);
+
+            foreach ($itemsPayload as $index => $item) {
+                $invoice->items()->create([
+                    ...$item,
+                    'item_no' => $index + 1,
+                ]);
+            }
+
+            $needsPdf = $submitAction === 'finalize' || $this->shouldSendOrderStatusEmail(null, $invoice->order_status);
+
+            if ($needsPdf) {
+                $path = $this->regeneratePdf($invoice->fresh('items'));
+                $invoice->update(['pdf_path' => $path]);
+            }
+
+            $this->syncLinkedOrder($invoice);
+
+            return [
+                'invoice' => $invoice->fresh('items'),
+                'should_send_status_mail' => $this->shouldSendOrderStatusEmail(null, $invoice->order_status),
+            ];
+        });
+
+        if ($result['should_send_status_mail']) {
+            $this->sendOrderStatusEmail($result['invoice']);
+        }
+
+        return redirect()
+            ->route('invoices.edit', $result['invoice'])
+            ->with('success', $submitAction === 'finalize'
+                ? 'Invoice created and PDF generated.'
+                : 'Invoice saved as draft.');
+    }
+
+    public function update(Request $request, Invoice $invoice)
+    {
+        $validated = $this->validateInvoice($request, $invoice->id);
+        $submitAction = $request->input('submit_action', 'draft');
+
+        $result = DB::transaction(function () use ($validated, $invoice, $submitAction) {
+            $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
+            $previousOrderStatus = $invoice->order_status ?? 'reserved';
+
+            $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
+            $cardPaid = round((float) ($validated['card_paid'] ?? 0), 2);
+            $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
+            $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
+
+            $deliveryEnabled = (bool) ($validated['delivery_enabled'] ?? false);
+            $deliveryAmount = $deliveryEnabled
+                ? round((float) ($validated['delivery_amount'] ?? 0), 2)
+                : 0;
+
+            $totals = $this->calculateTotals(
+                $itemsPayload,
+                $cashPaid,
+                $cardPaid,
+                $advanceAmount,
+                $taxAmount,
+                $deliveryAmount
+            );
+
+            $orderStatus = $validated['order_status'] ?? $previousOrderStatus;
+
+            $payload = [
                 'invoice_date' => $validated['invoice_date'],
                 'customer_name' => $validated['customer_name'],
                 'customer_contact_number' => $validated['customer_contact_number'],
@@ -371,8 +370,13 @@ class InvoiceController extends Controller
                 'status' => $submitAction === 'finalize'
                     ? 'finalized'
                     : ($validated['status'] ?? $invoice->status ?? 'draft'),
-            ]);
+                'order_status' => $orderStatus,
+            ];
 
+            $payload = $this->applyOrderStatusMutations($payload, $orderStatus);
+            $this->guardOrderStatusRequirements($payload);
+
+            $invoice->update($payload);
             $invoice->items()->delete();
 
             foreach ($itemsPayload as $index => $item) {
@@ -382,21 +386,99 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            if ($submitAction === 'finalize') {
-                if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
-                    Storage::disk('public')->delete($invoice->pdf_path);
-                }
+            $needsPdf = $submitAction === 'finalize'
+                || $this->shouldSendOrderStatusEmail($previousOrderStatus, $orderStatus)
+                || in_array($orderStatus, ['dispatched', 'delivered', 'cancelled'], true);
 
-                $path = $this->generateAndStorePdf($invoice->fresh('items'));
+            if ($needsPdf) {
+                $path = $this->regeneratePdf($invoice->fresh('items'));
                 $invoice->update(['pdf_path' => $path]);
             }
+
+            $this->syncLinkedOrder($invoice);
+
+            return [
+                'invoice' => $invoice->fresh('items'),
+                'previous_order_status' => $previousOrderStatus,
+                'should_send_status_mail' => $this->shouldSendOrderStatusEmail($previousOrderStatus, $orderStatus),
+            ];
         });
 
+        if ($result['should_send_status_mail']) {
+            $this->sendOrderStatusEmail($result['invoice']);
+        }
+
         return redirect()
-            ->route('invoices.edit', $invoice)
+            ->route('invoices.edit', $result['invoice'])
             ->with('success', $submitAction === 'finalize'
                 ? 'Invoice updated and PDF regenerated.'
                 : 'Invoice updated.');
+    }
+
+    public function updateOrderStatus(Request $request, Invoice $invoice)
+    {
+        $validated = $request->validate([
+            'order_status' => ['required', Rule::in(self::ORDER_STATUSES)],
+        ]);
+
+        $result = DB::transaction(function () use ($invoice, $validated) {
+            $invoice->refresh();
+            $previousOrderStatus = $invoice->order_status ?? 'reserved';
+            $newOrderStatus = $validated['order_status'];
+
+            $payload = [
+                'status' => $invoice->status,
+                'order_status' => $newOrderStatus,
+                'delivery_enabled' => (bool) $invoice->delivery_enabled,
+                'delivery_payment_status' => $invoice->delivery_payment_status,
+                'tracking_id' => $invoice->tracking_id,
+                'delivery_agent' => $invoice->delivery_agent,
+                'grand_total' => (float) $invoice->grand_total,
+                'payment_type' => $invoice->payment_type,
+                'cash_paid' => (float) $invoice->cash_paid,
+                'card_paid' => (float) $invoice->card_paid,
+                'advance_amount' => (float) $invoice->advance_amount,
+                'paid_amount' => (float) $invoice->paid_amount,
+                'balance_due' => (float) $invoice->balance_due,
+            ];
+
+            $payload = $this->applyOrderStatusMutations($payload, $newOrderStatus);
+            $this->guardOrderStatusRequirements($payload);
+
+            $invoice->update([
+                'status' => $payload['status'],
+                'order_status' => $payload['order_status'],
+                'delivery_payment_status' => $payload['delivery_payment_status'] ?? $invoice->delivery_payment_status,
+                'payment_type' => $payload['payment_type'],
+                'cash_paid' => $payload['cash_paid'],
+                'card_paid' => $payload['card_paid'],
+                'advance_amount' => $payload['advance_amount'],
+                'paid_amount' => $payload['paid_amount'],
+                'balance_due' => $payload['balance_due'],
+            ]);
+
+            $path = $this->regeneratePdf($invoice->fresh('items'));
+            $invoice->update(['pdf_path' => $path]);
+
+            $this->syncLinkedOrder($invoice);
+
+            return [
+                'invoice' => $invoice->fresh('items'),
+                'should_send_status_mail' => $this->shouldSendOrderStatusEmail($previousOrderStatus, $newOrderStatus),
+            ];
+        });
+
+        if ($result['should_send_status_mail']) {
+            $this->sendOrderStatusEmail($result['invoice']);
+        }
+
+        return response()->json([
+            'message' => 'Order status updated successfully.',
+            'invoice_id' => $result['invoice']->id,
+            'order_status' => $result['invoice']->order_status,
+            'invoice_status' => $result['invoice']->status,
+            'payment_type' => $result['invoice']->payment_type,
+        ]);
     }
 
     public function destroy(Invoice $invoice)
@@ -416,11 +498,7 @@ class InvoiceController extends Controller
     {
         $invoice->load('items');
 
-        if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
-            Storage::disk('public')->delete($invoice->pdf_path);
-        }
-
-        $path = $this->generateAndStorePdf($invoice);
+        $path = $this->regeneratePdf($invoice);
         $invoice->update(['pdf_path' => $path]);
 
         return response()
@@ -433,11 +511,7 @@ class InvoiceController extends Controller
     {
         $invoice->load('items');
 
-        if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
-            Storage::disk('public')->delete($invoice->pdf_path);
-        }
-
-        $path = $this->generateAndStorePdf($invoice);
+        $path = $this->regeneratePdf($invoice);
         $invoice->update(['pdf_path' => $path]);
 
         return response()->download(
@@ -472,6 +546,7 @@ class InvoiceController extends Controller
             'notes' => ['nullable', 'string'],
             'terms' => ['nullable', 'string'],
             'status' => ['nullable', 'in:draft,finalized,cancelled'],
+            'order_status' => ['required', Rule::in(self::ORDER_STATUSES)],
             'submit_action' => ['nullable', 'in:draft,finalize'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_type' => ['required', 'in:tech,shoe'],
@@ -597,41 +672,42 @@ class InvoiceController extends Controller
         return 'advance';
     }
 
-   protected function nextInvoiceNumber(): string
-{
-    $latestInvoiceNo = Invoice::query()
-        ->latest('id')
-        ->value('invoice_no');
-
-    return $this->formatNextInvoiceNumber($latestInvoiceNo);
-}
-protected function nextInvoiceNumberForUpdate(): string
-{
-    $latestInvoiceNo = optional(
-        Invoice::query()
-            ->select('id', 'invoice_no')
-            ->lockForUpdate()
+    protected function nextInvoiceNumber(): string
+    {
+        $latestInvoiceNo = Invoice::query()
             ->latest('id')
-            ->first()
-    )->invoice_no;
+            ->value('invoice_no');
 
-    return $this->formatNextInvoiceNumber($latestInvoiceNo);
-}
+        return $this->formatNextInvoiceNumber($latestInvoiceNo);
+    }
 
-protected function formatNextInvoiceNumber(?string $latestInvoiceNo): string
-{
-    if (!$latestInvoiceNo) {
+    protected function nextInvoiceNumberForUpdate(): string
+    {
+        $latestInvoiceNo = optional(
+            Invoice::query()
+                ->select('id', 'invoice_no')
+                ->lockForUpdate()
+                ->latest('id')
+                ->first()
+        )->invoice_no;
+
+        return $this->formatNextInvoiceNumber($latestInvoiceNo);
+    }
+
+    protected function formatNextInvoiceNumber(?string $latestInvoiceNo): string
+    {
+        if (!$latestInvoiceNo) {
+            return 'INV-001';
+        }
+
+        if (preg_match('/(\d+)$/', $latestInvoiceNo, $matches)) {
+            $next = ((int) $matches[1]) + 1;
+
+            return 'INV-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+        }
+
         return 'INV-001';
     }
-
-    if (preg_match('/(\d+)$/', $latestInvoiceNo, $matches)) {
-        $next = ((int) $matches[1]) + 1;
-
-        return 'INV-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
-    }
-
-    return 'INV-001';
-}
 
     protected function generateAndStorePdf(Invoice $invoice): string
     {
@@ -759,5 +835,195 @@ protected function formatNextInvoiceNumber(?string $latestInvoiceNo): string
                 ];
             })
             ->values();
+    }
+
+    protected function guardOrderStatusRequirements(array $payload): void
+    {
+        if (($payload['order_status'] ?? 'reserved') === 'dispatched') {
+            if (blank($payload['tracking_id'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'tracking_id' => 'Tracking ID is required before setting the order as dispatched.',
+                ]);
+            }
+
+            if (blank($payload['delivery_agent'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'delivery_agent' => 'Delivery agent is required before setting the order as dispatched.',
+                ]);
+            }
+        }
+    }
+
+    protected function applyOrderStatusMutations(array $payload, string $orderStatus): array
+    {
+        $payload['order_status'] = $orderStatus;
+
+        if ($orderStatus === 'delivered') {
+            $grandTotal = round((float) ($payload['grand_total'] ?? 0), 2);
+
+            $payload['status'] = 'finalized';
+            $payload['payment_type'] = 'cash';
+            $payload['cash_paid'] = $grandTotal;
+            $payload['card_paid'] = 0;
+            $payload['advance_amount'] = 0;
+            $payload['paid_amount'] = $grandTotal;
+            $payload['balance_due'] = 0;
+
+            if (($payload['delivery_enabled'] ?? false) === true) {
+                $payload['delivery_payment_status'] = 'paid';
+            }
+        }
+
+        if ($orderStatus === 'cancelled') {
+            $payload['status'] = 'cancelled';
+        }
+
+        return $payload;
+    }
+
+    protected function shouldSendOrderStatusEmail(?string $previousStatus, string $newStatus): bool
+    {
+        if ($previousStatus === $newStatus) {
+            return false;
+        }
+
+        return in_array($newStatus, ['confirmed', 'dispatched', 'delivered', 'cancelled'], true);
+    }
+
+    protected function sendOrderStatusEmail(Invoice $invoice): void
+    {
+        if (blank($invoice->customer_email)) {
+            return;
+        }
+
+        try {
+            $mail = new InvoiceOrderStatusMail($invoice, $invoice->order_status);
+
+            if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
+                $mail->attach(Storage::disk('public')->path($invoice->pdf_path), [
+                    'as' => $invoice->invoice_no . '.pdf',
+                    'mime' => 'application/pdf',
+                ]);
+            }
+
+            Mail::to($invoice->customer_email)->send($mail);
+        } catch (\Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
+    protected function regeneratePdf(Invoice $invoice): string
+    {
+        if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
+            Storage::disk('public')->delete($invoice->pdf_path);
+        }
+
+        return $this->generateAndStorePdf($invoice);
+    }
+
+    protected function syncLinkedOrder(Invoice $invoice): void
+    {
+        Order::query()
+            ->where('order_number', $invoice->invoice_no)
+            ->update([
+                'status' => $invoice->order_status,
+            ]);
+    }
+
+    protected function invoiceStatusBadge(?string $status): string
+    {
+        return match ($status) {
+            'finalized' => '<span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Finalized</span>',
+            'cancelled' => '<span class="inline-flex items-center rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">Cancelled</span>',
+            default => '<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Draft</span>',
+        };
+    }
+
+    protected function paymentTypeBadge(?string $paymentType): string
+    {
+        $label = ucfirst(str_replace('_', ' ', (string) $paymentType));
+
+        return match ($paymentType) {
+            'cash' => '<span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">' . e($label) . '</span>',
+            'card' => '<span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">' . e($label) . '</span>',
+            'mixed' => '<span class="inline-flex items-center rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">' . e($label) . '</span>',
+            'advance' => '<span class="inline-flex items-center rounded-full bg-cyan-100 px-3 py-1 text-xs font-semibold text-cyan-700">' . e($label) . '</span>',
+            default => '<span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Unpaid</span>',
+        };
+    }
+
+    protected function renderOrderStatusDropdown(Invoice $invoice): string
+    {
+        $buttonClasses = $this->orderStatusButtonClasses($invoice->order_status ?? 'reserved');
+        $label = ucfirst(str_replace('_', ' ', $invoice->order_status ?? 'reserved'));
+
+        $items = collect(self::ORDER_STATUSES)
+            ->map(function (string $status) use ($invoice) {
+                $active = ($invoice->order_status ?? 'reserved') === $status;
+                $icon = $active ? '<span class="text-emerald-600">●</span>' : '<span class="text-slate-300">●</span>';
+
+                return '
+                    <button
+                        type="button"
+                        data-action="change-order-status"
+                        data-id="' . $invoice->id . '"
+                        data-status="' . e($status) . '"
+                        class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <span>' . e(ucfirst($status)) . '</span>
+                        ' . $icon . '
+                    </button>
+                ';
+            })
+            ->implode('');
+
+        return '
+            <div class="table-dropdown relative inline-block text-left">
+                <button
+                    type="button"
+                    data-action="toggle-dropdown"
+                    class="inline-flex min-w-[148px] items-center justify-between gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm transition hover:-translate-y-[1px] ' . $buttonClasses . '"
+                >
+                    <span>' . e($label) . '</span>
+                    <svg class="h-4 w-4 text-current" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.173l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+                </button>
+                <div class="table-dropdown-menu invisible absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 ease-out">
+                    ' . $items . '
+                </div>
+            </div>
+        ';
+    }
+
+    protected function renderActionsDropdown(Invoice $invoice): string
+    {
+        return '
+            <div class="table-dropdown relative inline-block text-left">
+                <button
+                    type="button"
+                    data-action="toggle-dropdown"
+                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-[1px] hover:bg-slate-50"
+                >
+                    <span>Actions</span>
+                    <svg class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.173l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+                </button>
+                <div class="table-dropdown-menu invisible absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-200 ease-out">
+                    <button type="button" data-action="view" data-id="' . $invoice->id . '" class="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50">View PDF</button>
+                    <button type="button" data-action="download" data-id="' . $invoice->id . '" class="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50">Download PDF</button>
+                    <button type="button" data-action="edit" data-id="' . $invoice->id . '" data-name="' . e($invoice->invoice_no) . '" class="flex w-full rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50">Edit Invoice</button>
+                    <button type="button" data-action="delete" data-id="' . $invoice->id . '" data-name="' . e($invoice->invoice_no) . '" class="flex w-full rounded-xl px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50">Delete</button>
+                </div>
+            </div>
+        ';
+    }
+
+    protected function orderStatusButtonClasses(string $status): string
+    {
+        return match ($status) {
+            'confirmed' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+            'dispatched' => 'border-blue-200 bg-blue-50 text-blue-700',
+            'delivered' => 'border-violet-200 bg-violet-50 text-violet-700',
+            'cancelled' => 'border-rose-200 bg-rose-50 text-rose-700',
+            default => 'border-amber-200 bg-amber-50 text-amber-700',
+        };
     }
 }

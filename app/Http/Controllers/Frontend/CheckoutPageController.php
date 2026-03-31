@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Mail\InvoiceOrderStatusMail;
 use App\Mail\NewOrderAdminNotificationMail;
-use App\Mail\OrderConfirmationMail;
 use App\Models\Invoice;
 use App\Models\Order;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -58,7 +58,6 @@ class CheckoutPageController extends Controller
 
         $shippingFee = round((float) data_get($validated, 'shipping_method.fee', 0), 2);
         $grandTotal = round($subtotal + $shippingFee, 2);
-
         $normalizedPhone = '0' . preg_replace('/\D+/', '', $validated['phone']);
 
         $result = DB::transaction(function () use ($validated, $subtotal, $shippingFee, $grandTotal, $normalizedPhone) {
@@ -130,10 +129,7 @@ class CheckoutPageController extends Controller
 
             try {
                 $pdfPath = $this->generateAndStoreInvoicePdf($invoice->fresh('items'));
-
-                $invoice->update([
-                    'pdf_path' => $pdfPath,
-                ]);
+                $invoice->update(['pdf_path' => $pdfPath]);
             } catch (Throwable $throwable) {
                 report($throwable);
             }
@@ -163,17 +159,19 @@ class CheckoutPageController extends Controller
         $adminNotificationEmail = env('ORDER_NOTIFICATION_EMAIL', config('mail.from.address'));
 
         try {
-            $customerMail = new OrderConfirmationMail($order);
+            if (!empty($invoice->customer_email)) {
+                $customerMail = new InvoiceOrderStatusMail($invoice, 'confirmed');
 
-            if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
-                $customerMail->attach(Storage::disk('public')->path($invoice->pdf_path), [
-                    'as' => $invoice->invoice_no . '.pdf',
-                    'mime' => 'application/pdf',
-                ]);
+                if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
+                    $customerMail->attach(Storage::disk('public')->path($invoice->pdf_path), [
+                        'as' => $invoice->invoice_no . '.pdf',
+                        'mime' => 'application/pdf',
+                    ]);
+                }
+
+                Mail::to($invoice->customer_email)->send($customerMail);
+                $customerMailSent = true;
             }
-
-            Mail::to($order->email)->send($customerMail);
-            $customerMailSent = true;
         } catch (Throwable $throwable) {
             report($throwable);
         }
@@ -285,6 +283,7 @@ class CheckoutPageController extends Controller
             'notes' => $notes ?: null,
             'terms' => 'Auto-created from web order. Remaining invoice details can be updated from admin.',
             'status' => 'draft',
+            'order_status' => 'confirmed',
         ]);
     }
 

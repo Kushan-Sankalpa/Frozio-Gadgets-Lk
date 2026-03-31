@@ -4,6 +4,8 @@ import { Head, Link, useForm } from '@inertiajs/vue3'
 import { computed, reactive, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
+type OrderStatus = 'reserved' | 'confirmed' | 'dispatched' | 'delivered' | 'cancelled'
+
 type TechProduct = {
   id: number
   label: string
@@ -79,6 +81,7 @@ type InvoicePayload = {
   notes?: string | null
   terms?: string | null
   status: 'draft' | 'finalized' | 'cancelled'
+  order_status: OrderStatus
   pdf_path?: string | null
   pdf_url?: string | null
   items: InvoiceItem[]
@@ -100,6 +103,14 @@ const props = defineProps<{
 }>()
 
 const isEdit = computed(() => props.mode === 'edit' && !!props.invoice?.id)
+
+const orderStatusOptions = [
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'dispatched', label: 'Dispatched' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' },
+] as const
 
 const deliveryMethodOptions = [
   { value: 'cash_on_delivery', label: 'Cash on Delivery' },
@@ -145,6 +156,7 @@ const form = useForm({
   notes: props.invoice?.notes ?? '',
   terms: props.invoice?.terms ?? '',
   status: props.invoice?.status ?? 'draft',
+  order_status: props.invoice?.order_status ?? 'reserved',
   submit_action: 'draft',
   items: (props.invoice?.items ?? []).map((item, index) => ({
     ...item,
@@ -278,6 +290,22 @@ const deliveryAgentPreviewLabel = computed(() =>
   deliveryAgentLabelMap[form.delivery_agent as keyof typeof deliveryAgentLabelMap] ?? '-'
 )
 
+const orderStatusHelper = computed(() => {
+  if (form.order_status === 'dispatched') {
+    return 'Tracking ID and delivery agent are required before dispatch.'
+  }
+
+  if (form.order_status === 'delivered') {
+    return 'Delivered will auto-finalize the invoice and mark the full amount as cash paid.'
+  }
+
+  if (form.order_status === 'cancelled') {
+    return 'Cancelled will mark the invoice status as cancelled.'
+  }
+
+  return ''
+})
+
 function resetDraftItem(type: 'tech' | 'shoe' = 'tech') {
   draftItem.item_no = form.items.length + 1
   draftItem.product_type = type
@@ -402,6 +430,26 @@ watch(
   () => syncSuggestedCardAmount()
 )
 
+watch(
+  () => [form.order_status, grandTotal.value],
+  ([status]) => {
+    if (status === 'delivered') {
+      form.status = 'finalized'
+      form.cash_paid = Number(grandTotal.value.toFixed(2))
+      form.card_paid = 0
+      form.advance_amount = 0
+      if (form.delivery_enabled) {
+        form.delivery_payment_status = 'paid'
+      }
+    }
+
+    if (status === 'cancelled') {
+      form.status = 'cancelled'
+    }
+  },
+  { immediate: true }
+)
+
 function recalcDraft() {
   const regularPrice = Number(draftItem.regular_price || 0)
   const qty = Math.max(1, Number(draftItem.qty || 1))
@@ -501,6 +549,7 @@ function resetForm() {
   form.notes = ''
   form.terms = ''
   form.status = 'draft'
+  form.order_status = 'reserved'
   form.items = []
   cardAutoSuggested.value = true
   resetDraftItem('tech')
@@ -522,6 +571,7 @@ function submit(action: 'draft' | 'finalize') {
     card_paid: Number(form.card_paid || 0),
     advance_amount: Number(form.advance_amount || 0),
     tax_amount: Number(form.tax_amount || 0),
+    order_status: form.order_status,
     items: form.items.map((item, index) => ({
       ...item,
       item_no: index + 1,
@@ -637,8 +687,8 @@ function submit(action: 'draft' | 'finalize') {
                 />
               </div>
 
-              <div class="md:col-span-2">
-                <label class="mb-1 block text-sm font-medium text-neutral-700">Status</label>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Invoice Status</label>
                 <select
                   v-model="form.status"
                   class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
@@ -647,6 +697,24 @@ function submit(action: 'draft' | 'finalize') {
                   <option value="finalized">Finalized</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-neutral-700">Order Status</label>
+                <select
+                  v-model="form.order_status"
+                  class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
+                >
+                  <option
+                    v-for="option in orderStatusOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+                <p v-if="orderStatusHelper" class="mt-1 text-xs text-neutral-500">{{ orderStatusHelper }}</p>
+                <p v-if="form.errors.order_status" class="mt-1 text-sm text-red-600">{{ form.errors.order_status }}</p>
               </div>
 
               <div class="md:col-span-2">
@@ -809,7 +877,7 @@ function submit(action: 'draft' | 'finalize') {
                   <input
                     v-model="form.tracking_id"
                     type="text"
-                    placeholder="EC1234"
+                    placeholder="TRK-12345"
                     class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
                   />
                   <p v-if="form.errors.tracking_id" class="mt-1 text-sm text-red-600">{{ form.errors.tracking_id }}</p>
@@ -943,11 +1011,7 @@ function submit(action: 'draft' | 'finalize') {
                   class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
                 >
                   <option :value="null">Select tech product</option>
-                  <option
-                    v-for="product in filteredTechProducts"
-                    :key="product.id"
-                    :value="product.id"
-                  >
+                  <option v-for="product in filteredTechProducts" :key="product.id" :value="product.id">
                     {{ product.label }}
                   </option>
                 </select>
@@ -1080,11 +1144,7 @@ function submit(action: 'draft' | 'finalize') {
                   class="w-full rounded-xl border border-neutral-200 px-4 py-2 outline-none focus:border-red-500"
                 >
                   <option :value="null">Select shoe product</option>
-                  <option
-                    v-for="product in filteredShoeProducts"
-                    :key="product.id"
-                    :value="product.id"
-                  >
+                  <option v-for="product in filteredShoeProducts" :key="product.id" :value="product.id">
                     {{ product.label }}
                   </option>
                 </select>
@@ -1282,22 +1342,22 @@ function submit(action: 'draft' | 'finalize') {
           </div>
 
           <div class="mx-auto max-w-[800px] overflow-hidden rounded-2xl border border-[#012d62]/20 bg-white text-sm text-slate-800 shadow-sm">
-  <div class="h-2 bg-[#012d62]" />
+            <div class="h-2 bg-[#012d62]" />
 
             <div class="p-6">
               <div class="border-b-2 border-[#012d62]/15 pb-6">
                 <div class="grid grid-cols-2 items-start gap-8">
                   <div>
                     <div class="mb-4">
-                     <img
+                      <img
                         v-if="shop.logo_url"
                         :src="shop.logo_url"
                         alt="Logo"
                         class="max-h-[62px] max-w-[220px] object-contain object-left"
                       />
                       <div v-else class="text-[34px] font-bold text-[#012d62]">
-  {{ shop.name }}
-</div>
+                        {{ shop.name }}
+                      </div>
                     </div>
 
                     <div class="space-y-1 text-[15px] leading-7 text-slate-700">
@@ -1315,10 +1375,10 @@ function submit(action: 'draft' | 'finalize') {
 
                   <div class="text-right">
                     <div class="text-[30px] font-bold leading-none tracking-[0.05em] text-[#012d62]">
-  INVOICE
-</div>
+                      INVOICE
+                    </div>
 
-                   <div class="mt-10 ml-auto w-full max-w-[280px] space-y-1 text-[15px] leading-7">
+                    <div class="mt-10 ml-auto w-full max-w-[280px] space-y-1 text-[15px] leading-7">
                       <div class="flex items-start justify-between gap-4">
                         <span class="text-slate-500">Date:</span>
                         <span class="font-semibold text-slate-800">{{ form.invoice_date || '-' }}</span>
@@ -1330,13 +1390,18 @@ function submit(action: 'draft' | 'finalize') {
                       </div>
 
                       <div class="flex items-start justify-between gap-4">
-                        <span class="text-slate-500">Payment Type:</span>
-                        <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span>
+                        <span class="text-slate-500">Invoice Status:</span>
+                        <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span>
                       </div>
 
                       <div class="flex items-start justify-between gap-4">
-                        <span class="text-slate-500">Status:</span>
-                        <span class="font-semibold capitalize text-slate-800">{{ form.status }}</span>
+                        <span class="text-slate-500">Order Status:</span>
+                        <span class="font-semibold capitalize text-slate-800">{{ form.order_status }}</span>
+                      </div>
+
+                      <div class="flex items-start justify-between gap-4">
+                        <span class="text-slate-500">Payment Type:</span>
+                        <span class="font-semibold text-slate-800">{{ paymentTypeLabel }}</span>
                       </div>
                     </div>
                   </div>

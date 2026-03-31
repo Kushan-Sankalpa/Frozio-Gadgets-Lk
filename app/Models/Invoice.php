@@ -39,6 +39,7 @@ class Invoice extends Model
         'notes',
         'terms',
         'status',
+        'order_status',
         'pdf_path',
     ];
 

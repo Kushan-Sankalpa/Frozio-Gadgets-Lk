@@ -64,7 +64,7 @@ class TechProductViewController extends Controller
             ->orderBy('value')
             ->get()
             ->map(fn ($item) => [
-                'id' => $item->id,
+                'id' => (int) $item->id,
                 'label' => trim($item->value . ' ' . $item->unit),
             ])
             ->values();
@@ -77,7 +77,7 @@ class TechProductViewController extends Controller
                 $relatedColor = $product->colors->firstWhere('id', $item->id);
 
                 return [
-                    'id' => $item->id,
+                    'id' => (int) $item->id,
                     'name' => $item->name,
                     'color_code' => $item->color_code,
                     'image_url' => $relatedColor?->image_url ?? $item->image_url,
@@ -99,8 +99,8 @@ class TechProductViewController extends Controller
 
                 return [
                     'id' => $variant->id,
-                    'color_option_id' => $variant->color_option_id,
-                    'storage_option_id' => $variant->storage_option_id,
+                    'color_option_id' => filled($variant->color_option_id) ? (int) $variant->color_option_id : null,
+                    'storage_option_id' => filled($variant->storage_option_id) ? (int) $variant->storage_option_id : null,
                     'sku' => $variant->sku,
                     'price_lkr' => $price,
                     'old_price_lkr' => $discount['old_price'],

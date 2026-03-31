@@ -232,85 +232,87 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $validated = $this->validateInvoice($request);
-        $submitAction = $request->input('submit_action', 'draft');
+   public function store(Request $request)
+{
+    $validated = $this->validateInvoice($request);
+    $submitAction = $request->input('submit_action', 'draft');
 
-        $invoice = DB::transaction(function () use ($validated, $submitAction) {
-            $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
+    $invoice = DB::transaction(function () use ($validated, $submitAction) {
+        $itemsPayload = $this->normalizeItems($validated['items'] ?? []);
 
-            $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
-            $cardPaid = round((float) ($validated['card_paid'] ?? 0), 2);
-            $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
-            $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
+        $cashPaid = round((float) ($validated['cash_paid'] ?? 0), 2);
+        $cardPaid = round((float) ($validated['card_paid'] ?? 0), 2);
+        $advanceAmount = round((float) ($validated['advance_amount'] ?? 0), 2);
+        $taxAmount = round((float) ($validated['tax_amount'] ?? 0), 2);
 
-            $deliveryEnabled = (bool) ($validated['delivery_enabled'] ?? false);
-            $deliveryAmount = $deliveryEnabled
-                ? round((float) ($validated['delivery_amount'] ?? 0), 2)
-                : 0;
+        $deliveryEnabled = (bool) ($validated['delivery_enabled'] ?? false);
+        $deliveryAmount = $deliveryEnabled
+            ? round((float) ($validated['delivery_amount'] ?? 0), 2)
+            : 0;
 
-            $totals = $this->calculateTotals(
-                $itemsPayload,
-                $cashPaid,
-                $cardPaid,
-                $advanceAmount,
-                $taxAmount,
-                $deliveryAmount
-            );
+        $totals = $this->calculateTotals(
+            $itemsPayload,
+            $cashPaid,
+            $cardPaid,
+            $advanceAmount,
+            $taxAmount,
+            $deliveryAmount
+        );
 
-            $invoice = Invoice::create([
-                'invoice_no' => $this->nextInvoiceNumber(),
-                'invoice_date' => $validated['invoice_date'],
-                'customer_name' => $validated['customer_name'],
-                'customer_contact_number' => $validated['customer_contact_number'],
-                'customer_address' => $validated['customer_address'] ?? null,
-                'customer_email' => $validated['customer_email'] ?? null,
-                'sales_person' => $validated['sales_person'] ?? null,
-                'ship_date' => $validated['ship_date'] ?? null,
-                'ship_via' => $validated['ship_via'] ?? null,
-                'delivery_enabled' => $deliveryEnabled,
-                'delivery_method' => $deliveryEnabled ? ($validated['delivery_method'] ?? null) : null,
-                'delivery_payment_status' => $deliveryEnabled ? ($validated['delivery_payment_status'] ?? null) : null,
-                'tracking_id' => $deliveryEnabled ? ($validated['tracking_id'] ?? null) : null,
-                'delivery_agent' => $deliveryEnabled ? ($validated['delivery_agent'] ?? null) : null,
-                'delivery_amount' => $deliveryEnabled ? $totals['delivery_amount'] : null,
-                'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
-                'cash_paid' => $totals['cash_paid'],
-                'card_paid' => $totals['card_paid'],
-                'advance_amount' => $totals['advance_amount'],
-                'paid_amount' => $totals['paid_amount'],
-                'subtotal' => $totals['subtotal'],
-                'total_discount' => $totals['total_discount'],
-                'tax_amount' => $totals['tax_amount'],
-                'grand_total' => $totals['grand_total'],
-                'balance_due' => $totals['balance_due'],
-                'notes' => $validated['notes'] ?? null,
-                'terms' => $validated['terms'] ?? null,
-                'status' => $submitAction === 'finalize' ? 'finalized' : ($validated['status'] ?? 'draft'),
+        $invoiceNo = $this->nextInvoiceNumberForUpdate();
+
+        $invoice = Invoice::create([
+            'invoice_no' => $invoiceNo,
+            'invoice_date' => $validated['invoice_date'],
+            'customer_name' => $validated['customer_name'],
+            'customer_contact_number' => $validated['customer_contact_number'],
+            'customer_address' => $validated['customer_address'] ?? null,
+            'customer_email' => $validated['customer_email'] ?? null,
+            'sales_person' => $validated['sales_person'] ?? null,
+            'ship_date' => $validated['ship_date'] ?? null,
+            'ship_via' => $validated['ship_via'] ?? null,
+            'delivery_enabled' => $deliveryEnabled,
+            'delivery_method' => $deliveryEnabled ? ($validated['delivery_method'] ?? null) : null,
+            'delivery_payment_status' => $deliveryEnabled ? ($validated['delivery_payment_status'] ?? null) : null,
+            'tracking_id' => $deliveryEnabled ? ($validated['tracking_id'] ?? null) : null,
+            'delivery_agent' => $deliveryEnabled ? ($validated['delivery_agent'] ?? null) : null,
+            'delivery_amount' => $deliveryEnabled ? $totals['delivery_amount'] : null,
+            'payment_type' => $this->detectPaymentType($cashPaid, $cardPaid, $advanceAmount),
+            'cash_paid' => $totals['cash_paid'],
+            'card_paid' => $totals['card_paid'],
+            'advance_amount' => $totals['advance_amount'],
+            'paid_amount' => $totals['paid_amount'],
+            'subtotal' => $totals['subtotal'],
+            'total_discount' => $totals['total_discount'],
+            'tax_amount' => $totals['tax_amount'],
+            'grand_total' => $totals['grand_total'],
+            'balance_due' => $totals['balance_due'],
+            'notes' => $validated['notes'] ?? null,
+            'terms' => $validated['terms'] ?? null,
+            'status' => $submitAction === 'finalize' ? 'finalized' : ($validated['status'] ?? 'draft'),
+        ]);
+
+        foreach ($itemsPayload as $index => $item) {
+            $invoice->items()->create([
+                ...$item,
+                'item_no' => $index + 1,
             ]);
+        }
 
-            foreach ($itemsPayload as $index => $item) {
-                $invoice->items()->create([
-                    ...$item,
-                    'item_no' => $index + 1,
-                ]);
-            }
+        if ($submitAction === 'finalize') {
+            $path = $this->generateAndStorePdf($invoice->fresh('items'));
+            $invoice->update(['pdf_path' => $path]);
+        }
 
-            if ($submitAction === 'finalize') {
-                $path = $this->generateAndStorePdf($invoice->fresh('items'));
-                $invoice->update(['pdf_path' => $path]);
-            }
+        return $invoice;
+    });
 
-            return $invoice;
-        });
-
-        return redirect()
-            ->route('invoices.edit', $invoice)
-            ->with('success', $submitAction === 'finalize'
-                ? 'Invoice created and PDF generated.'
-                : 'Invoice saved as draft.');
-    }
+    return redirect()
+        ->route('invoices.edit', $invoice)
+        ->with('success', $submitAction === 'finalize'
+            ? 'Invoice created and PDF generated.'
+            : 'Invoice saved as draft.');
+}
 
     public function update(Request $request, Invoice $invoice)
     {
@@ -595,24 +597,41 @@ class InvoiceController extends Controller
         return 'advance';
     }
 
-    protected function nextInvoiceNumber(): string
-    {
-        $latest = Invoice::query()
+   protected function nextInvoiceNumber(): string
+{
+    $latestInvoiceNo = Invoice::query()
+        ->latest('id')
+        ->value('invoice_no');
+
+    return $this->formatNextInvoiceNumber($latestInvoiceNo);
+}
+protected function nextInvoiceNumberForUpdate(): string
+{
+    $latestInvoiceNo = optional(
+        Invoice::query()
             ->select('id', 'invoice_no')
+            ->lockForUpdate()
             ->latest('id')
-            ->first();
+            ->first()
+    )->invoice_no;
 
-        if (!$latest || !$latest->invoice_no) {
-            return 'INV-001';
-        }
+    return $this->formatNextInvoiceNumber($latestInvoiceNo);
+}
 
-        if (preg_match('/(\d+)$/', $latest->invoice_no, $matches)) {
-            $next = ((int) $matches[1]) + 1;
-            return 'INV-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
-        }
-
+protected function formatNextInvoiceNumber(?string $latestInvoiceNo): string
+{
+    if (!$latestInvoiceNo) {
         return 'INV-001';
     }
+
+    if (preg_match('/(\d+)$/', $latestInvoiceNo, $matches)) {
+        $next = ((int) $matches[1]) + 1;
+
+        return 'INV-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+    }
+
+    return 'INV-001';
+}
 
     protected function generateAndStorePdf(Invoice $invoice): string
     {

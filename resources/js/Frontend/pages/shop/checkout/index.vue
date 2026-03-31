@@ -340,10 +340,9 @@ async function submitOrder() {
         <p class="mx-auto mt-3 max-w-2xl text-sm leading-7 text-emerald-700/80 sm:text-[15px]">
           {{ serverMessage || 'Your order has been confirmed. A confirmation email has been sent to your email address.' }}
         </p>
-        <p v-if="orderNumber" class="mt-3 text-sm font-semibold text-emerald-800">
-          Order Number: {{ orderNumber }}
-        </p>
-
+       <p v-if="orderNumber" class="mt-3 text-sm font-semibold text-emerald-800">
+  Invoice Number: {{ orderNumber }}
+</p>
         <div class="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
           <Link
             :href="route('frontend.tech-products.index')"

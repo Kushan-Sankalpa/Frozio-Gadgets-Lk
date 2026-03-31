@@ -28,6 +28,7 @@ class Order extends Model
         'currency',
         'status',
         'email_sent_at',
+        'admin_email_sent_at',
         'meta',
     ];
 
@@ -36,6 +37,7 @@ class Order extends Model
         'subtotal' => 'decimal:2',
         'grand_total' => 'decimal:2',
         'email_sent_at' => 'datetime',
+        'admin_email_sent_at' => 'datetime',
         'meta' => 'array',
     ];
 

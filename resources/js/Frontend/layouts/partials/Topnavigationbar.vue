@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -63,6 +62,7 @@ const activeTechSubMenu = ref<number | string | null>(null)
 const activeShoeSubMenu = ref<number | string | null>(null)
 
 const searchOpen = ref(false)
+const mobileSearchBarOpen = ref(false)
 const searchQuery = ref('')
 
 const searchSuggestions = ref<SearchSuggestion[]>([])
@@ -123,6 +123,7 @@ watch(
   () => page.url,
   () => {
     openMobileMenu.value = false
+    mobileSearchBarOpen.value = false
     openMobileTech.value = false
     openMobileShoe.value = false
     openMobileTechCategoryId.value = null
@@ -146,19 +147,32 @@ watch(openMobileMenu, async (value) => {
   document.body.style.overflow = value ? 'hidden' : ''
 
   if (value) {
-    await nextTick()
-    mobileSearchInputRef.value?.focus()
+    mobileSearchBarOpen.value = false
   } else {
     closeSuggestionDropdown()
   }
+
+  await nextTick()
 })
 
 watch(searchOpen, async (value) => {
   if (value) {
+    mobileSearchBarOpen.value = false
     await nextTick()
     desktopSearchInputRef.value?.focus()
     openSuggestionDropdownIfNeeded()
-  } else {
+  } else if (!mobileSearchBarOpen.value) {
+    closeSuggestionDropdown()
+  }
+})
+
+watch(mobileSearchBarOpen, async (value) => {
+  if (value) {
+    openMobileMenu.value = false
+    await nextTick()
+    mobileSearchInputRef.value?.focus()
+    openSuggestionDropdownIfNeeded()
+  } else if (!searchOpen.value) {
     closeSuggestionDropdown()
   }
 })
@@ -229,7 +243,26 @@ function openSearchPanel() {
 
 function closeSearchPanel() {
   searchOpen.value = false
-  closeSuggestionDropdown()
+
+  if (!mobileSearchBarOpen.value) {
+    closeSuggestionDropdown()
+  }
+}
+
+function toggleMobileMenu() {
+  if (!openMobileMenu.value) {
+    mobileSearchBarOpen.value = false
+  }
+
+  openMobileMenu.value = !openMobileMenu.value
+}
+
+function toggleMobileSearchBar() {
+  if (!mobileSearchBarOpen.value) {
+    openMobileMenu.value = false
+  }
+
+  mobileSearchBarOpen.value = !mobileSearchBarOpen.value
 }
 
 function submitSearch() {
@@ -265,6 +298,7 @@ function clearSearch() {
   closeSuggestionDropdown()
   submitSearch()
   closeSearchPanel()
+  mobileSearchBarOpen.value = false
 }
 
 function toggleMobileTechCategory(id: number | string) {
@@ -282,6 +316,7 @@ function handleScroll() {
 function handleResize() {
   if (window.innerWidth >= 1280) {
     openMobileMenu.value = false
+    mobileSearchBarOpen.value = false
     openMobileTech.value = false
     openMobileShoe.value = false
     openMobileTechCategoryId.value = null
@@ -295,6 +330,7 @@ function handleKeydown(event: KeyboardEvent) {
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
     openMobileMenu.value = false
+    mobileSearchBarOpen.value = false
     closeSearchPanel()
   }
 }
@@ -310,6 +346,7 @@ function handleClickOutside(event: MouseEvent) {
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
+    mobileSearchBarOpen.value = false
     closeSearchPanel()
     closeSuggestionDropdown()
   }
@@ -466,6 +503,7 @@ function goToSuggestion(suggestion: SearchSuggestion) {
   openMobileTechCategoryId.value = null
   openMobileShoeCategoryId.value = null
   searchOpen.value = false
+  mobileSearchBarOpen.value = false
 
   router.visit(suggestion.target_url, {
     preserveScroll: true,
@@ -514,6 +552,10 @@ function handleSearchInputKeydown(event: KeyboardEvent) {
     if (searchOpen.value) {
       closeSearchPanel()
     }
+
+    if (mobileSearchBarOpen.value) {
+      mobileSearchBarOpen.value = false
+    }
   }
 }
 
@@ -521,6 +563,11 @@ function openCartDrawer() {
   if (openMobileMenu.value) {
     openMobileMenu.value = false
   }
+
+  if (mobileSearchBarOpen.value) {
+    mobileSearchBarOpen.value = false
+  }
+
   openCart()
 }
 
@@ -556,9 +603,51 @@ onBeforeUnmount(() => {
     "
   >
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="flex h-[72px] items-center justify-between">
-        <Link :href="route('frontend.root')" class="flex shrink-0 items-center gap-3">
-          <img src="/assets/images/froziohub-logo.png" alt="Logo" class="h-10 w-auto sm:h-11" />
+      <div class="relative flex h-[72px] items-center justify-between">
+        <button
+          type="button"
+          class="inline-flex navbar-icon-btn xl:hidden"
+          :class="
+            scrolled
+              ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+              : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+          "
+          @click="toggleMobileMenu"
+          :aria-expanded="openMobileMenu ? 'true' : 'false'"
+          aria-label="Toggle menu"
+        >
+          <svg
+            v-if="!openMobileMenu"
+            class="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+          >
+            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+
+          <svg
+            v-else
+            class="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.9"
+          >
+            <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
+        <Link
+          :href="route('frontend.root')"
+          class="absolute left-1/2 top-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center xl:static xl:left-auto xl:top-auto xl:z-auto xl:translate-x-0 xl:translate-y-0 xl:shrink-0"
+        >
+          <img
+            :src="scrolled ? '/assets/images/froziohubcolored.png' : '/assets/images/froziohub_new.png'"
+            alt="FrozioHub"
+            class="h-9 w-auto max-w-[145px] sm:h-10 sm:max-w-[165px] md:h-11 md:max-w-[185px] xl:h-[118px] xl:max-w-none"
+          />
         </Link>
 
         <nav class="hidden items-center gap-8 xl:flex">
@@ -1042,42 +1131,195 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <button
-          type="button"
-          class="inline-flex navbar-icon-btn xl:hidden"
-          :class="
-            scrolled
-              ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
-              : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
-          "
-          @click="openMobileMenu = !openMobileMenu"
-          :aria-expanded="openMobileMenu ? 'true' : 'false'"
-          aria-label="Toggle menu"
-        >
-          <svg
-            v-if="!openMobileMenu"
-            class="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.9"
+        <div class="ml-auto flex items-center gap-2 xl:hidden">
+          <button
+            type="button"
+            :aria-label="mobileSearchBarOpen ? 'Close search' : 'Open search'"
+            :aria-expanded="mobileSearchBarOpen ? 'true' : 'false'"
+            class="inline-flex navbar-icon-btn"
+            :class="
+              scrolled
+                ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+                : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+            "
+            @click="toggleMobileSearchBar"
           >
-            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
+            <svg
+              v-if="!mobileSearchBarOpen"
+              class="h-4.5 w-4.5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
 
-          <svg
-            v-else
-            class="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.9"
+            <svg
+              v-else
+              class="h-4.5 w-4.5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Cart"
+            class="inline-flex navbar-icon-btn relative"
+            :class="
+              scrolled
+                ? 'border-black/10 bg-black/5 text-black hover:border-black/20 hover:bg-transparent'
+                : 'border-white/10 bg-white/8 text-white hover:border-white/20 hover:bg-transparent'
+            "
+            @click="openCartDrawer"
           >
-            <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
+            <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2.4 10.2a1 1 0 00.98.8H18.8a1 1 0 00.97-.76L21 7H7" />
+              <circle cx="10" cy="20" r="1.5" />
+              <circle cx="18" cy="20" r="1.5" />
+            </svg>
+
+            <span class="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#f04f45] px-1 text-[10px] font-bold text-white">
+              {{ cartBadgeCount }}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
+
+    <Transition name="mobile-search-slide">
+      <div
+        v-if="mobileSearchBarOpen"
+        class="border-t xl:hidden"
+        :class="scrolled ? 'border-black/10 bg-white/80' : 'border-white/10 bg-black/95'"
+      >
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div class="relative py-3">
+            <form @submit.prevent="submitSearch" class="relative">
+              <input
+                ref="mobileSearchInputRef"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search products..."
+                class="w-full rounded-2xl border py-3 pl-11 pr-10 text-sm outline-none transition-all duration-300"
+                :class="
+                  scrolled
+                    ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
+                    : 'border-white/10 bg-white/8 text-white placeholder:text-white/45 focus:border-white/20'
+                "
+                @focus="openSuggestionDropdownIfNeeded"
+                @keydown="handleSearchInputKeydown"
+              />
+
+              <span
+                class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+                :class="scrolled ? 'text-black/45' : 'text-white/45'"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </span>
+
+              <button
+                v-if="searchQuery"
+                type="button"
+                @click="clearSearch"
+                class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                :class="scrolled ? 'text-black/45 hover:text-black' : 'text-white/45 hover:text-white'"
+                aria-label="Clear search"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </form>
+
+            <Transition name="dropdown-fade">
+              <div
+                v-if="mobileSearchBarOpen && searchQuery.trim() && (searchDropdownOpen || searchLoading)"
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-[90] overflow-hidden rounded-[24px] border shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+                :class="scrolled ? 'border-black/10 bg-white text-black' : 'border-white/10 bg-black/95 text-white'"
+              >
+                <div
+                  v-if="searchLoading"
+                  class="px-4 py-3 text-sm"
+                  :class="scrolled ? 'text-black/60' : 'text-white/60'"
+                >
+                  Searching products...
+                </div>
+
+                <template v-else>
+                  <button
+                    v-for="(suggestion, index) in searchSuggestions"
+                    :key="`mobile-${suggestion.id}-${suggestion.name}`"
+                    type="button"
+                    class="suggestion-item"
+                    :class="[
+                      index === highlightedSuggestionIndex
+                        ? scrolled
+                          ? 'bg-black/[0.05]'
+                          : 'bg-white/[0.07]'
+                        : '',
+                    ]"
+                    @mouseenter="highlightedSuggestionIndex = index"
+                    @mousedown.prevent="goToSuggestion(suggestion)"
+                  >
+                    <div class="suggestion-thumb">
+                      <img
+                        v-if="suggestion.image_url"
+                        :src="suggestion.image_url"
+                        :alt="suggestion.name"
+                      />
+                      <div
+                        v-else
+                        class="flex h-full w-full items-center justify-center text-[10px] font-semibold"
+                        :class="scrolled ? 'text-black/40' : 'text-white/40'"
+                      >
+                        No Image
+                      </div>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                      <div class="suggestion-name" :class="scrolled ? 'text-black' : 'text-white'">
+                        {{ suggestion.name }}
+                      </div>
+                      <div class="suggestion-type" :class="scrolled ? 'text-black/55' : 'text-white/55'">
+                        {{ suggestion.type_label || 'Product' }}
+                      </div>
+                    </div>
+                  </button>
+
+                  <div
+                    v-if="!searchSuggestions.length"
+                    class="px-4 py-3 text-sm"
+                    :class="scrolled ? 'text-black/60' : 'text-white/60'"
+                  >
+                    No matching products found.
+                  </div>
+                </template>
+              </div>
+            </Transition>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </header>
 
   <Teleport to="body">
@@ -1093,96 +1335,10 @@ onBeforeUnmount(() => {
       <div
         v-if="openMobileMenu"
         ref="mobilePanelRef"
-        class="fixed bottom-0 right-0 top-[72px] z-[80] w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black text-white xl:hidden"
+        class="fixed bottom-0 left-0 top-[72px] z-[80] w-full max-w-sm overflow-y-auto border-r border-white/10 bg-black text-white xl:hidden"
         @click.stop
       >
         <div class="space-y-2 p-5">
-          <div class="relative mb-4">
-            <form @submit.prevent="submitSearch" class="relative">
-              <input
-                ref="mobileSearchInputRef"
-                v-model="searchQuery"
-                type="text"
-                placeholder="Search products..."
-                class="w-full rounded-2xl border border-white/10 bg-white/8 py-3 pl-11 pr-10 text-sm text-white placeholder:text-white/45 outline-none"
-                @focus="openSuggestionDropdownIfNeeded"
-                @keydown="handleSearchInputKeydown"
-              />
-              <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/45">
-                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fill-rule="evenodd"
-                    d="M9 3.5a5.5 5.5 0 104.473 8.702l3.662 3.663a.75.75 0 101.06-1.06l-3.663-3.662A5.5 5.5 0 009 3.5zM5 9a4 4 0 118 0 4 4 0 01-8 0z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </span>
-
-              <button
-                v-if="searchQuery"
-                type="button"
-                @click="clearSearch"
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-white/45 transition-colors hover:text-white"
-                aria-label="Clear search"
-              >
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fill-rule="evenodd"
-                    d="M4.72 4.72a.75.75 0 011.06 0L10 8.94l4.22-4.22a.75.75 0 111.06 1.06L11.06 10l4.22 4.22a.75.75 0 01-1.06 1.06L10 11.06l-4.22 4.22a.75.75 0 01-1.06-1.06L8.94 10 4.72 5.78a.75.75 0 010-1.06z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-            </form>
-
-            <Transition name="dropdown-fade">
-              <div
-                v-if="searchQuery.trim() && (searchDropdownOpen || searchLoading)"
-                class="absolute left-0 right-0 top-[calc(100%+10px)] z-[90] overflow-hidden rounded-[24px] border border-white/10 bg-black/95 text-white shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl"
-              >
-                <div v-if="searchLoading" class="px-4 py-3 text-sm text-white/60">
-                  Searching products...
-                </div>
-
-                <template v-else>
-                  <button
-                    v-for="(suggestion, index) in searchSuggestions"
-                    :key="`mobile-${suggestion.id}-${suggestion.name}`"
-                    type="button"
-                    class="suggestion-item"
-                    :class="index === highlightedSuggestionIndex ? 'bg-white/[0.07]' : ''"
-                    @mouseenter="highlightedSuggestionIndex = index"
-                    @mousedown.prevent="goToSuggestion(suggestion)"
-                  >
-                    <div class="suggestion-thumb">
-                      <img
-                        v-if="suggestion.image_url"
-                        :src="suggestion.image_url"
-                        :alt="suggestion.name"
-                      />
-                      <div class="flex h-full w-full items-center justify-center text-[10px] font-semibold text-white/40">
-                        <template v-if="!suggestion.image_url">No Image</template>
-                      </div>
-                    </div>
-
-                    <div class="min-w-0 flex-1">
-                      <div class="suggestion-name text-white">
-                        {{ suggestion.name }}
-                      </div>
-                      <div class="suggestion-type text-white/55">
-                        {{ suggestion.type_label || 'Product' }}
-                      </div>
-                    </div>
-                  </button>
-
-                  <div v-if="!searchSuggestions.length" class="px-4 py-3 text-sm text-white/60">
-                    No matching products found.
-                  </div>
-                </template>
-              </div>
-            </Transition>
-          </div>
-
           <Link
             :href="route('frontend.root')"
             class="mobile-link"
@@ -1656,7 +1812,27 @@ onBeforeUnmount(() => {
 .panel-slide-enter-from,
 .panel-slide-leave-to {
   opacity: 0;
-  transform: translateX(18px);
+  transform: translateX(-18px);
+}
+
+.mobile-search-slide-enter-active,
+.mobile-search-slide-leave-active {
+  transition: max-height 0.32s ease, opacity 0.28s ease, transform 0.28s ease;
+  overflow: hidden;
+}
+
+.mobile-search-slide-enter-from,
+.mobile-search-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-8px);
+}
+
+.mobile-search-slide-enter-to,
+.mobile-search-slide-leave-from {
+  opacity: 1;
+  max-height: 180px;
+  transform: translateY(0);
 }
 
 .accordion-enter-active,

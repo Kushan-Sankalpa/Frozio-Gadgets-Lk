@@ -3,7 +3,9 @@
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
         <div class="font-semibold text-neutral-800">All Invoices</div>
-        <div class="text-sm text-neutral-500">Search and filter invoices, then change order status or open actions from smooth dropdown menus.</div>
+        <div class="text-sm text-neutral-500">
+          Search and filter invoices instantly, then update order status or open actions from the dropdowns.
+        </div>
       </div>
 
       <button
@@ -15,20 +17,25 @@
       </button>
     </div>
 
-    <div v-if="flashMessage" :class="flashMessage.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" class="rounded-2xl border px-4 py-3 text-sm">
+    <div
+      v-if="flashMessage"
+      :class="flashMessage.type === 'success'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        : 'border-rose-200 bg-rose-50 text-rose-700'"
+      class="rounded-2xl border px-4 py-3 text-sm"
+    >
       {{ flashMessage.text }}
     </div>
 
     <div class="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
-      <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto_auto]">
+      <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
         <div>
           <label class="mb-1 block text-sm font-medium text-neutral-700">Search</label>
           <input
             v-model="filters.q"
             type="text"
-            placeholder="Invoice no / customer name / contact"
+            placeholder="Search invoice no / customer name / contact"
             class="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 outline-none transition focus:border-slate-900"
-            @keyup.enter="applyFilters"
           />
         </div>
 
@@ -62,63 +69,162 @@
           </select>
         </div>
 
-        <button
-          type="button"
-          class="mt-6 inline-flex h-[46px] items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-          @click="applyFilters"
-        >
-          Apply
-        </button>
-
-        <button
-          type="button"
-          class="mt-6 inline-flex h-[46px] items-center justify-center rounded-full border border-neutral-200 px-5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-100"
-          @click="resetFilters"
-        >
-          Reset
-        </button>
+        <div class="flex items-end">
+          <button
+            type="button"
+            class="inline-flex h-[46px] w-full items-center justify-center rounded-full border border-neutral-200 px-5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-100"
+            @click="resetFilters"
+          >
+            Reset
+          </button>
+        </div>
       </div>
     </div>
 
-    <div @click="onTableClick">
-      <DataTable
-        id="invoicesTable"
-        :url="dataUrl"
-        :columns="columns"
-        :columnDefs="columnDefs"
-        :order="[[0, 'desc']]"
-        :reloadKey="reloadKey"
+    <div class="relative overflow-hidden rounded-2xl border border-neutral-200">
+      <div
+        v-if="tableLoading"
+        class="absolute inset-0 z-10 flex items-center justify-center bg-white/75 backdrop-blur-[1px]"
       >
-        <template #header>
-          <tr>
-            <th style="width: 70px;">#</th>
-            <th>Invoice No</th>
-            <th>Date</th>
-            <th>Customer</th>
-            <th>Contact</th>
-            <th>Sales Person</th>
-            <th style="width: 190px;">Order Status</th>
-            <th>Invoice Status</th>
-            <th>Payment</th>
-            <th>Total</th>
-            <th>Paid</th>
-            <th>Balance</th>
-            <th style="width: 170px;">Actions</th>
-          </tr>
-        </template>
-      </DataTable>
+        <div class="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-3 shadow-sm">
+          <svg class="h-5 w-5 animate-spin text-slate-700" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <span class="text-sm font-medium text-slate-700">Loading invoices...</span>
+        </div>
+      </div>
+
+      <div
+        v-if="statusUpdateLoading"
+        class="absolute inset-0 z-20 flex items-center justify-center bg-white/80 backdrop-blur-[1px]"
+      >
+        <div class="flex min-w-[280px] items-center gap-3 rounded-2xl border border-blue-200 bg-white px-5 py-4 shadow-lg">
+          <svg class="h-5 w-5 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <div>
+            <div class="text-sm font-semibold text-slate-800">Updating order status</div>
+            <div class="text-xs text-slate-500">Please wait while the invoice updates and email is sent.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto" @click="onTableClick">
+        <table class="min-w-full border-collapse text-sm">
+          <thead class="bg-neutral-50">
+            <tr>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">#</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Invoice No</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Date</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Customer</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Contact</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Sales Person</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Order Status</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Invoice Status</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Payment</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-right font-semibold text-neutral-700">Total</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-right font-semibold text-neutral-700">Paid</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-right font-semibold text-neutral-700">Balance</th>
+              <th class="border-b border-neutral-200 px-4 py-3 text-left font-semibold text-neutral-700">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-if="!rows.length && !tableLoading">
+              <td colspan="13" class="px-4 py-10 text-center text-sm text-neutral-500">
+                No invoices found.
+              </td>
+            </tr>
+
+            <tr
+              v-for="row in rows"
+              :key="row.id"
+              class="odd:bg-white even:bg-neutral-50/50"
+            >
+              <td class="border-b border-neutral-100 px-4 py-3 text-neutral-700">{{ row.id }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 font-medium text-neutral-800">{{ row.invoice_no }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 text-neutral-700">{{ row.invoice_date || '-' }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 text-neutral-800">{{ row.customer_name }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 text-neutral-700">{{ row.customer_contact_number }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 text-neutral-700">{{ row.sales_person }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3" v-html="row.order_status_dropdown" />
+              <td class="border-b border-neutral-100 px-4 py-3" v-html="row.status_badge" />
+              <td class="border-b border-neutral-100 px-4 py-3" v-html="row.payment_type_badge" />
+              <td class="border-b border-neutral-100 px-4 py-3 text-right text-neutral-800">{{ row.grand_total }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 text-right text-neutral-800">{{ row.paid_amount }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3 text-right text-neutral-800">{{ row.balance_due }}</td>
+              <td class="border-b border-neutral-100 px-4 py-3" v-html="row.actions_dropdown" />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="text-sm text-neutral-600">
+        Showing
+        <span class="font-semibold text-neutral-800">{{ pageStart }}</span>
+        to
+        <span class="font-semibold text-neutral-800">{{ pageEnd }}</span>
+        of
+        <span class="font-semibold text-neutral-800">{{ recordsFiltered }}</span>
+        invoices
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-10 items-center justify-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="currentPage <= 1 || tableLoading || statusUpdateLoading"
+          @click="goToPage(currentPage - 1)"
+        >
+          Previous
+        </button>
+
+        <div class="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700">
+          Page {{ currentPage }} / {{ totalPages }}
+        </div>
+
+        <button
+          type="button"
+          class="inline-flex h-10 items-center justify-center rounded-full border border-neutral-200 px-4 text-sm font-medium text-neutral-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="currentPage >= totalPages || tableLoading || statusUpdateLoading"
+          @click="goToPage(currentPage + 1)"
+        >
+          Next
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import DataTable from '@/Backend/components/DataTable.vue'
+import { onBeforeUnmount, onMounted, reactive, ref, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 
-const reloadKey = ref<number>(0)
+type InvoiceRow = {
+  id: number
+  invoice_no: string
+  invoice_date: string | null
+  customer_name: string
+  customer_contact_number: string
+  sales_person: string
+  order_status_dropdown: string
+  status_badge: string
+  payment_type_badge: string
+  grand_total: string
+  paid_amount: string
+  balance_due: string
+  actions_dropdown: string
+}
+
+const rows = ref<InvoiceRow[]>([])
+const tableLoading = ref(false)
+const statusUpdateLoading = ref(false)
 const flashMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 const filters = reactive({
@@ -127,73 +233,30 @@ const filters = reactive({
   payment_type: '',
 })
 
-const dataUrl = computed(() => {
-  const params = new URLSearchParams()
+const currentPage = ref(1)
+const perPage = ref(10)
+const recordsFiltered = ref(0)
+const recordsTotal = ref(0)
 
-  if (filters.q) params.set('q', filters.q)
-  if (filters.order_status) params.set('order_status_filter', filters.order_status)
-  if (filters.payment_type) params.set('payment_type_filter', filters.payment_type)
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+let filterTimer: ReturnType<typeof setTimeout> | null = null
 
-  const query = params.toString()
-  const url = route('invoices.data')
-
-  return query ? `${url}?${query}` : url
+const totalPages = computed(() => Math.max(1, Math.ceil(recordsFiltered.value / perPage.value)))
+const pageStart = computed(() => {
+  if (!recordsFiltered.value) return 0
+  return ((currentPage.value - 1) * perPage.value) + 1
 })
-
-const columns = [
-  { data: 'id', name: 'id' },
-  { data: 'invoice_no', name: 'invoice_no' },
-  { data: 'invoice_date', name: 'invoice_date' },
-  { data: 'customer_name', name: 'customer_name' },
-  { data: 'customer_contact_number', name: 'customer_contact_number' },
-  { data: 'sales_person', name: 'sales_person' },
-  { data: 'order_status_dropdown', name: 'order_status', orderable: true, searchable: false },
-  { data: 'status_badge', name: 'status', orderable: true, searchable: false },
-  { data: 'payment_type_badge', name: 'payment_type', orderable: true, searchable: false },
-  { data: 'grand_total', name: 'grand_total' },
-  { data: 'paid_amount', name: 'paid_amount' },
-  { data: 'balance_due', name: 'balance_due' },
-  { data: 'actions_dropdown', name: 'actions', orderable: false, searchable: false },
-]
-
-const columnDefs = [
-  { targets: [6, 7, 8, 12], render: (data: any) => data },
-]
-
-function applyFilters() {
-  closeAllDropdowns()
-  reloadKey.value = Date.now()
-}
-
-function resetFilters() {
-  filters.q = ''
-  filters.order_status = ''
-  filters.payment_type = ''
-  applyFilters()
-}
-
-function openCreate() {
-  router.visit(route('invoices.create'))
-}
-
-function openEdit(id: number) {
-  router.visit(route('invoices.edit', id))
-}
-
-function openView(id: number) {
-  window.open(route('invoices.pdf', id), '_blank')
-}
-
-function openDownload(id: number) {
-  window.open(route('invoices.download', id), '_blank')
-}
+const pageEnd = computed(() => {
+  if (!recordsFiltered.value) return 0
+  return Math.min(currentPage.value * perPage.value, recordsFiltered.value)
+})
 
 function showFlash(type: 'success' | 'error', text: string) {
   flashMessage.value = { type, text }
-  window.setTimeout(() => {
-    if (flashMessage.value?.text === text) {
-      flashMessage.value = null
-    }
+
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    flashMessage.value = null
   }, 4000)
 }
 
@@ -223,15 +286,89 @@ function toggleDropdown(button: HTMLElement) {
   menu.classList.add('visible', 'opacity-100', 'scale-100', 'pointer-events-auto')
 }
 
-async function changeOrderStatus(id: number, status: string) {
+async function fetchInvoices() {
+  tableLoading.value = true
+  closeAllDropdowns()
+
   try {
-    await axios.patch(route('invoices.order-status', id), {
+    const response = await axios.get(route('invoices.data'), {
+      params: {
+        draw: 1,
+        start: (currentPage.value - 1) * perPage.value,
+        length: perPage.value,
+        q: filters.q || undefined,
+        order_status_filter: filters.order_status || undefined,
+        payment_type_filter: filters.payment_type || undefined,
+        'order.0.column': 0,
+        'order.0.dir': 'desc',
+      },
+    })
+
+    rows.value = response.data?.data ?? []
+    recordsFiltered.value = Number(response.data?.recordsFiltered ?? 0)
+    recordsTotal.value = Number(response.data?.recordsTotal ?? 0)
+
+    if (currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value
+      await fetchInvoices()
+    }
+  } catch (error) {
+    showFlash('error', 'Could not load invoices.')
+  } finally {
+    tableLoading.value = false
+  }
+}
+
+function queueFilterFetch() {
+  if (filterTimer) clearTimeout(filterTimer)
+
+  filterTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchInvoices()
+  }, 350)
+}
+
+function resetFilters() {
+  filters.q = ''
+  filters.order_status = ''
+  filters.payment_type = ''
+  currentPage.value = 1
+  fetchInvoices()
+}
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return
+  currentPage.value = page
+  fetchInvoices()
+}
+
+function openCreate() {
+  router.visit(route('invoices.create'))
+}
+
+function openEdit(id: number) {
+  router.visit(route('invoices.edit', id))
+}
+
+function openView(id: number) {
+  window.open(route('invoices.pdf', id), '_blank')
+}
+
+function openDownload(id: number) {
+  window.open(route('invoices.download', id), '_blank')
+}
+
+async function changeOrderStatus(id: number, status: string) {
+  statusUpdateLoading.value = true
+  closeAllDropdowns()
+
+  try {
+    const response = await axios.patch(route('invoices.order-status', id), {
       order_status: status,
     })
 
-    closeAllDropdowns()
-    showFlash('success', 'Order status updated and customer email processed.')
-    reloadKey.value = Date.now()
+    showFlash('success', response.data?.message || 'Order status updated successfully.')
+    await fetchInvoices()
   } catch (error: any) {
     const message =
       error?.response?.data?.message ||
@@ -239,8 +376,29 @@ async function changeOrderStatus(id: number, status: string) {
       error?.response?.data?.errors?.delivery_agent?.[0] ||
       'Could not update the order status.'
 
-    closeAllDropdowns()
     showFlash('error', message)
+  } finally {
+    statusUpdateLoading.value = false
+  }
+}
+
+async function deleteInvoice(id: number, name: string) {
+  const ok = confirm(`Delete invoice "${name}"? This cannot be undone.`)
+  if (!ok) return
+
+  try {
+    await router.delete(route('invoices.destroy', id), {
+      preserveScroll: true,
+      onSuccess: () => {
+        showFlash('success', 'Invoice deleted successfully.')
+        fetchInvoices()
+      },
+      onError: () => {
+        showFlash('error', 'Could not delete the invoice.')
+      },
+    })
+  } catch {
+    showFlash('error', 'Could not delete the invoice.')
   }
 }
 
@@ -251,14 +409,6 @@ function handleOutsideClick(event: MouseEvent) {
   }
 }
 
-onMounted(() => {
-  document.addEventListener('click', handleOutsideClick)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleOutsideClick)
-})
-
 function onTableClick(e: MouseEvent) {
   const target = e.target as HTMLElement
 
@@ -266,7 +416,9 @@ function onTableClick(e: MouseEvent) {
   if (toggleBtn) {
     e.preventDefault()
     e.stopPropagation()
-    toggleDropdown(toggleBtn)
+    if (!statusUpdateLoading.value) {
+      toggleDropdown(toggleBtn)
+    }
     return
   }
 
@@ -275,8 +427,11 @@ function onTableClick(e: MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
 
+    if (statusUpdateLoading.value) return
+
     const id = Number(statusBtn.dataset.id)
     const status = String(statusBtn.dataset.status || '')
+
     if (!id || !status) return
 
     changeOrderStatus(id, status)
@@ -311,20 +466,26 @@ function onTableClick(e: MouseEvent) {
   }
 
   if (action === 'delete') {
-    const ok = confirm(`Delete invoice "${name}"? This cannot be undone.`)
-    if (!ok) return
-
-    router.delete(route('invoices.destroy', id), {
-      preserveScroll: true,
-      onSuccess: () => {
-        closeAllDropdowns()
-        showFlash('success', 'Invoice deleted successfully.')
-        reloadKey.value = Date.now()
-      },
-      onError: () => {
-        showFlash('error', 'Could not delete the invoice.')
-      },
-    })
+    deleteInvoice(id, name)
   }
 }
+
+watch(
+  () => [filters.q, filters.order_status, filters.payment_type],
+  () => {
+    queueFilterFetch()
+  }
+)
+
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick)
+  fetchInvoices()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick)
+
+  if (flashTimer) clearTimeout(flashTimer)
+  if (filterTimer) clearTimeout(filterTimer)
+})
 </script>

@@ -69,6 +69,10 @@ const searchSuggestions = ref<SearchSuggestion[]>([])
 const searchLoading = ref(false)
 const searchDropdownOpen = ref(false)
 const highlightedSuggestionIndex = ref(-1)
+const mobileUiSwitching = ref(false)
+
+const MOBILE_MENU_TRANSITION_MS = 280
+const MOBILE_SEARCH_TRANSITION_MS = 240
 
 let dropdownCloseTimer: ReturnType<typeof setTimeout> | null = null
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -119,15 +123,23 @@ const isShoeMenuActive = computed(() => {
 const isContactUsActive = computed(() => currentPath.value === '/contact-us')
 const cartBadgeCount = computed(() => totalItems.value > 99 ? '99+' : String(totalItems.value))
 
+function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function resetMobileAccordionState() {
+  openMobileTech.value = false
+  openMobileShoe.value = false
+  openMobileTechCategoryId.value = null
+  openMobileShoeCategoryId.value = null
+}
+
 watch(
   () => page.url,
   () => {
     openMobileMenu.value = false
     mobileSearchBarOpen.value = false
-    openMobileTech.value = false
-    openMobileShoe.value = false
-    openMobileTechCategoryId.value = null
-    openMobileShoeCategoryId.value = null
+    resetMobileAccordionState()
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
@@ -143,16 +155,15 @@ watch(
   { immediate: true }
 )
 
-watch(openMobileMenu, async (value) => {
+watch(openMobileMenu, (value) => {
   document.body.style.overflow = value ? 'hidden' : ''
 
   if (value) {
     mobileSearchBarOpen.value = false
+    closeSuggestionDropdown()
   } else {
     closeSuggestionDropdown()
   }
-
-  await nextTick()
 })
 
 watch(searchOpen, async (value) => {
@@ -168,7 +179,6 @@ watch(searchOpen, async (value) => {
 
 watch(mobileSearchBarOpen, async (value) => {
   if (value) {
-    openMobileMenu.value = false
     await nextTick()
     mobileSearchInputRef.value?.focus()
     openSuggestionDropdownIfNeeded()
@@ -249,20 +259,56 @@ function closeSearchPanel() {
   }
 }
 
-function toggleMobileMenu() {
-  if (!openMobileMenu.value) {
-    mobileSearchBarOpen.value = false
+async function toggleMobileMenu() {
+  if (mobileUiSwitching.value) return
+
+  if (openMobileMenu.value) {
+    openMobileMenu.value = false
+    return
   }
 
-  openMobileMenu.value = !openMobileMenu.value
+  mobileUiSwitching.value = true
+
+  try {
+    if (mobileSearchBarOpen.value) {
+      mobileSearchBarOpen.value = false
+      closeSuggestionDropdown()
+      await wait(MOBILE_SEARCH_TRANSITION_MS)
+    }
+
+    openMobileMenu.value = true
+  } finally {
+    await wait(40)
+    mobileUiSwitching.value = false
+  }
 }
 
-function toggleMobileSearchBar() {
-  if (!mobileSearchBarOpen.value) {
-    openMobileMenu.value = false
+async function toggleMobileSearchBar() {
+  if (mobileUiSwitching.value) return
+
+  if (mobileSearchBarOpen.value) {
+    mobileSearchBarOpen.value = false
+    closeSuggestionDropdown()
+    return
   }
 
-  mobileSearchBarOpen.value = !mobileSearchBarOpen.value
+  mobileUiSwitching.value = true
+
+  try {
+    if (openMobileMenu.value) {
+      openMobileMenu.value = false
+      resetMobileAccordionState()
+      closeSuggestionDropdown()
+      await wait(MOBILE_MENU_TRANSITION_MS)
+    }
+
+    mobileSearchBarOpen.value = true
+    await nextTick()
+    mobileSearchInputRef.value?.focus()
+  } finally {
+    await wait(40)
+    mobileUiSwitching.value = false
+  }
 }
 
 function submitSearch() {
@@ -317,10 +363,7 @@ function handleResize() {
   if (window.innerWidth >= 1280) {
     openMobileMenu.value = false
     mobileSearchBarOpen.value = false
-    openMobileTech.value = false
-    openMobileShoe.value = false
-    openMobileTechCategoryId.value = null
-    openMobileShoeCategoryId.value = null
+    resetMobileAccordionState()
   }
 }
 
@@ -498,10 +541,7 @@ function goToSuggestion(suggestion: SearchSuggestion) {
   activeShoeSubMenu.value = null
 
   openMobileMenu.value = false
-  openMobileTech.value = false
-  openMobileShoe.value = false
-  openMobileTechCategoryId.value = null
-  openMobileShoeCategoryId.value = null
+  resetMobileAccordionState()
   searchOpen.value = false
   mobileSearchBarOpen.value = false
 
@@ -603,7 +643,7 @@ onBeforeUnmount(() => {
     "
   >
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="relative flex h-[72px] items-center justify-between">
+      <div class="relative flex h-[82px] items-center justify-between sm:h-[86px] xl:h-[72px]">
         <button
           type="button"
           class="inline-flex navbar-icon-btn xl:hidden"
@@ -646,7 +686,7 @@ onBeforeUnmount(() => {
           <img
             :src="scrolled ? '/assets/images/froziohubcolored.png' : '/assets/images/froziohub_new.png'"
             alt="FrozioHub"
-            class="h-9 w-auto max-w-[145px] sm:h-10 sm:max-w-[165px] md:h-11 md:max-w-[185px] xl:h-[118px] xl:max-w-none"
+            class="h-[142px] w-auto max-w-[210px] sm:h-[60px] sm:max-w-[240px] md:h-[66px] md:max-w-[260px] xl:h-[118px] xl:max-w-none"
           />
         </Link>
 
@@ -1210,7 +1250,7 @@ onBeforeUnmount(() => {
                 v-model="searchQuery"
                 type="text"
                 placeholder="Search products..."
-                class="w-full rounded-2xl border py-3 pl-11 pr-10 text-sm outline-none transition-all duration-300"
+                class="w-full rounded-2xl border py-3.5 pl-11 pr-10 text-sm outline-none transition-all duration-300"
                 :class="
                   scrolled
                     ? 'border-black/10 bg-black/5 text-black placeholder:text-black/40 focus:border-black/20'
@@ -1326,7 +1366,7 @@ onBeforeUnmount(() => {
     <Transition name="overlay-fade">
       <div
         v-if="openMobileMenu"
-        class="fixed inset-0 top-[72px] z-[70] bg-black/60 backdrop-blur-sm xl:hidden"
+        class="fixed inset-0 top-[82px] z-[70] bg-black/60 backdrop-blur-sm sm:top-[86px] xl:hidden"
         @click="openMobileMenu = false"
       />
     </Transition>
@@ -1335,7 +1375,7 @@ onBeforeUnmount(() => {
       <div
         v-if="openMobileMenu"
         ref="mobilePanelRef"
-        class="fixed bottom-0 left-0 top-[72px] z-[80] w-full max-w-sm overflow-y-auto border-r border-white/10 bg-black text-white xl:hidden"
+        class="fixed bottom-0 left-0 top-[82px] z-[80] w-full max-w-sm overflow-y-auto border-r border-white/10 bg-black text-white sm:top-[86px] xl:hidden"
         @click.stop
       >
         <div class="space-y-2 p-5">
@@ -1812,26 +1852,27 @@ onBeforeUnmount(() => {
 .panel-slide-enter-from,
 .panel-slide-leave-to {
   opacity: 0;
-  transform: translateX(-18px);
+  transform: translateX(-20px);
 }
 
 .mobile-search-slide-enter-active,
 .mobile-search-slide-leave-active {
-  transition: max-height 0.32s ease, opacity 0.28s ease, transform 0.28s ease;
+  transition: max-height 0.24s ease, opacity 0.2s ease, transform 0.24s ease;
   overflow: hidden;
+  will-change: max-height, opacity, transform;
 }
 
 .mobile-search-slide-enter-from,
 .mobile-search-slide-leave-to {
   opacity: 0;
   max-height: 0;
-  transform: translateY(-8px);
+  transform: translateY(-10px);
 }
 
 .mobile-search-slide-enter-to,
 .mobile-search-slide-leave-from {
   opacity: 1;
-  max-height: 180px;
+  max-height: 220px;
   transform: translateY(0);
 }
 

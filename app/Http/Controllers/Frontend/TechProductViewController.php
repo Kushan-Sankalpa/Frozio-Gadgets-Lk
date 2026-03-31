@@ -28,7 +28,7 @@ class TechProductViewController extends Controller
             ],
         ]);
     }
-
+//kushan
     public function data(Product $product): JsonResponse
     {
         abort_if($product->status !== 'active', 404);
@@ -174,6 +174,7 @@ class TechProductViewController extends Controller
             'product' => [
                 'id' => $product->id,
                 'name' => $product->model,
+
                 'sku' => $product->sku,
                 'short_description' => $product->short_description,
                 'long_description' => $product->long_description,

@@ -1,9 +1,7 @@
-
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
-import StarRating from '@/Frontend/components/StarRating.vue'
 import ProductReviewsPanel from '@/Frontend/components/ProductReviewsPanel.vue'
 
 type BreadcrumbItem = {
@@ -170,6 +168,41 @@ function formatPrice(value: number | null | undefined) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+function clampRating(value: number | null | undefined) {
+  const rating = Number(value ?? 0)
+
+  if (!Number.isFinite(rating)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(5, rating))
+}
+
+function formatRating(value: number | null | undefined) {
+  return clampRating(value).toFixed(1)
+}
+
+function starFillStyle(value: number | null | undefined, starNumber: number) {
+  const rating = clampRating(value)
+  const fill = Math.max(0, Math.min(1, rating - (starNumber - 1)))
+  const unfilledPercent = (1 - fill) * 100
+
+  return {
+    clipPath: `inset(0 ${unfilledPercent}% 0 0)`,
+  }
+}
+
+function ratingAriaLabel(value: number | null | undefined, count: number | null | undefined) {
+  const rating = formatRating(value)
+  const reviews = Number(count ?? 0)
+
+  if (reviews > 0) {
+    return `${rating} out of 5 stars based on ${reviews} reviews`
+  }
+
+  return `${rating} out of 5 stars`
 }
 
 function colorSwatchStyle(color: ProductColor) {
@@ -961,12 +994,41 @@ watch(currentVariant, (variant) => {
               </Transition>
 
               <div class="mt-3">
-                <StarRating
-                  :rating="product.reviews_avg_rating ?? 0"
-                  :count="product.reviews_count ?? 0"
-                  :showCount="true"
-                  size="md"
-                />
+                <div
+                  class="detail-rating"
+                  :aria-label="ratingAriaLabel(product.reviews_avg_rating, product.reviews_count)"
+                  role="img"
+                >
+                  <div class="detail-rating-stars">
+                    <span
+                      v-for="starNumber in 5"
+                      :key="`tech-detail-rating-star-${product.id}-${starNumber}`"
+                      class="detail-rating-star"
+                      aria-hidden="true"
+                    >
+                      <svg viewBox="0 0 24 24" class="detail-rating-star-base">
+                        <path
+                          d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                        />
+                      </svg>
+
+                      <span
+                        class="detail-rating-star-fill"
+                        :style="starFillStyle(product.reviews_avg_rating, starNumber)"
+                      >
+                        <svg viewBox="0 0 24 24" class="detail-rating-star-top">
+                          <path
+                            d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                          />
+                        </svg>
+                      </span>
+                    </span>
+                  </div>
+
+                  <span class="detail-rating-value">
+                    {{ formatRating(product.reviews_avg_rating) }}
+                  </span>
+                </div>
               </div>
 
               <div v-if="product.brand?.logo_url" class="mt-4">
@@ -1299,6 +1361,63 @@ watch(currentVariant, (variant) => {
   transform: translateY(-2px) scale(1.04);
 }
 
+.detail-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 22px;
+}
+
+.detail-rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.detail-rating-star {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.detail-rating-star-base,
+.detail-rating-star-top {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.detail-rating-star-base {
+  color: #d1d5db;
+  fill: currentColor;
+}
+
+.detail-rating-star-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.detail-rating-star-top {
+  color: #f2a536;
+  fill: currentColor;
+}
+
+.detail-rating-value {
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
 .fade-slide-enter-active,
 .fade-slide-leave-active {
   transition:
@@ -1363,6 +1482,22 @@ watch(currentVariant, (variant) => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (min-width: 640px) {
+  .detail-rating-star {
+    width: 20px;
+    height: 20px;
+    flex-basis: 20px;
+  }
+
+  .detail-rating-stars {
+    gap: 4px;
+  }
+
+  .detail-rating-value {
+    font-size: 16px;
   }
 }
 

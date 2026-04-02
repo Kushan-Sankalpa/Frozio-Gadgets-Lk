@@ -603,7 +603,7 @@ watch(currentVariant, (variant) => {
             <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
               <div
                 v-if="thumbnailImages.length"
-                class="order-2 flex gap-3 overflow-x-auto md:order-1 md:flex-col md:overflow-visible"
+                class="order-2 flex gap-3 overflow-x-auto py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
               >
                 <button
                   v-for="image in thumbnailImages"

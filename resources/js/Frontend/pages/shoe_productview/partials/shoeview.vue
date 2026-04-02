@@ -403,7 +403,7 @@ watch(currentVariant, () => {
             <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
               <div
                 v-if="thumbnailImages.length"
-                class="order-2 flex gap-3 overflow-x-auto md:order-1 md:flex-col md:overflow-visible"
+                class="order-2 flex gap-3 overflow-x-auto py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
               >
                 <button
                   v-for="image in thumbnailImages"
@@ -438,7 +438,7 @@ watch(currentVariant, () => {
               </div>
             </div>
 
-            <div class="mt-10 border-b border-slate-200">
+            <div class="mt-10 hidden border-b border-slate-200 lg:block">
               <div class="flex items-end gap-8">
                 <button
                   type="button"
@@ -487,7 +487,7 @@ watch(currentVariant, () => {
               </div>
             </div>
 
-            <div class="pt-6">
+            <div class="hidden pt-6 lg:block">
               <Transition name="tab-fade-up" mode="out-in">
                 <div
                   v-if="activeTab === 'description'"
@@ -669,6 +669,90 @@ watch(currentVariant, () => {
             <div class="mt-6 text-sm text-slate-500">
               <p><span class="font-semibold text-slate-800">Selected Size:</span> {{ selectedSizeLabel }}</p>
               <p class="mt-1"><span class="font-semibold text-slate-800">SKU:</span> {{ currentVariant?.sku || product.sku || 'N/A' }}</p>
+            </div>
+
+            <div class="mt-10 lg:hidden">
+              <div class="border-b border-slate-200">
+                <div class="flex items-end gap-8 overflow-x-auto">
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'description'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('description')"
+                  >
+                    Description
+                    <span
+                      v-if="activeTab === 'description'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'size-chart'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('size-chart')"
+                  >
+                    Size Chart
+                    <span
+                      v-if="activeTab === 'size-chart'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'delivery'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('delivery')"
+                  >
+                    Delivery Information
+                    <span
+                      v-if="activeTab === 'delivery'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div class="pt-6">
+                <Transition name="tab-fade-up" mode="out-in">
+                  <div
+                    v-if="activeTab === 'description'"
+                    key="description-mobile"
+                    class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                    v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+                  />
+
+                  <div
+                    v-else-if="activeTab === 'size-chart'"
+                    key="size-chart-mobile"
+                    class="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4"
+                  >
+                    <img
+                      :src="sizeChartImage"
+                      alt="Size chart"
+                      class="w-full object-contain"
+                    />
+                  </div>
+
+                  <div
+                    v-else
+                    key="delivery-mobile"
+                    class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+                  >
+                    <p v-for="(paragraph, index) in deliveryParagraphs" :key="`mobile-delivery-${index}`">
+                      {{ paragraph }}
+                    </p>
+                  </div>
+                </Transition>
+              </div>
             </div>
           </template>
         </section>

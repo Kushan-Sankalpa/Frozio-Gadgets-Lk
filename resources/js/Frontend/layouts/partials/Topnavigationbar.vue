@@ -1645,7 +1645,7 @@ onBeforeUnmount(() => {
 
 .search-shell-wrap {
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   transition: max-width 0.38s ease, opacity 0.28s ease;
 }
 
@@ -1658,6 +1658,7 @@ onBeforeUnmount(() => {
 .search-shell-wrap--open {
   max-width: 24rem;
   opacity: 1;
+  overflow: visible;
 }
 
 .search-shell {

@@ -416,7 +416,7 @@ class InvoiceController extends Controller
                 : 'Invoice updated.');
     }
 
-    public function updateOrderStatus(Request $request)
+    public function updateorderstatus(Request $request)
     {
 
         Log::info($request->all());

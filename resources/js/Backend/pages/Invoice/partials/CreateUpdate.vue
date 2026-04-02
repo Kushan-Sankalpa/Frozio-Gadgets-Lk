@@ -623,7 +623,7 @@ function submit(action: 'draft' | 'finalize', options: { redirectToList?: boolea
             {{ isEdit ? 'Update Invoice' : 'Create Invoice' }}
           </h1>
           <p class="text-sm text-neutral-500">
-            Build the invoice on the left and preview the PDF layout on the right.
+            Build the invoice on the left and preview the PDF layout on the right
           </p>
         </div>
 

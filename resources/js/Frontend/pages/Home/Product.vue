@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
+import StarRating from '@/Frontend/components/StarRating.vue'
 
 type CategoryItem = {
   id: number | string
@@ -27,6 +28,8 @@ type ProductItem = {
   has_discount: boolean
   discount_label?: string | null
   is_sold_out: boolean
+  reviews_count?: number | null
+  reviews_avg_rating?: number | null
   colors?: ProductColor[]
   url?: string | null
 }
@@ -469,6 +472,24 @@ onBeforeUnmount(() => {
             >
               {{ formatPrice(product.display_price) }}
             </p>
+          </div>
+
+          <div class="mt-2 flex flex-col gap-1">
+            <StarRating
+              :rating="product.reviews_avg_rating ?? 0"
+              :count="product.reviews_count ?? 0"
+              :showCount="true"
+              size="xs"
+            />
+            <div class="flex items-center gap-2 text-xs">
+              <span
+                class="h-2 w-2 rounded-full"
+                :class="product.is_sold_out ? 'bg-red-500' : 'bg-emerald-500'"
+              />
+              <span :class="product.is_sold_out ? 'text-red-600' : 'text-emerald-600'">
+                {{ product.is_sold_out ? 'Out of stock' : 'In stock' }}
+              </span>
+            </div>
           </div>
 
           <div

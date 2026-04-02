@@ -52,6 +52,9 @@ Route::get('/tech-products/{product}', [TechProductViewController::class, 'index
 Route::get('/tech-products/{product}/data', [TechProductViewController::class, 'data'])
     ->name('frontend.tech-products.show.data');
 
+Route::get('/tech-products/{product}/reviews', [TechProductViewController::class, 'reviews'])
+    ->name('frontend.tech-products.show.reviews');
+
 Route::get('/shoe-products', [WebShoeProductController::class, 'index'])
     ->name('frontend.shoe-products.index');
 
@@ -63,6 +66,9 @@ Route::get('/shoe-products/{product}', [ShoeProductViewController::class, 'index
 
 Route::get('/shoe-products/{product}/data', [ShoeProductViewController::class, 'data'])
     ->name('frontend.shoe-products.show.data');
+
+Route::get('/shoe-products/{product}/reviews', [ShoeProductViewController::class, 'reviews'])
+    ->name('frontend.shoe-products.show.reviews');
 
 Route::get('/search/product-suggestions', [ProductSuggestionController::class, 'suggestions'])
     ->name('frontend.products.suggestions');

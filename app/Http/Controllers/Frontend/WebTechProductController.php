@@ -70,6 +70,8 @@ class WebTechProductController extends Controller
                 'category:id,name',
                 'brand:id,name,logo_path',
             ])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->where('status', 'active')
             ->when($normalizedCategory, function ($query) use ($normalizedCategory) {
                 $query->whereHas('category', function ($categoryQuery) use ($normalizedCategory) {
@@ -231,6 +233,8 @@ class WebTechProductController extends Controller
 
         $sameCategoryProducts = Product::query()
             ->with(['category:id,name', 'brand:id,name,logo_path'])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->where('status', 'active')
             ->whereIn('category_id', $categoryIds)
             ->whereNotIn('id', $productIds)
@@ -248,6 +252,8 @@ class WebTechProductController extends Controller
 
             $fallbackProducts = Product::query()
                 ->with(['category:id,name', 'brand:id,name,logo_path'])
+                ->withCount('reviews')
+                ->withAvg('reviews', 'rating')
                 ->where('status', 'active')
                 ->whereNotIn('id', $excludeIds)
                 ->latest('id')
@@ -342,6 +348,8 @@ class WebTechProductController extends Controller
             'has_discount' => $hasDiscount,
             'discount_label' => $discountLabel,
             'is_sold_out' => $isSoldOut,
+            'reviews_count' => (int) ($product->reviews_count ?? 0),
+            'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
             'colors' => $colors,
             'url' => '/tech-products/' . $product->id,
         ];

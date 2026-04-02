@@ -1,0 +1,1 @@
+import{_ as o}from"./ColorList.vue_vue_type_script_setup_true_lang-Pc7sbL0X.js";import"./Datatable-Chxe6Mho.js";import"./app-tcQdAJsC.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

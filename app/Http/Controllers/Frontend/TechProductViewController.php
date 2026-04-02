@@ -41,6 +41,8 @@ class TechProductViewController extends Controller
             'variants',
         ]);
 
+        $product->loadCount('reviews')->loadAvg('reviews', 'rating');
+
         $fallbackProductStock = $product->stock_count !== null
             ? (int) $product->stock_count
             : ((bool) $product->in_stock ? 1 : 0);
@@ -209,8 +211,42 @@ class TechProductViewController extends Controller
                 'default_storage_id' => $displayVariant['storage_option_id'] ?? ($storageOptions->first()['id'] ?? null),
                 'stock_count' => $displayVariant['stock_count'] ?? $fallbackProductStock,
                 'in_stock' => $displayVariant['in_stock'] ?? (((bool) $product->in_stock) && $fallbackProductStock > 0),
+                'reviews_count' => (int) ($product->reviews_count ?? 0),
+                'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
             ],
             'related_products' => $relatedProducts,
+        ]);
+    }
+
+    public function reviews(Product $product): JsonResponse
+    {
+        abort_if($product->status !== 'active', 404);
+
+        $product->loadCount('reviews')->loadAvg('reviews', 'rating');
+
+        $reviews = $product->reviews()
+            ->latest('id')
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => $review->rating !== null ? (int) $review->rating : null,
+                    'customer_name' => $review->customer_name,
+                    'short_description' => $review->short_description,
+                    'long_description' => $review->long_description,
+                    'image_urls' => $review->image_urls ?? [],
+                    'created_at' => $review->created_at?->format('d/m/Y'),
+                    'created_at_iso' => $review->created_at?->toIso8601String(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'summary' => [
+                'reviews_count' => (int) ($product->reviews_count ?? 0),
+                'avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+            ],
+            'reviews' => $reviews,
         ]);
     }
 
@@ -222,6 +258,8 @@ class TechProductViewController extends Controller
 
         return Product::query()
             ->with(['category', 'brand', 'colors', 'variants'])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->where('status', 'active')
             ->where('category_id', $product->category_id)
             ->whereKeyNot($product->id)
@@ -306,6 +344,8 @@ class TechProductViewController extends Controller
             'has_discount' => $discount['has_discount'],
             'discount_label' => $discount['label'],
             'is_sold_out' => !$inStock || $resolvedStock <= 0,
+            'reviews_count' => (int) ($product->reviews_count ?? 0),
+            'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
             'colors' => $product->colors
                 ->sortBy('name')
                 ->map(fn ($color) => [

@@ -1,8 +1,10 @@
 
 <script setup lang="ts">
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
+import StarRating from '@/Frontend/components/StarRating.vue'
+import ProductReviewsPanel from '@/Frontend/components/ProductReviewsPanel.vue'
 
 type BreadcrumbItem = {
   label: string
@@ -82,7 +84,11 @@ type ProductPayload = {
   default_storage_id?: number | string | null
   stock_count?: number | null
   in_stock?: boolean
+  reviews_count?: number | null
+  reviews_avg_rating?: number | null
 }
+
+type TabKey = 'description' | 'specifications' | 'delivery' | 'reviews'
 
 const props = defineProps<{
   loading: boolean
@@ -99,9 +105,28 @@ const selectedColorId = ref<number | string | null>(null)
 const selectedStorageId = ref<number | string | null>(null)
 const activeImage = ref<string | null>(null)
 const quantity = ref(1)
-const activeTab = ref<'description' | 'specifications' | 'delivery'>('description')
+const activeTab = ref<TabKey>('description')
 const flashMessage = ref('')
 const hoveredColorName = ref<string | null>(null)
+
+const desktopTabSentinel = ref<HTMLElement | null>(null)
+const mobileTabSentinel = ref<HTMLElement | null>(null)
+const hasUserScrolled = ref(false)
+const autoOpenedReviews = ref(false)
+const desktopSentinelVisible = ref(false)
+const mobileSentinelVisible = ref(false)
+
+let tabObserver: IntersectionObserver | null = null
+
+const reviewsFetchUrl = computed(() => {
+  const id = props.product?.id
+  if (!id) return ''
+  return `/tech-products/${id}/reviews`
+})
+
+const sentinelInView = computed(() => {
+  return desktopSentinelVisible.value || mobileSentinelVisible.value
+})
 
 const deliveryParagraphs = [
   'We partner with dependable courier providers to ensure each parcel reaches you securely and within the usual delivery window.',
@@ -393,9 +418,99 @@ function selectImage(src: string) {
   activeImage.value = src
 }
 
-function setTab(tab: 'description' | 'specifications' | 'delivery') {
+function setTab(tab: TabKey) {
   activeTab.value = tab
 }
+
+function maybeAutoOpenReviews() {
+  if (autoOpenedReviews.value) return
+  if (activeTab.value === 'reviews') return
+  if (!hasUserScrolled.value) return
+  if (!sentinelInView.value) return
+
+  autoOpenedReviews.value = true
+  setTab('reviews')
+}
+
+function handleScroll() {
+  if (hasUserScrolled.value) return
+  hasUserScrolled.value = true
+  maybeAutoOpenReviews()
+}
+
+function ensureObserver() {
+  if (tabObserver || !('IntersectionObserver' in window)) return
+
+  tabObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (desktopTabSentinel.value && entry.target === desktopTabSentinel.value) {
+          desktopSentinelVisible.value = entry.isIntersecting
+        }
+
+        if (mobileTabSentinel.value && entry.target === mobileTabSentinel.value) {
+          mobileSentinelVisible.value = entry.isIntersecting
+        }
+      })
+
+      maybeAutoOpenReviews()
+    },
+    {
+      root: null,
+      rootMargin: '0px 0px -35% 0px',
+      threshold: 0,
+    }
+  )
+
+  if (desktopTabSentinel.value) {
+    tabObserver.observe(desktopTabSentinel.value)
+  }
+
+  if (mobileTabSentinel.value) {
+    tabObserver.observe(mobileTabSentinel.value)
+  }
+}
+
+watch(desktopTabSentinel, (el, prev) => {
+  if (prev && tabObserver) {
+    tabObserver.unobserve(prev)
+  }
+
+  desktopSentinelVisible.value = false
+
+  if (el) {
+    ensureObserver()
+    tabObserver?.observe(el)
+  }
+})
+
+watch(mobileTabSentinel, (el, prev) => {
+  if (prev && tabObserver) {
+    tabObserver.unobserve(prev)
+  }
+
+  mobileSentinelVisible.value = false
+
+  if (el) {
+    ensureObserver()
+    tabObserver?.observe(el)
+  }
+})
+
+onMounted(() => {
+  if (typeof window === 'undefined') return
+
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  ensureObserver()
+})
+
+onBeforeUnmount(() => {
+  if (typeof window === 'undefined') return
+
+  window.removeEventListener('scroll', handleScroll)
+  tabObserver?.disconnect()
+  tabObserver = null
+})
 
 function decreaseQuantity() {
   quantity.value = Math.max(1, quantity.value - 1)
@@ -684,6 +799,21 @@ watch(currentVariant, (variant) => {
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                   />
                 </button>
+
+                <button
+                  type="button"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                  :class="activeTab === 'reviews'
+                    ? 'font-semibold text-slate-950'
+                    : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="setTab('reviews')"
+                >
+                  Reviews ({{ product.reviews_count ?? 0 }})
+                  <span
+                    v-if="activeTab === 'reviews'"
+                    class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                  />
+                </button>
               </div>
             </div>
 
@@ -738,7 +868,7 @@ watch(currentVariant, (variant) => {
                 </div>
 
                 <div
-                  v-else
+                  v-else-if="activeTab === 'delivery'"
                   key="delivery-desktop"
                   class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
                 >
@@ -746,7 +876,21 @@ watch(currentVariant, (variant) => {
                     {{ paragraph }}
                   </p>
                 </div>
+
+                <div
+                  v-else
+                  key="reviews-desktop"
+                >
+                  <ProductReviewsPanel
+                    :fetchUrl="reviewsFetchUrl"
+                    :active="activeTab === 'reviews'"
+                    :initialCount="product.reviews_count ?? 0"
+                    :initialAvg="product.reviews_avg_rating ?? 0"
+                  />
+                </div>
               </Transition>
+
+              <div ref="desktopTabSentinel" class="h-px w-full" />
             </div>
           </template>
         </section>
@@ -815,6 +959,15 @@ watch(currentVariant, (variant) => {
                   </div>
                 </div>
               </Transition>
+
+              <div class="mt-3">
+                <StarRating
+                  :rating="product.reviews_avg_rating ?? 0"
+                  :count="product.reviews_count ?? 0"
+                  :showCount="true"
+                  size="md"
+                />
+              </div>
 
               <div v-if="product.brand?.logo_url" class="mt-4">
                 <img
@@ -993,6 +1146,21 @@ watch(currentVariant, (variant) => {
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                     />
                   </button>
+
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'reviews'
+                      ? 'font-semibold text-slate-950'
+                      : 'font-medium text-slate-500 hover:text-slate-900'"
+                    @click="setTab('reviews')"
+                  >
+                    Reviews ({{ product.reviews_count ?? 0 }})
+                    <span
+                      v-if="activeTab === 'reviews'"
+                      class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
+                    />
+                  </button>
                 </div>
               </div>
 
@@ -1037,7 +1205,7 @@ watch(currentVariant, (variant) => {
                   </div>
 
                   <div
-                    v-else
+                    v-else-if="activeTab === 'delivery'"
                     key="delivery-mobile"
                     class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
                   >
@@ -1045,7 +1213,21 @@ watch(currentVariant, (variant) => {
                       {{ paragraph }}
                     </p>
                   </div>
+
+                  <div
+                    v-else
+                    key="reviews-mobile"
+                  >
+                    <ProductReviewsPanel
+                      :fetchUrl="reviewsFetchUrl"
+                      :active="activeTab === 'reviews'"
+                      :initialCount="product.reviews_count ?? 0"
+                      :initialAvg="product.reviews_avg_rating ?? 0"
+                    />
+                  </div>
                 </Transition>
+
+                <div ref="mobileTabSentinel" class="h-px w-full" />
               </div>
             </div>
           </template>

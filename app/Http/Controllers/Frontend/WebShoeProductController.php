@@ -53,6 +53,8 @@ class WebShoeProductController extends Controller
                 'category:id,name',
                 'subcategory:id,name',
             ])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->where('status', 'published')
             ->when($normalizedShoeCategory, function ($query) use ($normalizedShoeCategory) {
                 $query->whereHas('category', function ($categoryQuery) use ($normalizedShoeCategory) {
@@ -217,6 +219,8 @@ class WebShoeProductController extends Controller
             'has_discount' => $hasActiveSale,
             'discount_label' => $discountLabel,
             'is_sold_out' => $isSoldOut,
+            'reviews_count' => (int) ($product->reviews_count ?? 0),
+            'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
             'status' => $product->status,
             'stock_status' => $product->stock_status,
         ];

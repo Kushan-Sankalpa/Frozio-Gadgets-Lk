@@ -35,6 +35,8 @@ class ShoeProductViewController extends Controller
 
         abort_if(!$shoe || $shoe->status !== 'published', 404);
 
+        $shoe->loadCount('reviews')->loadAvg('reviews', 'rating');
+
         $shoe->load([
             'brand',
             'category',
@@ -140,8 +142,44 @@ class ShoeProductViewController extends Controller
                 'default_size_id' => $sizes->first()['id'] ?? null,
                 'stock_count' => $stockCount,
                 'in_stock' => $isInStock,
+                'reviews_count' => (int) ($shoe->reviews_count ?? 0),
+                'reviews_avg_rating' => $shoe->reviews_avg_rating !== null ? (float) $shoe->reviews_avg_rating : null,
             ],
             'related_products' => $this->relatedProducts($shoe),
+        ]);
+    }
+
+    public function reviews(string $product): JsonResponse
+    {
+        $shoe = $this->findProduct($product);
+
+        abort_if(!$shoe || $shoe->status !== 'published', 404);
+
+        $shoe->loadCount('reviews')->loadAvg('reviews', 'rating');
+
+        $reviews = $shoe->reviews()
+            ->latest('id')
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => $review->rating !== null ? (int) $review->rating : null,
+                    'customer_name' => $review->customer_name,
+                    'short_description' => $review->short_description,
+                    'long_description' => $review->long_description,
+                    'image_urls' => $review->image_urls ?? [],
+                    'created_at' => $review->created_at?->format('d/m/Y'),
+                    'created_at_iso' => $review->created_at?->toIso8601String(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'summary' => [
+                'reviews_count' => (int) ($shoe->reviews_count ?? 0),
+                'avg_rating' => $shoe->reviews_avg_rating !== null ? (float) $shoe->reviews_avg_rating : null,
+            ],
+            'reviews' => $reviews,
         ]);
     }
 
@@ -252,6 +290,8 @@ class ShoeProductViewController extends Controller
 
         return ShoeProduct::query()
             ->with(['brand', 'category', 'subcategory'])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
             ->where('status', 'published')
             ->where('category_id', $shoe->category_id)
             ->whereKeyNot($shoe->id)
@@ -286,6 +326,8 @@ class ShoeProductViewController extends Controller
             'has_discount' => $pricing['has_discount'],
             'discount_label' => $pricing['discount_label'],
             'is_sold_out' => $isSoldOut,
+            'reviews_count' => (int) ($shoe->reviews_count ?? 0),
+            'reviews_avg_rating' => $shoe->reviews_avg_rating !== null ? (float) $shoe->reviews_avg_rating : null,
             'status' => $shoe->status,
             'stock_status' => $shoe->stock_status,
         ];

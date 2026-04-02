@@ -109,6 +109,11 @@ class Product extends Model
     return $this->hasMany(ProductVariant::class);
 }
 
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
     public function getMainImageUrlAttribute(): ?string
     {
         if (!$this->main_image_path) {

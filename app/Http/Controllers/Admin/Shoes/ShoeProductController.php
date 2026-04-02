@@ -256,6 +256,12 @@ class ShoeProductController extends Controller
         $this->deleteStoredFile($product->hover_image_path);
         $this->deleteStoredFiles($product->gallery_images ?? []);
 
+        $product->load('reviews');
+        foreach ($product->reviews as $review) {
+            $this->deleteStoredFiles($review->image_paths ?? []);
+        }
+        $product->reviews()->delete();
+
         $product->delete();
 
         return redirect()

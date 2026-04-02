@@ -98,6 +98,11 @@ class ShoeProduct extends Model
         return $this->belongsTo(ShoeSubcategory::class, 'subcategory_id');
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(ShoeProductReview::class, 'product_id');
+    }
+
     protected function publicFileUrl(?string $path): ?string
     {
         if (!$path) {

@@ -12,6 +12,7 @@ use App\Http\Controllers\RamOptionController;
 use App\Http\Controllers\WarrantyOptionController;
 use App\Http\Controllers\ColorOptionController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\HomeBannerController;
 use App\Http\Controllers\Admin\Shoes\ShoeBrandController;
 use App\Http\Controllers\Admin\Shoes\ShoeTypeController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\Admin\Shoes\ShoeSizeTypeController;
 use App\Http\Controllers\Admin\Shoes\ShoeColorController;
 use App\Http\Controllers\Admin\Shoes\ShoeMaterialController;
 use App\Http\Controllers\Admin\Shoes\ShoeProductController;
+use App\Http\Controllers\Admin\Shoes\ShoeProductReviewController;
 use App\Http\Controllers\InvoiceController;
 
 require __DIR__ . '/frontend.php';
@@ -101,6 +103,25 @@ Route::prefix('admin')->middleware('web')->group(function () {
         Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+        Route::prefix('product-reviews')
+            ->name('product-reviews.')
+            ->controller(ProductReviewController::class)
+            ->scopeBindings()
+            ->group(function () {
+                Route::get('/', 'products')->name('index');
+                Route::get('/data', 'productsData')->name('data');
+
+                Route::prefix('{product}/reviews')->name('reviews.')->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::get('/data', 'reviewsData')->name('data');
+                    Route::get('/create', 'create')->name('create');
+                    Route::post('/', 'store')->name('store');
+                    Route::get('/{review}/edit', 'edit')->name('edit');
+                    Route::match(['put', 'patch'], '/{review}', 'update')->name('update');
+                    Route::delete('/{review}', 'destroy')->name('destroy');
+                });
+            });
 
         Route::prefix('shoes')->name('admin.shoes.')->group(function () {
             Route::prefix('brands')->name('brands.')->controller(ShoeBrandController::class)->group(function () {
@@ -190,6 +211,25 @@ Route::prefix('admin')->middleware('web')->group(function () {
                 Route::match(['put', 'patch'], '/{product}', 'update')->name('update');
                 Route::delete('/{product}', 'destroy')->name('destroy');
             });
+
+            Route::prefix('product-reviews')
+                ->name('product-reviews.')
+                ->controller(ShoeProductReviewController::class)
+                ->scopeBindings()
+                ->group(function () {
+                    Route::get('/', 'products')->name('index');
+                    Route::get('/data', 'productsData')->name('data');
+
+                    Route::prefix('{product}/reviews')->name('reviews.')->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('/data', 'reviewsData')->name('data');
+                        Route::get('/create', 'create')->name('create');
+                        Route::post('/', 'store')->name('store');
+                        Route::get('/{review}/edit', 'edit')->name('edit');
+                        Route::match(['put', 'patch'], '/{review}', 'update')->name('update');
+                        Route::delete('/{review}', 'destroy')->name('destroy');
+                    });
+                });
         });
 
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');

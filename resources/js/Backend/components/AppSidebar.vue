@@ -63,6 +63,10 @@ const mainNavItems: NavItemWithSubmenu[] = [
         title: 'Products',
         href: route('products.index'),
       },
+      {
+        title: 'Product Reviews',
+        href: route('product-reviews.index'),
+      },
     ],
   },
   {
@@ -101,6 +105,10 @@ const mainNavItems: NavItemWithSubmenu[] = [
       {
         title: 'Shoe Products',
         href: route('admin.shoes.products.index'),
+      },
+      {
+        title: 'Product Reviews',
+        href: route('admin.shoes.product-reviews.index'),
       },
     ],
   },

@@ -318,6 +318,16 @@ class ProductController extends Controller
             }
         }
 
+        $product->load('reviews');
+        foreach ($product->reviews as $review) {
+            foreach (($review->image_paths ?? []) as $path) {
+                if ($path && Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                }
+            }
+        }
+        $product->reviews()->delete();
+
         $product->delete();
 
         return redirect()->route('products.index')->with('success', 'Product deleted.');

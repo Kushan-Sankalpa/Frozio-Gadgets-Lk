@@ -260,6 +260,59 @@ function showFlash(type: 'success' | 'error', text: string) {
   }, 4000)
 }
 
+function getCsrfToken(): string {
+  return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+}
+
+function buildAjaxHeaders() {
+  const csrfToken = getCsrfToken()
+
+  return {
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json',
+    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+  }
+}
+
+function getErrorMessage(error: any, fallback: string): string {
+  const status = Number(error?.response?.status || 0)
+  const data = error?.response?.data
+
+  if (status === 419) {
+    return 'Session expired or CSRF token mismatch. Refresh the page and try again.'
+  }
+
+  if (status === 401) {
+    return 'You are not authenticated. Please log in again.'
+  }
+
+  if (status === 403) {
+    return 'You do not have permission to perform this action.'
+  }
+
+  if (data?.errors?.tracking_id?.[0]) {
+    return data.errors.tracking_id[0]
+  }
+
+  if (data?.errors?.delivery_agent?.[0]) {
+    return data.errors.delivery_agent[0]
+  }
+
+  if (data?.errors?.order_status?.[0]) {
+    return data.errors.order_status[0]
+  }
+
+  if (typeof data?.message === 'string' && data.message.trim() !== '') {
+    return data.message
+  }
+
+  if (typeof data === 'string' && data.trim() !== '') {
+    return data
+  }
+
+  return status ? `${fallback} (HTTP ${status})` : fallback
+}
+
 function closeAllDropdowns(except?: HTMLElement | null) {
   document.querySelectorAll<HTMLElement>('.table-dropdown-menu').forEach((menu) => {
     if (except && menu === except) return
@@ -292,6 +345,8 @@ async function fetchInvoices() {
 
   try {
     const response = await axios.get(route('invoices.data'), {
+      withCredentials: true,
+      headers: buildAjaxHeaders(),
       params: {
         draw: 1,
         start: (currentPage.value - 1) * perPage.value,
@@ -312,8 +367,8 @@ async function fetchInvoices() {
       currentPage.value = totalPages.value
       await fetchInvoices()
     }
-  } catch (error) {
-    showFlash('error', 'Could not load invoices.')
+  } catch (error: any) {
+    showFlash('error', getErrorMessage(error, 'Could not load invoices.'))
   } finally {
     tableLoading.value = false
   }
@@ -363,45 +418,38 @@ async function changeOrderStatus(id: number, status: string) {
   closeAllDropdowns()
 
   try {
-    const response = await axios.post(route('invoices.order-status', id), {
-      order_status: status,
-    })
+    const response = await axios.post(
+      route('invoices.order-status', { invoice: id }),
+      { order_status: status },
+      {
+        withCredentials: true,
+        headers: buildAjaxHeaders(),
+      }
+    )
 
     showFlash('success', response.data?.message || 'Order status updated successfully.')
     await fetchInvoices()
   } catch (error: any) {
-    const statusCode = error?.response?.status ? ` (HTTP ${String(error.response.status)})` : ''
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.errors?.order_status?.[0] ||
-      error?.response?.data?.errors?.tracking_id?.[0] ||
-      error?.response?.data?.errors?.delivery_agent?.[0] ||
-      `Could not update the order status.${statusCode}`
-
-    showFlash('error', message)
+    showFlash('error', getErrorMessage(error, 'Could not update the order status.'))
   } finally {
     statusUpdateLoading.value = false
   }
 }
 
-async function deleteInvoice(id: number, name: string) {
+function deleteInvoice(id: number, name: string) {
   const ok = confirm(`Delete invoice "${name}"? This cannot be undone.`)
   if (!ok) return
 
-  try {
-    await router.delete(route('invoices.destroy', id), {
-      preserveScroll: true,
-      onSuccess: () => {
-        showFlash('success', 'Invoice deleted successfully.')
-        fetchInvoices()
-      },
-      onError: () => {
-        showFlash('error', 'Could not delete the invoice.')
-      },
-    })
-  } catch {
-    showFlash('error', 'Could not delete the invoice.')
-  }
+  router.delete(route('invoices.destroy', id), {
+    preserveScroll: true,
+    onSuccess: () => {
+      showFlash('success', 'Invoice deleted successfully.')
+      fetchInvoices()
+    },
+    onError: () => {
+      showFlash('error', 'Could not delete the invoice.')
+    },
+  })
 }
 
 function handleOutsideClick(event: MouseEvent) {

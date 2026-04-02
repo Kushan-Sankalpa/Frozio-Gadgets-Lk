@@ -1,1 +1,0 @@
-import{_ as o}from"./BrandList.vue_vue_type_script_setup_true_lang-QuWve_Vf.js";import"./Datatable-DE6YR9zG.js";import"./app-B3pLpgbt.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

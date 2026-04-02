@@ -267,10 +267,19 @@ function getCsrfToken(): string {
 function buildAjaxHeaders() {
   const csrfToken = getCsrfToken()
 
+  // If meta csrf token is not present, try the XSRF-TOKEN cookie (Laravel default)
+  function getCookie(name: string): string | null {
+    const match = document.cookie.match(new RegExp('(^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'))
+    return match ? decodeURIComponent(match[2]) : null
+  }
+
+  const xsrfFromCookie = getCookie('XSRF-TOKEN') || null
+
   return {
     'X-Requested-With': 'XMLHttpRequest',
     'Accept': 'application/json',
-    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+    // Prefer explicit meta token, fallback to XSRF cookie (decoded)
+    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : (xsrfFromCookie ? { 'X-XSRF-TOKEN': xsrfFromCookie } : {})),
   }
 }
 

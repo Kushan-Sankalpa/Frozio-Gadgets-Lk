@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
 use App\Models\ShoeCategory;
 use App\Models\ShoeProduct;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +15,6 @@ class WebShoeProductController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('Frontend/ShoeProductList/index', [
-            'categories' => $this->techCategories(),
             'shoeCategories' => $this->shoeCategories(),
             'filters' => [
                 'search' => trim((string) $request->query('search', '')),
@@ -222,23 +220,6 @@ class WebShoeProductController extends Controller
             'status' => $product->status,
             'stock_status' => $product->stock_status,
         ];
-    }
-
-    protected function techCategories()
-    {
-        return Category::query()
-            ->where('status', 'active')
-            ->oldest('id')
-            ->get()
-            ->map(function (Category $category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image_url' => $category->image_url,
-                    'status' => $category->status,
-                ];
-            })
-            ->values();
     }
 
     protected function shoeCategories()

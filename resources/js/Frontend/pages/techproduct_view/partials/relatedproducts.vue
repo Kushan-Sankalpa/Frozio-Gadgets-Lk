@@ -260,6 +260,7 @@ function productUrl(product: TechProductCard) {
 
             <div class="mt-2 flex flex-col gap-1">
               <div
+                v-if="clampRating(product.reviews_avg_rating) > 0"
                 class="product-rating"
                 :aria-label="ratingAriaLabel(product.reviews_avg_rating, product.reviews_count)"
                 role="img"

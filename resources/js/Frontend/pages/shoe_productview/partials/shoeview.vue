@@ -619,7 +619,7 @@ watch(currentVariant, () => {
                   />
                 </button>
 
-                <button
+                <!-- <button
                   type="button"
                   class="relative pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'delivery'
@@ -632,7 +632,7 @@ watch(currentVariant, () => {
                     v-if="activeTab === 'delivery'"
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                   />
-                </button>
+                </button> -->
 
                 <button
                   type="button"
@@ -750,7 +750,7 @@ watch(currentVariant, () => {
                 </span>
               </div>
 
-              <div class="mt-3">
+              <div v-if="clampRating(product.reviews_avg_rating) > 0" class="mt-3">
                 <div
                   class="detail-rating"
                   :aria-label="ratingAriaLabel(product.reviews_avg_rating, product.reviews_count)"

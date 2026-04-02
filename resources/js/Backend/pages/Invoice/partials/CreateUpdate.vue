@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
+import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import { computed, reactive, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
@@ -555,9 +555,10 @@ function resetForm() {
   resetDraftItem('tech')
 }
 
-function submit(action: 'draft' | 'finalize') {
+function submit(action: 'draft' | 'finalize', options: { redirectToList?: boolean } = {}) {
   form.clearErrors()
   form.submit_action = action
+  const redirectToList = Boolean(options.redirectToList)
 
   const payload = {
     ...form.data(),
@@ -590,6 +591,9 @@ function submit(action: 'draft' | 'finalize') {
   if (!isEdit.value) {
     form.transform(() => payload).post(route('invoices.store'), {
       preserveScroll: true,
+      onSuccess: () => {
+        if (redirectToList) router.visit(route('invoices.index'))
+      },
       onFinish: () => form.transform((d) => d),
     })
     return
@@ -600,6 +604,9 @@ function submit(action: 'draft' | 'finalize') {
     _method: 'PUT',
   })).post(route('invoices.update', props.invoice!.id), {
     preserveScroll: true,
+    onSuccess: () => {
+      if (redirectToList) router.visit(route('invoices.index'))
+    },
     onFinish: () => form.transform((d) => d),
   })
 }
@@ -620,7 +627,7 @@ function submit(action: 'draft' | 'finalize') {
           </p>
         </div>
 
-        <div class="flex flex-col gap-2 sm:flex-row">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Link
             :href="route('invoices.index')"
             class="inline-flex items-center justify-center rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
@@ -628,14 +635,25 @@ function submit(action: 'draft' | 'finalize') {
             Back
           </Link>
 
-          <a
-            v-if="isEdit && invoice?.pdf_url"
-            :href="route('invoices.download', invoice.id)"
-            target="_blank"
-            class="inline-flex items-center justify-center rounded-full border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-50"
-          >
-            Download PDF
-          </a>
+          <div v-if="isEdit" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <a
+              v-if="invoice?.pdf_url"
+              :href="route('invoices.download', invoice.id)"
+              target="_blank"
+              class="inline-flex items-center justify-center rounded-full border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-50"
+            >
+              Download PDF
+            </a>
+
+            <button
+              type="button"
+              @click="submit('finalize', { redirectToList: true })"
+              :disabled="form.processing"
+              class="inline-flex items-center justify-center rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
+            >
+              {{ form.processing ? 'Saving...' : 'Save' }}
+            </button>
+          </div>
         </div>
       </div>
 

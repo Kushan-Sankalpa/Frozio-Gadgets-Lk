@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
-import StarRating from '@/Frontend/components/StarRating.vue'
 
 type CategoryItem = {
   id: number | string
@@ -77,6 +76,41 @@ function formatPrice(value: number | null | undefined) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+function clampRating(value: number | null | undefined) {
+  const rating = Number(value ?? 0)
+
+  if (!Number.isFinite(rating)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(5, rating))
+}
+
+function formatRating(value: number | null | undefined) {
+  return clampRating(value).toFixed(1)
+}
+
+function starFillStyle(value: number | null | undefined, starNumber: number) {
+  const rating = clampRating(value)
+  const fill = Math.max(0, Math.min(1, rating - (starNumber - 1)))
+  const unfilledPercent = (1 - fill) * 100
+
+  return {
+    clipPath: `inset(0 ${unfilledPercent}% 0 0)`,
+  }
+}
+
+function ratingAriaLabel(value: number | null | undefined, count: number | null | undefined) {
+  const rating = formatRating(value)
+  const reviews = Number(count ?? 0)
+
+  if (reviews > 0) {
+    return `${rating} out of 5 stars based on ${reviews} reviews`
+  }
+
+  return `${rating} out of 5 stars`
 }
 
 const colorFallbackMap: Record<string, string> = {
@@ -430,7 +464,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="relative flex h-[180px] items-center justify-center px-3 pt-10 pb-3 sm:h-[240px] sm:px-4 sm:pt-12 sm:pb-4 xl:h-[260px]">
+          <div class="relative flex h-[180px] items-center justify-center px-3 pb-3 pt-10 sm:h-[240px] sm:px-4 sm:pb-4 sm:pt-12 xl:h-[260px]">
             <img
               :src="product.thumbnail_url || product.hover_image_url || ''"
               :alt="product.name"
@@ -474,13 +508,49 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <div class="mt-2 flex flex-col gap-1">
-            <StarRating
-              :rating="product.reviews_avg_rating ?? 0"
-              :count="product.reviews_count ?? 0"
-              :showCount="true"
-              size="xs"
-            />
+          <div class="mt-2 flex flex-col gap-1.5">
+            <div
+              class="product-rating"
+              :aria-label="ratingAriaLabel(product.reviews_avg_rating, product.reviews_count)"
+              role="img"
+            >
+              <div class="product-rating-stars">
+                <span
+                  v-for="starNumber in 5"
+                  :key="`rating-star-${product.id}-${starNumber}`"
+                  class="product-rating-star"
+                  aria-hidden="true"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    class="product-rating-star-base"
+                  >
+                    <path
+                      d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                    />
+                  </svg>
+
+                  <span
+                    class="product-rating-star-fill"
+                    :style="starFillStyle(product.reviews_avg_rating, starNumber)"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      class="product-rating-star-top"
+                    >
+                      <path
+                        d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                      />
+                    </svg>
+                  </span>
+                </span>
+              </div>
+
+              <span class="product-rating-value">
+                {{ formatRating(product.reviews_avg_rating) }}
+              </span>
+            </div>
+
             <div class="flex items-center gap-2 text-xs">
               <span
                 class="h-2 w-2 rounded-full"
@@ -563,11 +633,82 @@ onBeforeUnmount(() => {
   transform: scale(1);
 }
 
+.product-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 20px;
+}
+
+.product-rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.product-rating-star {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.product-rating-star-base,
+.product-rating-star-top {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.product-rating-star-base {
+  color: #d1d5db;
+  fill: currentColor;
+}
+
+.product-rating-star-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.product-rating-star-top {
+  color: #f2a536;
+  fill: currentColor;
+}
+
+.product-rating-value {
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (min-width: 640px) {
   .product-main-image,
   .product-hover-image {
     max-width: calc(100% - 2rem);
     max-height: calc(100% - 2rem);
+  }
+
+  .product-rating-star {
+    width: 20px;
+    height: 20px;
+    flex-basis: 20px;
+  }
+
+  .product-rating-stars {
+    gap: 4px;
+  }
+
+  .product-rating-value {
+    font-size: 15px;
   }
 }
 

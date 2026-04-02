@@ -176,7 +176,7 @@ watch(
 // time options
 const timeOptions = []
 for (let h = 0; h < 24; h++) {
-  for (let m of ['00', '15', '30', '45']) {
+  for (const m of ['00', '15', '30', '45']) {
     timeOptions.push(`${String(h).padStart(2, '0')}:${m}`)
   }
 }

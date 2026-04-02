@@ -8,7 +8,7 @@ import TechView from './partials/techview.vue'
 defineOptions({
   layout: AppLayout,
 })
-
+//
 type BreadcrumbItem = {
   label: string
   href: string | null

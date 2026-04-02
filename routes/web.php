@@ -198,7 +198,7 @@ Route::prefix('admin')->middleware('web')->group(function () {
         Route::get('/invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
         Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
         Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
-        Route::match(['patch', 'post'], '/invoices/{invoice}/order-status', [InvoiceController::class, 'updateOrderStatus'])->name('invoices.order-status');
+        Route::match(['patch', 'post'], '/invoices/order-status/{invoice}', [InvoiceController::class, 'updateOrderStatus'])->name('invoices.order-status');
         Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
         Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
         Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');

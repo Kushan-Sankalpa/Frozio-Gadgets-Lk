@@ -428,7 +428,7 @@ async function changeOrderStatus(id: number, status: string) {
 
   try {
     const response = await axios.post(
-      route('invoices.order-status', { invoice: id }),
+      route('invoices.order-status', id ),
       { order_status: status },
       {
         withCredentials: true,

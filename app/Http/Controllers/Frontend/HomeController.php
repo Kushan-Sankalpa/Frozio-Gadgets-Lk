@@ -331,7 +331,7 @@ class HomeController extends Controller
                 });
             })
             ->latest('id')
-            ->take(4)
+            ->take(8)
             ->get();
 
         $colorIds = $baseProducts

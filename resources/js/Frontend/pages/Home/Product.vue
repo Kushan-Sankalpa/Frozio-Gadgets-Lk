@@ -56,7 +56,7 @@ let sectionObserver: IntersectionObserver | null = null
 let delayedLoadTimer: number | null = null
 
 const navCategories = computed(() => categoriesLoaded.value)
-const visibleProducts = computed(() => productsLoaded.value.slice(0, 4))
+const visibleProducts = computed(() => productsLoaded.value.slice(0, 8))
 const showSkeletons = computed(() => loadingProducts.value)
 
 function normalizeName(value: string | null | undefined) {
@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
       class="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 xl:gap-5"
     >
       <div
-        v-for="index in 4"
+        v-for="index in 8"
         :key="`product-skeleton-${index}`"
         class="overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
       >

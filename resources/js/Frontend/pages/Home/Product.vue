@@ -636,14 +636,14 @@ onBeforeUnmount(() => {
 .product-rating {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  min-height: 20px;
+  gap: 0.45rem;
+  min-height: 18px;
 }
 
 .product-rating-stars {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   flex-shrink: 0;
   line-height: 0;
 }
@@ -651,9 +651,9 @@ onBeforeUnmount(() => {
 .product-rating-star {
   position: relative;
   display: inline-flex;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
 }
 
 .product-rating-star-base,
@@ -682,7 +682,7 @@ onBeforeUnmount(() => {
 }
 
 .product-rating-value {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   font-weight: 700;
   color: #111827;
@@ -698,17 +698,17 @@ onBeforeUnmount(() => {
   }
 
   .product-rating-star {
-    width: 20px;
-    height: 20px;
-    flex-basis: 20px;
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
   }
 
   .product-rating-stars {
-    gap: 4px;
+    gap: 3px;
   }
 
   .product-rating-value {
-    font-size: 15px;
+    font-size: 14px;
   }
 }
 

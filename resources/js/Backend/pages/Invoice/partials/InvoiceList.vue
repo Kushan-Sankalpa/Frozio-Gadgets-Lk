@@ -363,18 +363,20 @@ async function changeOrderStatus(id: number, status: string) {
   closeAllDropdowns()
 
   try {
-    const response = await axios.patch(route('invoices.order-status', id), {
+    const response = await axios.post(route('invoices.order-status', id), {
       order_status: status,
     })
 
     showFlash('success', response.data?.message || 'Order status updated successfully.')
     await fetchInvoices()
   } catch (error: any) {
+    const statusCode = error?.response?.status ? ` (HTTP ${String(error.response.status)})` : ''
     const message =
       error?.response?.data?.message ||
+      error?.response?.data?.errors?.order_status?.[0] ||
       error?.response?.data?.errors?.tracking_id?.[0] ||
       error?.response?.data?.errors?.delivery_agent?.[0] ||
-      'Could not update the order status.'
+      `Could not update the order status.${statusCode}`
 
     showFlash('error', message)
   } finally {

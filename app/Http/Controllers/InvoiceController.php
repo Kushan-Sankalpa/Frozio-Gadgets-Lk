@@ -457,8 +457,12 @@ class InvoiceController extends Controller
                 'balance_due' => $payload['balance_due'],
             ]);
 
-            $path = $this->regeneratePdf($invoice->fresh('items'));
-            $invoice->update(['pdf_path' => $path]);
+            try {
+                $path = $this->regeneratePdf($invoice->fresh('items'));
+                $invoice->update(['pdf_path' => $path]);
+            } catch (\Throwable $throwable) {
+                report($throwable);
+            }
 
             $this->syncLinkedOrder($invoice);
 
@@ -914,11 +918,18 @@ class InvoiceController extends Controller
 
     protected function regeneratePdf(Invoice $invoice): string
     {
-        if ($invoice->pdf_path && Storage::disk('public')->exists($invoice->pdf_path)) {
-            Storage::disk('public')->delete($invoice->pdf_path);
+        $previousPath = $invoice->pdf_path;
+        $newPath = $this->generateAndStorePdf($invoice);
+
+        if (
+            $previousPath
+            && $previousPath !== $newPath
+            && Storage::disk('public')->exists($previousPath)
+        ) {
+            Storage::disk('public')->delete($previousPath);
         }
 
-        return $this->generateAndStorePdf($invoice);
+        return $newPath;
     }
 
     protected function syncLinkedOrder(Invoice $invoice): void

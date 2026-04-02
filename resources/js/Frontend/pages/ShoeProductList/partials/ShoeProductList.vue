@@ -209,17 +209,19 @@ function productHref(product: ShoeProductCard) {
 
             <div class="bg-white p-3 sm:p-4">
               <div
-                v-if="product.subcategory_name"
-                class="mb-1.5 line-clamp-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-400 sm:mb-2 sm:text-[11px]"
+                class="mb-1.5 line-clamp-1 min-h-[15px] text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-400 sm:mb-2 sm:min-h-[17px] sm:text-[11px]"
+                :class="{ invisible: !product.subcategory_name }"
               >
                 {{ product.subcategory_name }}
               </div>
 
-              <h3 class="line-clamp-2 min-h-[40px] text-[14px] font-medium leading-snug text-neutral-900 sm:min-h-[46px] sm:text-[16px] lg:text-[17px]">
+              <h3
+                class="line-clamp-2 min-h-[40px] text-[14px] font-medium leading-snug text-neutral-900 sm:min-h-[46px] sm:text-[16px] lg:min-h-[50px] lg:text-[17px]"
+              >
                 {{ product.name }}
               </h3>
 
-              <div class="mt-2 space-y-1 sm:mt-3">
+              <div class="mt-2 min-h-[23px] space-y-1 sm:mt-3 sm:min-h-[26px]">
                 <p
                   v-if="product.has_discount && product.regular_price !== null && product.display_price !== null"
                   class="flex flex-wrap items-center gap-1.5 text-[12px] leading-5 sm:gap-2 sm:text-[14px] sm:leading-6"
@@ -242,47 +244,49 @@ function productHref(product: ShoeProductCard) {
               </div>
 
               <div class="mt-2 flex flex-col gap-1">
-                <div
-                  v-if="clampRating(product.reviews_avg_rating) > 0"
-                  class="product-rating"
-                  :aria-label="ratingAriaLabel(product.reviews_avg_rating, product.reviews_count)"
-                  role="img"
-                >
-                  <div class="product-rating-stars">
-                    <span
-                      v-for="starNumber in 5"
-                      :key="`rating-star-${product.id}-${starNumber}`"
-                      class="product-rating-star"
-                      aria-hidden="true"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        class="product-rating-star-base"
-                      >
-                        <path
-                          d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
-                        />
-                      </svg>
-
+                <div class="min-h-[18px]">
+                  <div
+                    v-if="clampRating(product.reviews_avg_rating) > 0"
+                    class="product-rating"
+                    :aria-label="ratingAriaLabel(product.reviews_avg_rating, product.reviews_count)"
+                    role="img"
+                  >
+                    <div class="product-rating-stars">
                       <span
-                        class="product-rating-star-fill"
-                        :style="starFillStyle(product.reviews_avg_rating, starNumber)"
+                        v-for="starNumber in 5"
+                        :key="`rating-star-${product.id}-${starNumber}`"
+                        class="product-rating-star"
+                        aria-hidden="true"
                       >
                         <svg
                           viewBox="0 0 24 24"
-                          class="product-rating-star-top"
+                          class="product-rating-star-base"
                         >
                           <path
                             d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
                           />
                         </svg>
+
+                        <span
+                          class="product-rating-star-fill"
+                          :style="starFillStyle(product.reviews_avg_rating, starNumber)"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            class="product-rating-star-top"
+                          >
+                            <path
+                              d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                            />
+                          </svg>
+                        </span>
                       </span>
+                    </div>
+
+                    <span class="product-rating-value">
+                      {{ formatRating(product.reviews_avg_rating) }}
                     </span>
                   </div>
-
-                  <span class="product-rating-value">
-                    {{ formatRating(product.reviews_avg_rating) }}
-                  </span>
                 </div>
 
                 <div class="flex items-center gap-2 text-xs">

@@ -14,6 +14,7 @@ use App\Models\WarrantyOption;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -97,7 +98,7 @@ class InvoiceController extends Controller
                 'order_status' => $invoice->order_status ?? 'reserved',
                 'pdf_path' => $invoice->pdf_path,
                 'pdf_url' => $invoice->pdf_url,
-                'items' => $invoice->items->map(fn (InvoiceItem $item) => [
+                'items' => $invoice->items->map(fn(InvoiceItem $item) => [
                     'id' => $item->id,
                     'item_no' => $item->item_no,
                     'product_type' => $item->product_type,
@@ -415,14 +416,19 @@ class InvoiceController extends Controller
                 : 'Invoice updated.');
     }
 
-    public function updateOrderStatus(Request $request, Invoice $invoice)
+    public function updateOrderStatus(Request $request)
     {
+
+        Log::info($request->all());
+
+        $invoice = Invoice::find($request->invoice_id);
+
+        //  Log::info($invoice);
         $validated = $request->validate([
             'order_status' => ['required', Rule::in(self::ORDER_STATUSES)],
         ]);
 
         $result = DB::transaction(function () use ($invoice, $validated) {
-            $invoice->refresh();
             $previousOrderStatus = $invoice->order_status ?? 'reserved';
             $newOrderStatus = $validated['order_status'];
 
@@ -781,11 +787,11 @@ class InvoiceController extends Controller
             ->get()
             ->map(function (Product $product) use ($storageMap, $colorMap, $warrantyMap) {
                 $storageOptionIds = collect($product->storage_option_ids ?? [])
-                    ->map(fn ($id) => (int) $id)
+                    ->map(fn($id) => (int) $id)
                     ->values();
 
                 $colorIds = collect($product->color_ids ?? [])
-                    ->map(fn ($id) => (int) $id)
+                    ->map(fn($id) => (int) $id)
                     ->values();
 
                 return [

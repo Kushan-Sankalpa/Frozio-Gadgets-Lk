@@ -751,7 +751,7 @@ watch(currentVariant, (variant) => {
             <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
               <div
                 v-if="thumbnailImages.length"
-                class="order-2 flex gap-3 overflow-x-auto py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
+                class="order-2 flex gap-3 overflow-x-auto hide-scrollbar py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
               >
                 <button
                   v-for="image in thumbnailImages"
@@ -787,7 +787,7 @@ watch(currentVariant, (variant) => {
             </div>
 
             <div class="mt-10 hidden border-b border-slate-200 lg:block">
-              <div class="flex items-end gap-8 overflow-x-auto">
+              <div class="flex items-end gap-8 overflow-x-auto hide-scrollbar">
                 <button
                   type="button"
                   class="relative shrink-0 pb-4 text-sm transition sm:text-base"
@@ -1163,7 +1163,7 @@ watch(currentVariant, (variant) => {
 
             <div class="mt-10 lg:hidden">
               <div class="border-b border-slate-200">
-                <div class="flex items-end gap-8 overflow-x-auto">
+                <div class="flex items-end gap-8 overflow-x-auto hide-scrollbar">
                   <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
@@ -1193,7 +1193,7 @@ watch(currentVariant, (variant) => {
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                     />
                   </button>
-
+<!-- 
                   <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
@@ -1207,7 +1207,7 @@ watch(currentVariant, (variant) => {
                       v-if="activeTab === 'delivery'"
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                     />
-                  </button>
+                  </button> -->
 
                   <button
                     type="button"
@@ -1314,6 +1314,17 @@ watch(currentVariant, (variant) => {
 .prose :deep(img) {
   max-width: 100%;
   height: auto;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .page-enter {

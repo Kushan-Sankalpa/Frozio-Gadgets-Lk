@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\ShoeProduct;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -149,7 +150,7 @@ class ShoeProductViewController extends Controller
         ]);
     }
 
-    public function reviews(string $product): JsonResponse
+    public function reviews(Request $request, string $product): JsonResponse
     {
         $shoe = $this->findProduct($product);
 
@@ -157,8 +158,34 @@ class ShoeProductViewController extends Controller
 
         $shoe->loadCount('reviews')->loadAvg('reviews', 'rating');
 
-        $reviews = $shoe->reviews()
-            ->latest('id')
+        $sort = (string) $request->query('sort', 'recent');
+        $sort = in_array($sort, ['recent', 'highest', 'lowest'], true) ? $sort : 'recent';
+
+        $limit = (int) $request->query('limit', 4);
+        $limit = max(1, min($limit, 4));
+
+        $offset = (int) $request->query('offset', 0);
+        $offset = max(0, $offset);
+
+        $reviewsQuery = $shoe->reviews();
+
+        if ($sort === 'highest') {
+            $reviewsQuery
+                ->orderByRaw('rating is null')
+                ->orderByDesc('rating')
+                ->orderByDesc('id');
+        } elseif ($sort === 'lowest') {
+            $reviewsQuery
+                ->orderByRaw('rating is null')
+                ->orderBy('rating')
+                ->orderByDesc('id');
+        } else {
+            $reviewsQuery->orderByDesc('id');
+        }
+
+        $reviews = $reviewsQuery
+            ->skip($offset)
+            ->take($limit)
             ->get()
             ->map(function ($review) {
                 return [
@@ -174,12 +201,21 @@ class ShoeProductViewController extends Controller
             })
             ->values();
 
+        $returned = $reviews->count();
+        $total = (int) ($shoe->reviews_count ?? 0);
+
         return response()->json([
             'summary' => [
                 'reviews_count' => (int) ($shoe->reviews_count ?? 0),
                 'avg_rating' => $shoe->reviews_avg_rating !== null ? (float) $shoe->reviews_avg_rating : null,
             ],
             'reviews' => $reviews,
+            'pagination' => [
+                'offset' => $offset,
+                'limit' => $limit,
+                'returned' => $returned,
+                'has_more' => ($offset + $returned) < $total,
+            ],
         ]);
     }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 import ProductReviewsPanel from '@/Frontend/components/ProductReviewsPanel.vue'
 
@@ -95,23 +95,10 @@ const quantity = ref(1)
 const activeTab = ref<TabKey>('description')
 const flashMessage = ref('')
 
-const desktopTabSentinel = ref<HTMLElement | null>(null)
-const mobileTabSentinel = ref<HTMLElement | null>(null)
-const hasUserScrolled = ref(false)
-const autoOpenedReviews = ref(false)
-const desktopSentinelVisible = ref(false)
-const mobileSentinelVisible = ref(false)
-
-let tabObserver: IntersectionObserver | null = null
-
 const reviewsFetchUrl = computed(() => {
   const key = props.product?.slug || props.product?.id
   if (!key) return ''
   return `/shoe-products/${key}/reviews`
-})
-
-const sentinelInView = computed(() => {
-  return desktopSentinelVisible.value || mobileSentinelVisible.value
 })
 
 const breadcrumbItems = computed(() => {
@@ -308,96 +295,6 @@ function setTab(tab: TabKey) {
   activeTab.value = tab
 }
 
-function maybeAutoOpenReviews() {
-  if (autoOpenedReviews.value) return
-  if (activeTab.value === 'reviews') return
-  if (!hasUserScrolled.value) return
-  if (!sentinelInView.value) return
-
-  autoOpenedReviews.value = true
-  setTab('reviews')
-}
-
-function handleScroll() {
-  if (hasUserScrolled.value) return
-  hasUserScrolled.value = true
-  maybeAutoOpenReviews()
-}
-
-function ensureObserver() {
-  if (tabObserver || !('IntersectionObserver' in window)) return
-
-  tabObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (desktopTabSentinel.value && entry.target === desktopTabSentinel.value) {
-          desktopSentinelVisible.value = entry.isIntersecting
-        }
-
-        if (mobileTabSentinel.value && entry.target === mobileTabSentinel.value) {
-          mobileSentinelVisible.value = entry.isIntersecting
-        }
-      })
-
-      maybeAutoOpenReviews()
-    },
-    {
-      root: null,
-      rootMargin: '0px 0px -35% 0px',
-      threshold: 0,
-    }
-  )
-
-  if (desktopTabSentinel.value) {
-    tabObserver.observe(desktopTabSentinel.value)
-  }
-
-  if (mobileTabSentinel.value) {
-    tabObserver.observe(mobileTabSentinel.value)
-  }
-}
-
-watch(desktopTabSentinel, (el, prev) => {
-  if (prev && tabObserver) {
-    tabObserver.unobserve(prev)
-  }
-
-  desktopSentinelVisible.value = false
-
-  if (el) {
-    ensureObserver()
-    tabObserver?.observe(el)
-  }
-})
-
-watch(mobileTabSentinel, (el, prev) => {
-  if (prev && tabObserver) {
-    tabObserver.unobserve(prev)
-  }
-
-  mobileSentinelVisible.value = false
-
-  if (el) {
-    ensureObserver()
-    tabObserver?.observe(el)
-  }
-})
-
-onMounted(() => {
-  if (typeof window === 'undefined') return
-
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  ensureObserver()
-})
-
-onBeforeUnmount(() => {
-  if (typeof window === 'undefined') return
-
-  window.removeEventListener('scroll', handleScroll)
-  tabObserver?.disconnect()
-  tabObserver = null
-})
-
 function decreaseQuantity() {
   quantity.value = Math.max(1, quantity.value - 1)
 }
@@ -552,7 +449,7 @@ watch(currentVariant, () => {
             <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
               <div
                 v-if="thumbnailImages.length"
-                class="order-2 flex gap-3 overflow-x-auto py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
+                class="order-2 flex gap-3 overflow-x-auto hide-scrollbar py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
               >
                 <button
                   v-for="image in thumbnailImages"
@@ -694,8 +591,6 @@ watch(currentVariant, () => {
                   />
                 </div>
               </Transition>
-
-              <div ref="desktopTabSentinel" class="h-px w-full" />
             </div>
           </template>
         </section>
@@ -889,7 +784,7 @@ watch(currentVariant, () => {
 
             <div class="mt-10 lg:hidden">
               <div class="border-b border-slate-200">
-                <div class="flex items-end gap-8 overflow-x-auto">
+                <div class="flex items-end gap-8 overflow-x-auto hide-scrollbar">
                   <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
@@ -920,7 +815,7 @@ watch(currentVariant, () => {
                     />
                   </button>
 
-                  <button
+                  <!-- <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
                     :class="activeTab === 'delivery'
@@ -933,7 +828,7 @@ watch(currentVariant, () => {
                       v-if="activeTab === 'delivery'"
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                     />
-                  </button>
+                  </button> -->
 
                   <button
                     type="button"
@@ -995,8 +890,6 @@ watch(currentVariant, () => {
                     />
                   </div>
                 </Transition>
-
-                <div ref="mobileTabSentinel" class="h-px w-full" />
               </div>
             </div>
           </template>
@@ -1112,6 +1005,17 @@ watch(currentVariant, () => {
   color: #111827;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .fade-slide-enter-active,

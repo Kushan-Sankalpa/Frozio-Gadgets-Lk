@@ -11,6 +11,7 @@ use App\Models\ShoeCategory;
 use App\Models\ShoeProduct;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Schema;
 
 class HomeController extends Controller
 {
@@ -421,4 +422,155 @@ class HomeController extends Controller
             'activeBrand' => $activeBrand,
         ]);
     }
+
+    public function featuredProducts(): JsonResponse
+{
+    $activeCategory = request('category');
+    $activeBrand = request('brand');
+    $search = trim((string) request('search', ''));
+
+    $normalizedCategory = filled($activeCategory)
+        ? mb_strtolower(trim((string) $activeCategory))
+        : null;
+
+    $normalizedBrand = filled($activeBrand)
+        ? mb_strtolower(trim((string) $activeBrand))
+        : null;
+
+    $normalizedSearch = filled($search)
+        ? mb_strtolower($search)
+        : null;
+
+    $featuredColumn = null;
+
+    if (Schema::hasColumn('products', 'featured')) {
+        $featuredColumn = 'featured';
+    } elseif (Schema::hasColumn('products', 'is_featured')) {
+        $featuredColumn = 'is_featured';
+    }
+
+    $query = Product::query()
+        ->with([
+            'category:id,name',
+            'brand:id,name',
+        ])
+        ->withCount('reviews')
+        ->withAvg('reviews', 'rating')
+        ->where('status', 'active')
+        ->when($featuredColumn, function ($query) use ($featuredColumn) {
+            $query->where($featuredColumn, true);
+        })
+        ->when(!$featuredColumn, function ($query) {
+            $query->whereRaw('1 = 0');
+        })
+        ->when($normalizedCategory, function ($query, $normalizedCategory) {
+            $query->whereHas('category', function ($categoryQuery) use ($normalizedCategory) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', [$normalizedCategory]);
+            });
+        })
+        ->when($normalizedBrand, function ($query, $normalizedBrand) {
+            $query->whereHas('brand', function ($brandQuery) use ($normalizedBrand) {
+                $brandQuery->whereRaw('LOWER(name) = ?', [$normalizedBrand]);
+            });
+        })
+        ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
+            $query->where(function ($inner) use ($normalizedSearch) {
+                $inner->whereRaw('LOWER(model) like ?', ["%{$normalizedSearch}%"])
+                    ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
+            });
+        });
+
+    $baseProducts = $query
+        ->latest('id')
+        ->take(5)
+        ->get();
+
+    $colorIds = $baseProducts
+        ->flatMap(function (Product $product) {
+            return collect($product->color_ids ?? [])->map(fn ($id) => (int) $id);
+        })
+        ->filter(fn ($id) => $id > 0)
+        ->unique()
+        ->values();
+
+    $colorMap = ColorOption::query()
+        ->select('id', 'name', 'color_code')
+        ->whereIn('id', $colorIds)
+        ->get()
+        ->keyBy('id');
+
+    $products = $baseProducts
+        ->map(function (Product $product) use ($colorMap) {
+            $regularPrice = (float) ($product->price_lkr ?? 0);
+            $displayPrice = $regularPrice;
+            $discountLabel = null;
+
+            $discountType = $product->discount_type;
+            $discountValue = $product->discount_value !== null ? (float) $product->discount_value : null;
+
+            if ($discountValue !== null && $discountValue > 0 && $regularPrice > 0) {
+                if ($discountType === 'percent') {
+                    $displayPrice = max(0, round($regularPrice - (($regularPrice * $discountValue) / 100), 2));
+                    $discountLabel = 'Sale ' . rtrim(rtrim(number_format($discountValue, 2), '0'), '.') . '%';
+                } elseif ($discountType === 'price') {
+                    $displayPrice = max(0, round($regularPrice - $discountValue, 2));
+                    $discountLabel = 'Sale Rs ' . number_format($discountValue, 0);
+                }
+            }
+
+            $hasDiscount = $displayPrice < $regularPrice;
+
+            if (!$hasDiscount) {
+                $displayPrice = $regularPrice;
+                $discountLabel = null;
+            }
+
+            $isSoldOut = !$product->in_stock
+                || ($product->stock_count !== null && (int) $product->stock_count <= 0);
+
+            $colors = collect($product->color_ids ?? [])
+                ->map(function ($colorId) use ($colorMap) {
+                    $color = $colorMap->get((int) $colorId);
+
+                    if (!$color) {
+                        return null;
+                    }
+
+                    return [
+                        'id' => $color->id,
+                        'name' => $color->name,
+                        'color_code' => $color->color_code,
+                        'image_url' => $color->image_url,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            return [
+                'id' => $product->id,
+                'name' => $product->model ?? '',
+                'category_name' => $product->category?->name,
+                'brand_name' => $product->brand?->name,
+                'thumbnail_url' => $product->main_image_url,
+                'hover_image_url' => $product->hover_image_url,
+                'regular_price' => $regularPrice,
+                'display_price' => $displayPrice,
+                'has_discount' => $hasDiscount,
+                'discount_label' => $discountLabel,
+                'is_sold_out' => $isSoldOut,
+                'reviews_count' => (int) ($product->reviews_count ?? 0),
+                'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+                'colors' => $colors,
+            ];
+        })
+        ->values();
+
+    return response()->json([
+        'products' => $products,
+        'activeCategory' => $activeCategory,
+        'activeBrand' => $activeBrand,
+        'search' => $search,
+    ]);
+}
 }

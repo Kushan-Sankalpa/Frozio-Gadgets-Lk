@@ -5,6 +5,7 @@ import HomeBanner from './HomeBanner.vue'
 import TechCategories from './techcategories.vue'
 import ShoeCategories from './shoecategories.vue'
 import ShoeFeaturedProducts from './ShoeFeaturedProducts.vue'
+import FeaturedProducts from './FeaturedProducts.vue'
 import ThreeDPhone from '../../components/3dphone.vue'
 import ThreeDShoe from '../../components/3dshoe.vue'
 import CardSwiper from './cardsswiper.vue'
@@ -18,6 +19,7 @@ defineProps<{
     id: number | string
     name: string
     category_name?: string | null
+    brand_name?: string | null
     thumbnail_url: string | null
     hover_image_url: string | null
     regular_price: number | null
@@ -25,6 +27,8 @@ defineProps<{
     has_discount: boolean
     discount_label?: string | null
     is_sold_out: boolean
+    reviews_count?: number
+    reviews_avg_rating?: number | null
     colors?: Array<{
       id: number | string
       name: string
@@ -33,6 +37,8 @@ defineProps<{
     }>
   }>
   activeCategory?: string | null
+  activeBrand?: string | null
+  search?: string | null
   banners: Array<{
     id: number | string
     name?: string
@@ -76,18 +82,25 @@ defineProps<{
 
   <TechCategories :categories="categories" />
 
-  
-
   <ThreeDPhone
     model-path="/models/iphone_17_pro_max.glb"
     height="700px"
   />
 
-  <Product
-    :products="products"
-    :categories="categories"
-    :activeCategory="activeCategory"
+  <FeaturedProducts
+    endpoint="/featured-products"
+    :active-category="activeCategory"
+    :active-brand="activeBrand"
+    :search="search"
   />
+
+  <section id="products-section">
+    <Product
+      :products="products"
+      :categories="categories"
+      :activeCategory="activeCategory"
+    />
+  </section>
 
   <ShoeCategories :categories="shoeCategories" />
 

@@ -31,6 +31,9 @@ Route::get('/home/categories', [HomeController::class, 'categories'])
 Route::get('/home/shoe-categories', [HomeController::class, 'shoeCategories'])
     ->name('frontend.home.shoe-categories');
 
+    Route::get('/featured-products', [HomeController::class, 'featuredProducts'])
+    ->name('home.featured-products');
+
 Route::get('/home/featured-shoes', [HomeController::class, 'featuredShoes'])
     ->name('frontend.home.featured-shoes');
 

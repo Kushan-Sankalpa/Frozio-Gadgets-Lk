@@ -776,97 +776,77 @@ watch(
       <Transition name="modal-fade">
         <div
           v-if="imageModalOpen && activeGalleryItem"
-          class="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/85 px-3 py-4 sm:px-6"
+          class="fixed inset-0 z-[140] bg-slate-950/20 backdrop-blur-md"
           @click="closeImageModal"
         >
+          <button
+            type="button"
+            class="absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/70 text-slate-900 shadow-lg backdrop-blur transition hover:bg-white sm:right-6 sm:top-6"
+            @click.stop="closeImageModal"
+          >
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+
           <div
-            class="relative w-full max-w-5xl overflow-hidden rounded-[24px] border border-white/10 bg-slate-900 shadow-2xl"
+            class="pointer-events-none absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-full border border-white/30 bg-white/65 px-4 py-2 text-center text-xs font-medium text-slate-800 shadow-lg backdrop-blur sm:top-6"
+          >
+            {{ activeGalleryIndex + 1 }} / {{ galleryImages.length }}
+            <span v-if="activeGalleryItem.customerName">· {{ activeGalleryItem.customerName }}</span>
+          </div>
+
+          <button
+            v-if="galleryImages.length > 1"
+            type="button"
+            class="absolute left-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-white/70 text-slate-900 shadow-lg backdrop-blur transition hover:bg-white sm:left-6 sm:h-12 sm:w-12"
+            @click.stop="prevGalleryImage"
+          >
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+
+          <button
+            v-if="galleryImages.length > 1"
+            type="button"
+            class="absolute right-3 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/35 bg-white/70 text-slate-900 shadow-lg backdrop-blur transition hover:bg-white sm:right-6 sm:h-12 sm:w-12"
+            @click.stop="nextGalleryImage"
+          >
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+
+          <div class="flex h-full w-full items-center justify-center px-4 py-16 sm:px-8 sm:py-20" @click.stop>
+            <img
+              :src="activeGalleryItem.src"
+              alt="Review image preview"
+              class="max-h-[88vh] max-w-[96vw] object-contain drop-shadow-[0_30px_70px_rgba(15,23,42,0.25)]"
+            />
+          </div>
+
+          <div
+            v-if="galleryImages.length > 1"
+            class="absolute bottom-4 left-1/2 z-20 flex max-w-[92vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-2xl border border-white/25 bg-white/55 px-3 py-3 shadow-xl backdrop-blur-md sm:bottom-6"
             @click.stop
           >
-            <div class="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3 text-white sm:px-5">
-              <div class="min-w-0">
-                <div class="truncate text-sm font-semibold">
-                  Review images
-                </div>
-                <div class="mt-0.5 text-xs text-white/65">
-                  {{ activeGalleryIndex + 1 }} / {{ galleryImages.length }}
-                  <span v-if="activeGalleryItem.customerName">· {{ activeGalleryItem.customerName }}</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-                @click="closeImageModal"
-              >
-                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
-
-            <div class="relative flex items-center justify-center bg-slate-950 px-3 py-4 sm:px-6 sm:py-6">
-              <button
-                v-if="galleryImages.length > 1"
-                type="button"
-                class="absolute left-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-slate-900/85 text-white shadow-lg backdrop-blur transition hover:bg-slate-800 sm:left-5 sm:h-12 sm:w-12"
-                @click="prevGalleryImage"
-              >
-                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-              </button>
-
-              <div class="flex min-h-[280px] w-full items-center justify-center sm:min-h-[380px] lg:min-h-[560px]">
-                <img
-                  :src="activeGalleryItem.src"
-                  alt="Review image preview"
-                  class="max-h-[72vh] w-auto max-w-full rounded-[18px] object-contain"
-                />
-              </div>
-
-              <button
-                v-if="galleryImages.length > 1"
-                type="button"
-                class="absolute right-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-slate-900/85 text-white shadow-lg backdrop-blur transition hover:bg-slate-800 sm:right-5 sm:h-12 sm:w-12"
-                @click="nextGalleryImage"
-              >
-                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <path d="M9 18l6-6-6-6" />
-                </svg>
-              </button>
-            </div>
-
-            <div class="border-t border-white/10 px-4 py-3 sm:px-5">
-              <div class="flex items-center justify-between gap-4">
-                <div class="text-xs text-white/60">
-                  <span v-if="hydratingGallery">Loading more review images…</span>
-                  <span v-else>Use next and previous to browse all loaded review images.</span>
-                </div>
-              </div>
-
-              <div
-                v-if="galleryImages.length > 1"
-                class="mt-3 flex gap-2 overflow-x-auto pb-1"
-              >
-                <button
-                  v-for="(image, index) in galleryImages"
-                  :key="image.key"
-                  type="button"
-                  class="shrink-0 overflow-hidden rounded-xl border transition"
-                  :class="index === activeGalleryIndex
-                    ? 'border-white shadow-md'
-                    : 'border-white/10 opacity-70 hover:opacity-100'"
-                  @click="activeGalleryIndex = index"
-                >
-                  <img
-                    :src="image.src"
-                    alt="Review image thumbnail"
-                    class="h-14 w-14 object-cover sm:h-16 sm:w-16"
-                  />
-                </button>
-              </div>
-            </div>
+            <button
+              v-for="(image, index) in galleryImages"
+              :key="image.key"
+              type="button"
+              class="shrink-0 overflow-hidden rounded-xl border transition"
+              :class="index === activeGalleryIndex
+                ? 'border-slate-900 shadow-md'
+                : 'border-white/30 opacity-75 hover:opacity-100'"
+              @click="activeGalleryIndex = index"
+            >
+              <img
+                :src="image.src"
+                alt="Review image thumbnail"
+                class="h-14 w-14 object-cover sm:h-16 sm:w-16"
+              />
+            </button>
           </div>
         </div>
       </Transition>
@@ -914,19 +894,15 @@ watch(
                     We would love it if you would share a bit about your experience.
                   </p>
 
-                  <div class="mt-6 flex flex-col items-center">
-                    <div
-                      class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50 sm:h-28 sm:w-28"
+                  <div class="mt-7 flex flex-col items-center">
+                    <img
+                      v-if="props.productImage"
+                      :src="props.productImage"
+                      :alt="props.productName || 'Product image'"
+                      class="h-32 w-auto max-w-[220px] object-contain sm:h-36 sm:max-w-[260px]"
                     >
-                      <img
-                        v-if="props.productImage"
-                        :src="props.productImage"
-                        :alt="props.productName || 'Product image'"
-                        class="h-full w-full object-contain p-2"
-                      >
-                      <div v-else class="text-xs text-slate-400">
-                        No image
-                      </div>
+                    <div v-else class="text-xs text-slate-400">
+                      No image
                     </div>
 
                     <div class="mt-4 text-base font-semibold text-slate-950">
@@ -970,16 +946,12 @@ watch(
                 <form v-else key="review-step-2" class="space-y-5" @submit.prevent="submitAddReview">
                   <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                      <div
-                        class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                      <img
+                        v-if="props.productImage"
+                        :src="props.productImage"
+                        :alt="props.productName || 'Product image'"
+                        class="h-14 w-auto max-w-[72px] shrink-0 object-contain"
                       >
-                        <img
-                          v-if="props.productImage"
-                          :src="props.productImage"
-                          :alt="props.productName || 'Product image'"
-                          class="h-full w-full object-contain p-1.5"
-                        >
-                      </div>
 
                       <div>
                         <div class="text-sm font-semibold text-slate-950">

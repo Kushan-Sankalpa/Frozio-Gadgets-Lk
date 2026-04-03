@@ -77,6 +77,8 @@ defineProps<{
 }>()
 </script>
 
+<!--k-->
+
 <template>
   <HomeBanner :banners="banners" />
 

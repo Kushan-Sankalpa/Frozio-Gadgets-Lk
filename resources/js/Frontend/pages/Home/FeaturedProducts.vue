@@ -55,11 +55,15 @@ const hasLoaded = ref(false)
 const fetchError = ref('')
 const isHovered = ref(false)
 
-const skeletons = [1, 2, 3, 4]
+const skeletons = [1, 2, 3]
+
 const CARD_GAP = 14
+const AUTO_SLIDE_DELAY = 2600
 
 let observer: IntersectionObserver | null = null
 let autoSlideTimer: number | null = null
+let snapTimer: number | null = null
+let resizeTimer: number | null = null
 
 const hasProducts = computed(() => products.value.length > 0)
 const hasMultipleProducts = computed(() => products.value.length > 1)
@@ -182,12 +186,40 @@ function productUrl(product: ProductItem) {
   return product.url || `/tech-products/${product.id}`
 }
 
-function getStepSize() {
-  const el = scrollerRef.value
-  if (!el) return 260
+function buildSixProducts(items: ProductItem[]) {
+  const source = items.slice(0, 6)
 
-  const firstCard = el.querySelector('.featured-slide') as HTMLElement | null
-  return firstCard ? firstCard.offsetWidth + CARD_GAP : 260
+  if (!source.length) return []
+
+  const padded = [...source]
+
+  let index = 0
+  while (padded.length < 6) {
+    padded.push(source[index % source.length])
+    index += 1
+  }
+
+  return padded
+}
+
+function getSlides() {
+  const el = scrollerRef.value
+  if (!el) return []
+  return Array.from(el.querySelectorAll('.featured-slide')) as HTMLElement[]
+}
+
+function getStepSize() {
+  const slides = getSlides()
+
+  if (slides.length >= 2) {
+    return slides[1].offsetLeft - slides[0].offsetLeft
+  }
+
+  if (slides.length === 1) {
+    return slides[0].offsetWidth + CARD_GAP
+  }
+
+  return 260
 }
 
 function getSegmentWidth() {
@@ -211,11 +243,30 @@ function normalizeLoopPosition() {
 
   if (!segment || !step) return
 
-  if (el.scrollLeft <= segment - step * 1.5) {
+  if (el.scrollLeft < segment - step * 0.5) {
     el.scrollLeft += segment
   } else if (el.scrollLeft >= segment * 2 - step * 0.5) {
     el.scrollLeft -= segment
   }
+}
+
+function snapToNearest(smooth = true) {
+  const el = scrollerRef.value
+  if (!el) return
+
+  const step = getStepSize()
+  if (!step) return
+
+  const target = Math.round(el.scrollLeft / step) * step
+
+  el.scrollTo({
+    left: target,
+    behavior: smooth ? 'smooth' : 'auto',
+  })
+
+  window.setTimeout(() => {
+    normalizeLoopPosition()
+  }, smooth ? 380 : 0)
 }
 
 function scrollCards(direction: 'left' | 'right', smooth = true) {
@@ -231,7 +282,20 @@ function scrollCards(direction: 'left' | 'right', smooth = true) {
 
   window.setTimeout(() => {
     normalizeLoopPosition()
+    snapToNearest(false)
   }, smooth ? 420 : 0)
+}
+
+function handleTrackScroll() {
+  if (snapTimer !== null) {
+    window.clearTimeout(snapTimer)
+    snapTimer = null
+  }
+
+  snapTimer = window.setTimeout(() => {
+    normalizeLoopPosition()
+    snapToNearest(true)
+  }, 120)
 }
 
 function stopAutoSlide() {
@@ -251,7 +315,7 @@ function startAutoSlide() {
   autoSlideTimer = window.setInterval(() => {
     if (document.hidden || isHovered.value) return
     scrollCards('right')
-  }, 2600)
+  }, AUTO_SLIDE_DELAY)
 }
 
 async function loadFeaturedProducts() {
@@ -274,7 +338,7 @@ async function loadFeaturedProducts() {
     }
 
     const payload = await response.json()
-    const loadedProducts = Array.isArray(payload.products) ? payload.products.slice(0, 5) : []
+    const loadedProducts = Array.isArray(payload.products) ? buildSixProducts(payload.products) : []
 
     products.value = loadedProducts
     hasLoaded.value = true
@@ -283,6 +347,7 @@ async function loadFeaturedProducts() {
 
     if (hasMultipleProducts.value) {
       resetLoopPosition()
+      snapToNearest(false)
       startAutoSlide()
     }
   } catch (error) {
@@ -321,13 +386,21 @@ function initObserver() {
 }
 
 function handleResize() {
-  if (!hasLoaded.value) return
+  if (resizeTimer !== null) {
+    window.clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
 
-  nextTick(() => {
-    if (hasMultipleProducts.value) {
-      resetLoopPosition()
-    }
-  })
+  resizeTimer = window.setTimeout(() => {
+    if (!hasLoaded.value) return
+
+    nextTick(() => {
+      if (hasMultipleProducts.value) {
+        resetLoopPosition()
+        snapToNearest(false)
+      }
+    })
+  }, 120)
 }
 
 function handleVisibilityChange() {
@@ -351,6 +424,17 @@ onBeforeUnmount(() => {
   observer?.disconnect()
   observer = null
   stopAutoSlide()
+
+  if (snapTimer !== null) {
+    window.clearTimeout(snapTimer)
+    snapTimer = null
+  }
+
+  if (resizeTimer !== null) {
+    window.clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
+
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
@@ -397,7 +481,7 @@ onBeforeUnmount(() => {
             <div>
               <h3 class="featured-products-panel__title">Featured Collection</h3>
               <p class="featured-products-panel__subtitle">
-                Handpicked products presented in a compact, premium carousel.
+                <!-- 3 cards visible, 6 total cards, smooth infinite one-by-one carousel. -->
               </p>
             </div>
 
@@ -431,7 +515,7 @@ onBeforeUnmount(() => {
           <div
             ref="scrollerRef"
             class="featured-products-track"
-            @scroll="normalizeLoopPosition"
+            @scroll="handleTrackScroll"
           >
             <template v-if="isLoading">
               <div
@@ -651,8 +735,7 @@ onBeforeUnmount(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(5, 11, 45, 0.08) 0%, rgba(5, 11, 45, 0.34) 100%);
+  background: linear-gradient(180deg, rgba(5, 11, 45, 0.08) 0%, rgba(5, 11, 45, 0.34) 100%);
   pointer-events: none;
 }
 
@@ -738,11 +821,11 @@ onBeforeUnmount(() => {
 }
 
 .featured-products-panel {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #eef2f7;
+  /* background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); */
+  /* border: 1px solid #eef2f7; */
   border-radius: 24px;
   padding: 16px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+  /* box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07); */
   overflow: hidden;
 }
 
@@ -812,9 +895,16 @@ onBeforeUnmount(() => {
 .featured-products-track {
   display: flex;
   gap: 14px;
-  overflow-x: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   scroll-behavior: smooth;
   scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 0;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 .featured-products-track::-webkit-scrollbar {
@@ -822,8 +912,10 @@ onBeforeUnmount(() => {
 }
 
 .featured-slide {
-  flex: 0 0 calc((100% - 42px) / 4);
-  min-width: calc((100% - 42px) / 4);
+  flex: 0 0 calc((100% - 28px) / 3);
+  min-width: calc((100% - 28px) / 3);
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .featured-products-state {
@@ -948,13 +1040,6 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 1279px) {
-  .featured-slide {
-    flex: 0 0 calc((100% - 28px) / 3);
-    min-width: calc((100% - 28px) / 3);
-  }
-}
-
 @media (max-width: 1199px) {
   .featured-shell {
     grid-template-columns: 1fr;
@@ -990,6 +1075,7 @@ onBeforeUnmount(() => {
   .featured-slide {
     flex: 0 0 100%;
     min-width: 100%;
+    max-width: 100%;
   }
 
   .featured-banner {
@@ -1040,6 +1126,10 @@ onBeforeUnmount(() => {
   .featured-nav-btn {
     transition: none !important;
     transform: none !important;
+  }
+
+  .featured-products-track {
+    scroll-behavior: auto;
   }
 }
 </style>

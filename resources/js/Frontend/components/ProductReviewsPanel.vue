@@ -32,6 +32,13 @@ type PageData = {
   reviews: ReviewItem[]
 }
 
+type GalleryImageItem = {
+  key: string
+  src: string
+  reviewId: string
+  customerName: string | null
+}
+
 const cache = new Map<string, Cached>()
 const inflight = new Map<string, Promise<PageData>>()
 
@@ -41,22 +48,25 @@ const props = withDefaults(
     active: boolean
     initialCount?: number
     initialAvg?: number | null
+    productName?: string | null
+    productImage?: string | null
   }>(),
   {
     initialCount: 0,
     initialAvg: null,
+    productName: null,
+    productImage: null,
   }
 )
 
 const loading = ref(false)
 const loadingMore = ref(false)
 const loaded = ref(false)
+const hydratingGallery = ref(false)
 const error = ref<string | null>(null)
 const errorScope = ref<'initial' | 'more' | null>(null)
 
 const sort = ref<SortKey>('recent')
-const sortOpen = ref(false)
-const sortDropdownRef = ref<HTMLElement | null>(null)
 
 const summary = ref<Summary>({
   reviews_count: props.initialCount ?? 0,
@@ -64,6 +74,23 @@ const summary = ref<Summary>({
 })
 
 const reviews = ref<ReviewItem[]>([])
+
+const imageModalOpen = ref(false)
+const activeGalleryIndex = ref(0)
+
+const addReviewOpen = ref(false)
+const addReviewStep = ref<1 | 2>(1)
+const draftRating = ref(0)
+const hoveredDraftRating = ref(0)
+const orderId = ref('')
+const reviewContent = ref('')
+const reviewImageFiles = ref<File[]>([])
+const reviewImagePreviewUrls = ref<string[]>([])
+const reviewImageInputKey = ref(0)
+const submitError = ref<string | null>(null)
+const submitting = ref(false)
+
+let stepTimer: number | null = null
 
 const cacheKey = computed(() => {
   if (!props.fetchUrl) return ''
@@ -100,16 +127,35 @@ const nextLoadCount = computed(() => {
   return Math.min(PAGE_SIZE, remainingReviews.value)
 })
 
-const sortLabel = computed(() => {
-  if (sort.value === 'highest') return 'Highest rating'
-  if (sort.value === 'lowest') return 'Lowest rating'
-  return 'Most recent'
+const galleryImages = computed<GalleryImageItem[]>(() => {
+  return sortedReviews.value.flatMap((review) => {
+    return review.image_urls.map((src, index) => ({
+      key: `${String(review.id)}::${index}`,
+      src,
+      reviewId: String(review.id),
+      customerName: review.customer_name,
+    }))
+  })
+})
+
+const activeGalleryItem = computed(() => {
+  return galleryImages.value[activeGalleryIndex.value] ?? null
+})
+
+const hasAnyModalOpen = computed(() => {
+  return imageModalOpen.value || addReviewOpen.value
+})
+
+const interactiveDraftRating = computed(() => {
+  return hoveredDraftRating.value || draftRating.value
 })
 
 function normalizeSummary(raw: any): Summary {
   return {
     reviews_count: Number(raw?.reviews_count ?? 0),
-    avg_rating: raw?.avg_rating === null || typeof raw?.avg_rating === 'undefined' ? null : Number(raw?.avg_rating),
+    avg_rating: raw?.avg_rating === null || typeof raw?.avg_rating === 'undefined'
+      ? null
+      : Number(raw?.avg_rating),
   }
 }
 
@@ -273,6 +319,55 @@ async function loadMore() {
   }
 }
 
+async function hydrateAllReviewsForGallery() {
+  if (!props.fetchUrl) return
+  if (hydratingGallery.value) return
+
+  if (!loaded.value) {
+    await loadInitial()
+  }
+
+  if (!canLoadMore.value) return
+
+  hydratingGallery.value = true
+
+  try {
+    const fetchUrl = props.fetchUrl
+    const sortKey = sort.value
+    const key = `${fetchUrl}::${sortKey}`
+
+    let nextSummary = summary.value
+    let nextReviews = [...reviews.value]
+    let offset = nextReviews.length
+
+    while (offset < nextSummary.reviews_count) {
+      const page = await fetchPage(fetchUrl, sortKey, offset)
+      nextSummary = page.summary
+      nextReviews = mergeReviews(nextReviews, page.reviews)
+      offset = nextReviews.length
+
+      const next: Cached = {
+        summary: nextSummary,
+        reviews: nextReviews,
+      }
+
+      cache.set(key, next)
+
+      if (cacheKey.value === key) {
+        applyCached(next)
+      }
+
+      if (!page.reviews.length) {
+        break
+      }
+    }
+  } catch (e) {
+    console.error('Gallery hydration error:', e)
+  } finally {
+    hydratingGallery.value = false
+  }
+}
+
 function clearCacheForFetchUrl(fetchUrl: string) {
   for (const key of cache.keys()) {
     if (key.startsWith(`${fetchUrl}::`)) {
@@ -305,35 +400,180 @@ function retryMore() {
   loadMore()
 }
 
-function selectSort(next: SortKey) {
-  sort.value = next
-  sortOpen.value = false
+function openImageModal(reviewId: number | string, imageIndex: number) {
+  const key = `${String(reviewId)}::${imageIndex}`
+  const index = galleryImages.value.findIndex((item) => item.key === key)
+  if (index < 0) return
+
+  activeGalleryIndex.value = index
+  imageModalOpen.value = true
+  void hydrateAllReviewsForGallery()
 }
 
-function onGlobalPointerDown(event: PointerEvent) {
-  if (!sortOpen.value) return
-  const root = sortDropdownRef.value
-  const target = event.target as Node | null
-  if (!root || !target) return
-  if (root.contains(target)) return
-  sortOpen.value = false
+function closeImageModal() {
+  imageModalOpen.value = false
+}
+
+function nextGalleryImage() {
+  if (!galleryImages.value.length) return
+  activeGalleryIndex.value = (activeGalleryIndex.value + 1) % galleryImages.value.length
+}
+
+function prevGalleryImage() {
+  if (!galleryImages.value.length) return
+  activeGalleryIndex.value = (activeGalleryIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length
+}
+
+function openAddReview() {
+  resetAddReviewDraft()
+  addReviewOpen.value = true
+}
+
+function closeAddReview() {
+  addReviewOpen.value = false
+  resetAddReviewDraft()
+}
+
+function resetAddReviewDraft() {
+  addReviewStep.value = 1
+  draftRating.value = 0
+  hoveredDraftRating.value = 0
+  orderId.value = ''
+  reviewContent.value = ''
+  submitError.value = null
+  submitting.value = false
+  cleanupReviewPreviewUrls()
+  reviewImageFiles.value = []
+  reviewImagePreviewUrls.value = []
+  reviewImageInputKey.value += 1
+
+  if (stepTimer !== null) {
+    window.clearTimeout(stepTimer)
+    stepTimer = null
+  }
+}
+
+function selectDraftRating(rating: number) {
+  draftRating.value = rating
+  submitError.value = null
+
+  if (stepTimer !== null) {
+    window.clearTimeout(stepTimer)
+  }
+
+  stepTimer = window.setTimeout(() => {
+    addReviewStep.value = 2
+  }, 180)
+}
+
+function backToRatingStep() {
+  submitError.value = null
+  addReviewStep.value = 1
+}
+
+function cleanupReviewPreviewUrls() {
+  reviewImagePreviewUrls.value.forEach((url) => {
+    URL.revokeObjectURL(url)
+  })
+}
+
+function onReviewImagesChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? []).slice(0, 8)
+
+  cleanupReviewPreviewUrls()
+
+  reviewImageFiles.value = files
+  reviewImagePreviewUrls.value = files.map((file) => URL.createObjectURL(file))
+}
+
+async function submitAddReview() {
+  submitError.value = null
+  submitting.value = true
+
+  try {
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 320)
+    })
+
+    submitError.value = 'The order ID you entered was not found in our system. Please check and try again.'
+  } finally {
+    submitting.value = false
+  }
+}
+
+function updateBodyScrollLock(locked: boolean) {
+  if (typeof document === 'undefined') return
+
+  document.documentElement.style.overflow = locked ? 'hidden' : ''
+  document.body.style.overflow = locked ? 'hidden' : ''
 }
 
 function onGlobalKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape') return
-  if (!sortOpen.value) return
-  sortOpen.value = false
+  if (event.key === 'Escape') {
+    if (imageModalOpen.value) {
+      closeImageModal()
+      return
+    }
+
+    if (addReviewOpen.value) {
+      closeAddReview()
+    }
+
+    return
+  }
+
+  if (!imageModalOpen.value) return
+
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    nextGalleryImage()
+  }
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    prevGalleryImage()
+  }
 }
 
 onMounted(() => {
-  window.addEventListener('pointerdown', onGlobalPointerDown)
   window.addEventListener('keydown', onGlobalKeydown)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('pointerdown', onGlobalPointerDown)
   window.removeEventListener('keydown', onGlobalKeydown)
+  cleanupReviewPreviewUrls()
+  updateBodyScrollLock(false)
+
+  if (stepTimer !== null) {
+    window.clearTimeout(stepTimer)
+    stepTimer = null
+  }
 })
+
+watch(
+  hasAnyModalOpen,
+  (open) => {
+    updateBodyScrollLock(open)
+  },
+  { immediate: true }
+)
+
+watch(
+  galleryImages,
+  (items) => {
+    if (!items.length) {
+      activeGalleryIndex.value = 0
+      imageModalOpen.value = false
+      return
+    }
+
+    if (activeGalleryIndex.value > items.length - 1) {
+      activeGalleryIndex.value = items.length - 1
+    }
+  },
+  { deep: true }
+)
 
 watch(
   () => props.active,
@@ -351,7 +591,7 @@ watch(
     loaded.value = false
     loading.value = false
     loadingMore.value = false
-    sortOpen.value = false
+    hydratingGallery.value = false
     error.value = null
     errorScope.value = null
     reviews.value = []
@@ -359,6 +599,10 @@ watch(
       reviews_count: props.initialCount ?? 0,
       avg_rating: props.initialAvg ?? null,
     }
+
+    imageModalOpen.value = false
+    activeGalleryIndex.value = 0
+    closeAddReview()
 
     if (props.active) {
       loadInitial()
@@ -369,13 +613,15 @@ watch(
 watch(
   () => sort.value,
   () => {
-    sortOpen.value = false
     loaded.value = false
     loading.value = false
     loadingMore.value = false
+    hydratingGallery.value = false
     error.value = null
     errorScope.value = null
     reviews.value = []
+    imageModalOpen.value = false
+    activeGalleryIndex.value = 0
 
     if (props.active) {
       loadInitial()
@@ -401,116 +647,14 @@ watch(
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <!-- <span class="text-sm text-slate-500">Sort:</span> -->
-
-        <div ref="sortDropdownRef" class="relative">
-          <!-- <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-950/10 disabled:cursor-not-allowed disabled:opacity-60"
-            :class="sortOpen ? 'border-slate-900' : 'border-slate-200'"
-            aria-haspopup="listbox"
-            :aria-expanded="sortOpen"
-            :disabled="loading || loadingMore"
-            @click="sortOpen = !sortOpen"
-          >
-            <span class="whitespace-nowrap">{{ sortLabel }}</span>
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="h-4 w-4 text-slate-500 transition-transform duration-200"
-              :class="sortOpen ? 'rotate-180' : ''"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </button> -->
-
-          <!-- <Transition
-            enter-active-class="transition duration-150 ease-out"
-            enter-from-class="opacity-0 translate-y-1 scale-95"
-            enter-to-class="opacity-100 translate-y-0 scale-100"
-            leave-active-class="transition duration-120 ease-in"
-            leave-from-class="opacity-100 translate-y-0 scale-100"
-            leave-to-class="opacity-0 translate-y-1 scale-95"
-          >
-            <div
-              v-if="sortOpen"
-              class="absolute right-0 z-20 mt-2 w-56 origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5"
-              role="listbox"
-            >
-              <button
-                type="button"
-                class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-slate-50"
-                :class="sort === 'recent' ? 'bg-slate-50 font-semibold text-slate-950' : 'text-slate-700'"
-                @click="selectSort('recent')"
-              >
-                <span>Most recent</span>
-                <svg
-                  v-if="sort === 'recent'"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="h-4 w-4 text-slate-900"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.07 7.07a1 1 0 0 1-1.414 0l-3.535-3.535a1 1 0 1 1 1.414-1.414l2.828 2.828 6.363-6.364a1 1 0 0 1 1.408.001z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-slate-50"
-                :class="sort === 'highest' ? 'bg-slate-50 font-semibold text-slate-950' : 'text-slate-700'"
-                @click="selectSort('highest')"
-              >
-                <span>Highest rating</span>
-                <svg
-                  v-if="sort === 'highest'"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="h-4 w-4 text-slate-900"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.07 7.07a1 1 0 0 1-1.414 0l-3.535-3.535a1 1 0 1 1 1.414-1.414l2.828 2.828 6.363-6.364a1 1 0 0 1 1.408.001z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-slate-50"
-                :class="sort === 'lowest' ? 'bg-slate-50 font-semibold text-slate-950' : 'text-slate-700'"
-                @click="selectSort('lowest')"
-              >
-                <span>Lowest rating</span>
-                <svg
-                  v-if="sort === 'lowest'"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="h-4 w-4 text-slate-900"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.07 7.07a1 1 0 0 1-1.414 0l-3.535-3.535a1 1 0 1 1 1.414-1.414l2.828 2.828 6.363-6.364a1 1 0 0 1 1.408.001z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          </Transition> -->
-        </div>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded-full border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          @click="openAddReview"
+        >
+          Add a review
+        </button>
       </div>
     </div>
 
@@ -576,15 +720,21 @@ watch(
               {{ review.long_description }}
             </div>
 
-            <div v-if="review.image_urls?.length" class="mt-4 flex flex-wrap gap-2">
-              <img
+            <div v-if="review.image_urls?.length" class="mt-4 flex flex-wrap gap-3">
+              <button
                 v-for="(url, idx) in review.image_urls"
                 :key="`${review.id}-img-${idx}`"
-                :src="url"
-                alt="Review image"
-                class="h-16 w-16 rounded-2xl border border-slate-200 object-cover"
-                loading="lazy"
-              />
+                type="button"
+                class="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                @click="openImageModal(review.id, idx)"
+              >
+                <img
+                  :src="url"
+                  alt="Review image"
+                  class="h-24 w-24 object-cover transition duration-300 group-hover:scale-[1.04] sm:h-28 sm:w-28"
+                  loading="lazy"
+                />
+              </button>
             </div>
           </article>
         </div>
@@ -621,5 +771,370 @@ watch(
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="imageModalOpen && activeGalleryItem"
+          class="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/85 px-3 py-4 sm:px-6"
+          @click="closeImageModal"
+        >
+          <div
+            class="relative w-full max-w-5xl overflow-hidden rounded-[24px] border border-white/10 bg-slate-900 shadow-2xl"
+            @click.stop
+          >
+            <div class="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3 text-white sm:px-5">
+              <div class="min-w-0">
+                <div class="truncate text-sm font-semibold">
+                  Review images
+                </div>
+                <div class="mt-0.5 text-xs text-white/65">
+                  {{ activeGalleryIndex + 1 }} / {{ galleryImages.length }}
+                  <span v-if="activeGalleryItem.customerName">· {{ activeGalleryItem.customerName }}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
+                @click="closeImageModal"
+              >
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="relative flex items-center justify-center bg-slate-950 px-3 py-4 sm:px-6 sm:py-6">
+              <button
+                v-if="galleryImages.length > 1"
+                type="button"
+                class="absolute left-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-slate-900/85 text-white shadow-lg backdrop-blur transition hover:bg-slate-800 sm:left-5 sm:h-12 sm:w-12"
+                @click="prevGalleryImage"
+              >
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+
+              <div class="flex min-h-[280px] w-full items-center justify-center sm:min-h-[380px] lg:min-h-[560px]">
+                <img
+                  :src="activeGalleryItem.src"
+                  alt="Review image preview"
+                  class="max-h-[72vh] w-auto max-w-full rounded-[18px] object-contain"
+                />
+              </div>
+
+              <button
+                v-if="galleryImages.length > 1"
+                type="button"
+                class="absolute right-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-slate-900/85 text-white shadow-lg backdrop-blur transition hover:bg-slate-800 sm:right-5 sm:h-12 sm:w-12"
+                @click="nextGalleryImage"
+              >
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="border-t border-white/10 px-4 py-3 sm:px-5">
+              <div class="flex items-center justify-between gap-4">
+                <div class="text-xs text-white/60">
+                  <span v-if="hydratingGallery">Loading more review images…</span>
+                  <span v-else>Use next and previous to browse all loaded review images.</span>
+                </div>
+              </div>
+
+              <div
+                v-if="galleryImages.length > 1"
+                class="mt-3 flex gap-2 overflow-x-auto pb-1"
+              >
+                <button
+                  v-for="(image, index) in galleryImages"
+                  :key="image.key"
+                  type="button"
+                  class="shrink-0 overflow-hidden rounded-xl border transition"
+                  :class="index === activeGalleryIndex
+                    ? 'border-white shadow-md'
+                    : 'border-white/10 opacity-70 hover:opacity-100'"
+                  @click="activeGalleryIndex = index"
+                >
+                  <img
+                    :src="image.src"
+                    alt="Review image thumbnail"
+                    class="h-14 w-14 object-cover sm:h-16 sm:w-16"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div
+          v-if="addReviewOpen"
+          class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/60 px-4 py-6"
+          @click="closeAddReview"
+        >
+          <div
+            class="w-full max-w-xl overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl"
+            @click.stop
+          >
+            <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+              <div>
+                <div class="text-base font-semibold text-slate-950">
+                  Add a review
+                </div>
+                <div class="mt-1 text-sm text-slate-500">
+                  Share your experience with this product.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                @click="closeAddReview"
+              >
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="px-5 py-5 sm:px-6 sm:py-6">
+              <Transition name="review-step" mode="out-in">
+                <div v-if="addReviewStep === 1" key="review-step-1" class="text-center">
+                  <h3 class="text-xl font-semibold tracking-[-0.02em] text-slate-950">
+                    How would you rate this product?
+                  </h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-500">
+                    We would love it if you would share a bit about your experience.
+                  </p>
+
+                  <div class="mt-6 flex flex-col items-center">
+                    <div
+                      class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50 sm:h-28 sm:w-28"
+                    >
+                      <img
+                        v-if="props.productImage"
+                        :src="props.productImage"
+                        :alt="props.productName || 'Product image'"
+                        class="h-full w-full object-contain p-2"
+                      >
+                      <div v-else class="text-xs text-slate-400">
+                        No image
+                      </div>
+                    </div>
+
+                    <div class="mt-4 text-base font-semibold text-slate-950">
+                      {{ props.productName || 'This product' }}
+                    </div>
+                  </div>
+
+                  <div
+                    class="mt-6 flex items-center justify-center gap-2 sm:gap-3"
+                    @mouseleave="hoveredDraftRating = 0"
+                  >
+                    <button
+                      v-for="star in 5"
+                      :key="`draft-star-${star}`"
+                      type="button"
+                      class="rounded-full p-1 transition hover:scale-105"
+                      :aria-label="`Rate ${star} star${star === 1 ? '' : 's'}`"
+                      @mouseenter="hoveredDraftRating = star"
+                      @focus="hoveredDraftRating = star"
+                      @blur="hoveredDraftRating = 0"
+                      @click="selectDraftRating(star)"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        class="h-10 w-10 transition sm:h-11 sm:w-11"
+                        :class="star <= interactiveDraftRating ? 'text-[#f2a536]' : 'text-slate-300'"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div class="mt-4 text-sm font-medium text-slate-500">
+                    {{ draftRating ? `${draftRating} out of 5 selected` : 'Tap a star rating to continue' }}
+                  </div>
+                </div>
+
+                <form v-else key="review-step-2" class="space-y-5" @submit.prevent="submitAddReview">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                      >
+                        <img
+                          v-if="props.productImage"
+                          :src="props.productImage"
+                          :alt="props.productName || 'Product image'"
+                          class="h-full w-full object-contain p-1.5"
+                        >
+                      </div>
+
+                      <div>
+                        <div class="text-sm font-semibold text-slate-950">
+                          {{ props.productName || 'This product' }}
+                        </div>
+                        <div class="mt-1 flex items-center gap-1">
+                          <svg
+                            v-for="star in 5"
+                            :key="`selected-star-${star}`"
+                            viewBox="0 0 24 24"
+                            class="h-4 w-4"
+                            :class="star <= draftRating ? 'text-[#f2a536]' : 'text-slate-300'"
+                            fill="currentColor"
+                          >
+                            <path
+                              d="M12 2.25l2.917 5.91 6.523.948-4.72 4.6 1.114 6.497L12 17.118 6.166 20.205l1.114-6.497-4.72-4.6 6.523-.948L12 2.25z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+                      @click="backToRatingStep"
+                    >
+                      Change
+                    </button>
+                  </div>
+
+                  <div>
+                    <label for="review-order-id" class="mb-2 block text-sm font-semibold text-slate-900">
+                      Please enter your Order ID
+                    </label>
+                    <input
+                      id="review-order-id"
+                      v-model="orderId"
+                      type="text"
+                      placeholder="Enter your order ID"
+                      class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
+                    >
+                  </div>
+
+                  <div>
+                    <label for="review-content" class="mb-2 block text-sm font-semibold text-slate-900">
+                      Review content
+                    </label>
+                    <textarea
+                      id="review-content"
+                      v-model="reviewContent"
+                      rows="5"
+                      placeholder="Tell us about your experience with this product"
+                      class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="review-images" class="mb-2 block text-sm font-semibold text-slate-900">
+                      Add images
+                    </label>
+
+                    <input
+                      :key="reviewImageInputKey"
+                      id="review-images"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      class="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-800"
+                      @change="onReviewImagesChange"
+                    >
+
+                    <div v-if="reviewImagePreviewUrls.length" class="mt-3 flex flex-wrap gap-3">
+                      <div
+                        v-for="(url, index) in reviewImagePreviewUrls"
+                        :key="`preview-image-${index}`"
+                        class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                      >
+                        <img
+                          :src="url"
+                          alt="Selected review image"
+                          class="h-20 w-20 object-cover sm:h-24 sm:w-24"
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="submitError"
+                    class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  >
+                    {{ submitError }}
+                  </div>
+
+                  <div class="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:items-center sm:justify-end">
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      @click="closeAddReview"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="submitting"
+                    >
+                      <span v-if="submitting">Checking order…</span>
+                      <span v-else>Add review</span>
+                    </button>
+                  </div>
+                </form>
+              </Transition>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.review-step-enter-active,
+.review-step-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    filter 0.28s ease;
+}
+
+.review-step-enter-from,
+.review-step-leave-to {
+  opacity: 0;
+  transform: translateY(14px);
+  filter: blur(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+</style>

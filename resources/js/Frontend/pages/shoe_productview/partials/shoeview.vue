@@ -583,12 +583,14 @@ watch(currentVariant, () => {
                   v-else
                   key="reviews-desktop"
                 >
-                  <ProductReviewsPanel
-                    :fetchUrl="reviewsFetchUrl"
-                    :active="activeTab === 'reviews'"
-                    :initialCount="product.reviews_count ?? 0"
-                    :initialAvg="product.reviews_avg_rating ?? 0"
-                  />
+                <ProductReviewsPanel
+  :fetchUrl="reviewsFetchUrl"
+  :active="activeTab === 'reviews'"
+  :initialCount="product.reviews_count ?? 0"
+  :initialAvg="product.reviews_avg_rating ?? 0"
+  :productName="product.name"
+  :productImage="product.main_image || product.gallery?.[0]?.src || null"
+/>
                 </div>
               </Transition>
             </div>
@@ -882,12 +884,14 @@ watch(currentVariant, () => {
                     v-else
                     key="reviews-mobile"
                   >
-                    <ProductReviewsPanel
-                      :fetchUrl="reviewsFetchUrl"
-                      :active="activeTab === 'reviews'"
-                      :initialCount="product.reviews_count ?? 0"
-                      :initialAvg="product.reviews_avg_rating ?? 0"
-                    />
+                  <ProductReviewsPanel
+  :fetchUrl="reviewsFetchUrl"
+  :active="activeTab === 'reviews'"
+  :initialCount="product.reviews_count ?? 0"
+  :initialAvg="product.reviews_avg_rating ?? 0"
+  :productName="product.name"
+  :productImage="product.main_image || product.gallery?.[0]?.src || null"
+/>
                   </div>
                 </Transition>
               </div>

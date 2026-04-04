@@ -14,6 +14,8 @@ defineOptions({
   layout: AppLayout,
 })
 
+
+
 defineProps<{
   products: Array<{
     id: number | string

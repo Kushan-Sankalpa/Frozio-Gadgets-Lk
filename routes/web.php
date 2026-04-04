@@ -23,6 +23,13 @@ use App\Http\Controllers\Admin\Shoes\ShoeColorController;
 use App\Http\Controllers\Admin\Shoes\ShoeMaterialController;
 use App\Http\Controllers\Admin\Shoes\ShoeProductController;
 use App\Http\Controllers\Admin\Shoes\ShoeProductReviewController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticBrandController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticCategoryController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticCountryOfOriginController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticProductController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticProductTypeController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticProductReviewController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticSizeVolumeController;
 use App\Http\Controllers\InvoiceController;
 
 require __DIR__ . '/frontend.php';
@@ -215,6 +222,94 @@ Route::prefix('admin')->middleware('web')->group(function () {
             Route::prefix('product-reviews')
                 ->name('product-reviews.')
                 ->controller(ShoeProductReviewController::class)
+                ->scopeBindings()
+                ->group(function () {
+                    Route::get('/', 'products')->name('index');
+                    Route::get('/data', 'productsData')->name('data');
+
+                    Route::prefix('{product}/reviews')->name('reviews.')->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('/data', 'reviewsData')->name('data');
+                        Route::get('/create', 'create')->name('create');
+                        Route::post('/', 'store')->name('store');
+                        Route::get('/{review}/edit', 'edit')->name('edit');
+                        Route::match(['put', 'patch'], '/{review}', 'update')->name('update');
+                        Route::delete('/{review}', 'destroy')->name('destroy');
+                    });
+                });
+        });
+
+        Route::prefix('cosmetics')->name('admin.cosmetics.')->group(function () {
+            Route::prefix('brands')->name('brands.')->controller(CosmeticBrandController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
+                Route::get('/options', 'options')->name('options');
+                Route::get('/generate-slug', 'generateSlug')->name('generate-slug');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{brand}/edit', 'edit')->name('edit');
+                Route::match(['put', 'patch'], '/{brand}', 'update')->name('update');
+                Route::delete('/{brand}', 'destroy')->name('destroy');
+            });
+
+            Route::prefix('categories')->name('categories.')->controller(CosmeticCategoryController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
+                Route::get('/options', 'options')->name('options');
+                Route::get('/generate-slug', 'generateSlug')->name('generate-slug');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{category}/edit', 'edit')->name('edit');
+                Route::match(['put', 'patch'], '/{category}', 'update')->name('update');
+                Route::delete('/{category}', 'destroy')->name('destroy');
+            });
+
+            Route::prefix('product-types')->name('product-types.')->controller(CosmeticProductTypeController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
+                Route::get('/options', 'options')->name('options');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{productType}/edit', 'edit')->name('edit');
+                Route::match(['put', 'patch'], '/{productType}', 'update')->name('update');
+                Route::delete('/{productType}', 'destroy')->name('destroy');
+            });
+
+            Route::prefix('sizes-volume')->name('sizes-volume.')->controller(CosmeticSizeVolumeController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
+                Route::get('/options', 'options')->name('options');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{sizeVolume}/edit', 'edit')->name('edit');
+                Route::match(['put', 'patch'], '/{sizeVolume}', 'update')->name('update');
+                Route::delete('/{sizeVolume}', 'destroy')->name('destroy');
+            });
+
+            Route::prefix('countries-origin')->name('countries-origin.')->controller(CosmeticCountryOfOriginController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
+                Route::get('/options', 'options')->name('options');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{country}/edit', 'edit')->name('edit');
+                Route::match(['put', 'patch'], '/{country}', 'update')->name('update');
+                Route::delete('/{country}', 'destroy')->name('destroy');
+            });
+
+            Route::prefix('products')->name('products.')->controller(CosmeticProductController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/data', 'data')->name('data');
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{product}/edit', 'edit')->name('edit');
+                Route::match(['put', 'patch'], '/{product}', 'update')->name('update');
+                Route::delete('/{product}', 'destroy')->name('destroy');
+            });
+
+            Route::prefix('product-reviews')
+                ->name('product-reviews.')
+                ->controller(CosmeticProductReviewController::class)
                 ->scopeBindings()
                 ->group(function () {
                     Route::get('/', 'products')->name('index');

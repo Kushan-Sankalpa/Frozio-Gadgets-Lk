@@ -113,6 +113,41 @@ const mainNavItems: NavItemWithSubmenu[] = [
     ],
   },
   {
+    title: 'Cosmetics',
+    href: '#',
+    icon: Package,
+    submenu: [
+      {
+        title: 'Cosmetic Brands',
+        href: route('admin.cosmetics.brands.index'),
+      },
+      {
+        title: 'Cosmetic Categories',
+        href: route('admin.cosmetics.categories.index'),
+      },
+      {
+        title: 'Product Types',
+        href: route('admin.cosmetics.product-types.index'),
+      },
+      {
+        title: 'Sizes / Volume',
+        href: route('admin.cosmetics.sizes-volume.index'),
+      },
+      {
+        title: 'Country of Origin',
+        href: route('admin.cosmetics.countries-origin.index'),
+      },
+      {
+        title: 'Cosmetic Products',
+        href: route('admin.cosmetics.products.index'),
+      },
+      {
+        title: 'Product Reviews',
+        href: route('admin.cosmetics.product-reviews.index'),
+      },
+    ],
+  },
+  {
     title: 'Other CMS',
     href: route('homebanners.index'),
     icon: FolderKanban,

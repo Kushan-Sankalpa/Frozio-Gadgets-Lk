@@ -5,6 +5,7 @@ import HomeBanner from './HomeBanner.vue'
 import TechCategories from './techcategories.vue'
 import ShoeCategories from './shoecategories.vue'
 import ShoeFeaturedProducts from './ShoeFeaturedProducts.vue'
+import Cosmetics from './Cosmetics.vue'
 import FeaturedProducts from './FeaturedProducts.vue'
 import ThreeDPhone from '../../components/3dphone.vue'
 import ThreeDShoe from '../../components/3dshoe.vue'
@@ -114,6 +115,8 @@ defineProps<{
   />
 
   <ShoeFeaturedProducts :products="featuredShoes" />
+
+  <Cosmetics />
 
   <CardSwiper />
 </template>

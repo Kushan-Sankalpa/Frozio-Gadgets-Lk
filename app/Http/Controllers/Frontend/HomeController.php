@@ -12,6 +12,8 @@ use App\Models\ShoeProduct;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Schema;
+use App\Models\CosmeticProduct;
+use App\Models\CosmeticBrand;
 
 class HomeController extends Controller
 {
@@ -572,5 +574,218 @@ class HomeController extends Controller
         'activeBrand' => $activeBrand,
         'search' => $search,
     ]);
-}
+
+    }
+
+    public function featuredCosmetics(): JsonResponse
+    {
+        $search = trim((string) request('search', ''));
+
+        $normalizedSearch = filled($search) ? mb_strtolower($search) : null;
+
+        $featured = CosmeticProduct::query()
+            ->with(['brand:id,name'])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
+            ->whereIn('status', ['published', 'active'])
+            ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
+                $query->where(function ($inner) use ($normalizedSearch) {
+                    $inner->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(slug) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
+                });
+            })
+            ->latest('id')
+            ->take(8)
+            ->get()
+            ->map(function (CosmeticProduct $product) {
+                $regularPrice = $product->price !== null ? (float) $product->price : null;
+                $display = $regularPrice;
+                $discountLabel = null;
+
+                if (!empty($product->discount_type) && $product->discount_value !== null) {
+                    $val = (float) $product->discount_value;
+                    if ($product->discount_type === 'percentage' || $product->discount_type === 'percent') {
+                        $display = max(0, round($regularPrice - (($regularPrice * $val) / 100), 2));
+                        $discountLabel = 'Sale ' . rtrim(rtrim(number_format($val, 2), '0'), '.') . '%';
+                    } else {
+                        $display = max(0, round($regularPrice - $val, 2));
+                        $discountLabel = 'Sale LKR ' . number_format($val, 0);
+                    }
+                }
+
+                $hasDiscount = $display < $regularPrice;
+
+                $isSoldOut = $product->status === 'out_of_stock' || ($product->stock !== null && (int) $product->stock <= 0);
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'slug' => $product->slug,
+                    'brand_name' => $product->brand?->name,
+                    'thumbnail_url' => $product->main_image_url,
+                    'hover_image_url' => $product->main_image_url,
+                    'currency' => 'LKR',
+                    'regular_price' => $regularPrice,
+                    'sale_price' => $hasDiscount ? $display : null,
+                    'display_price' => $display,
+                    'has_discount' => $hasDiscount,
+                    'discount_label' => $discountLabel,
+                    'is_sold_out' => $isSoldOut,
+                    'reviews_count' => (int) ($product->reviews_count ?? 0),
+                    'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+                    'status' => $product->status,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'products' => $featured,
+            'search' => $search,
+        ]);
+    }
+
+    public function cosmetics(): JsonResponse
+    {
+        $search = trim((string) request('search', ''));
+        $brand = request('brand');
+
+        $normalizedSearch = filled($search) ? mb_strtolower($search) : null;
+        $normalizedBrand = filled($brand) ? mb_strtolower($brand) : null;
+
+        $query = CosmeticProduct::query()
+            ->with(['brand:id,name'])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
+            ->whereIn('status', ['published', 'active'])
+            ->when($normalizedBrand, function ($q) use ($normalizedBrand) {
+                $q->whereHas('brand', function ($bq) use ($normalizedBrand) {
+                    $bq->whereRaw('LOWER(name) = ?', [$normalizedBrand]);
+                });
+            })
+            ->when($normalizedSearch, function ($q) use ($normalizedSearch) {
+                $q->where(function ($inner) use ($normalizedSearch) {
+                    $inner->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(slug) like ?', ["%{$normalizedSearch}%"]);
+                });
+            })
+            ->latest('id')
+            ->take(8)
+            ->get();
+
+        $products = $query->map(function (CosmeticProduct $product) {
+            $regularPrice = $product->price !== null ? (float) $product->price : null;
+            $display = $regularPrice;
+            $discountLabel = null;
+
+            if (!empty($product->discount_type) && $product->discount_value !== null) {
+                $val = (float) $product->discount_value;
+                if ($product->discount_type === 'percentage' || $product->discount_type === 'percent') {
+                    $display = max(0, round($regularPrice - (($regularPrice * $val) / 100), 2));
+                    $discountLabel = 'Sale ' . rtrim(rtrim(number_format($val, 2), '0'), '.') . '%';
+                } else {
+                    $display = max(0, round($regularPrice - $val, 2));
+                    $discountLabel = 'Sale LKR ' . number_format($val, 0);
+                }
+            }
+
+            $hasDiscount = $display < $regularPrice;
+            $isSoldOut = $product->status === 'out_of_stock' || ($product->stock !== null && (int) $product->stock <= 0);
+
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'brand_name' => $product->brand?->name,
+                'thumbnail_url' => $product->main_image_url,
+                'hover_image_url' => $product->main_image_url,
+                'currency' => 'LKR',
+                'regular_price' => $regularPrice,
+                'sale_price' => $hasDiscount ? $display : null,
+                'display_price' => $display,
+                'has_discount' => $hasDiscount,
+                'discount_label' => $discountLabel,
+                'is_sold_out' => $isSoldOut,
+                'reviews_count' => (int) ($product->reviews_count ?? 0),
+                'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+                'status' => $product->status,
+            ];
+        })->values();
+
+        return response()->json([
+            'products' => $products,
+            'search' => $search,
+            'brand' => $brand,
+        ]);
+    }
+
+    public function cosmeticBrands(): JsonResponse
+    {
+        $brands = CosmeticBrand::query()
+            ->where('status', 'active')
+            ->oldest('id')
+            ->get()
+            ->map(function (CosmeticBrand $brand) {
+                return [
+                    'id' => $brand->id,
+                    'name' => $brand->name,
+                    'logo_url' => $brand->logo_url,
+                ];
+            })->values();
+
+        return response()->json([
+            'brands' => $brands,
+        ]);
+    }
+
+    public function relatedCosmetics(): JsonResponse
+    {
+        $products = CosmeticProduct::query()
+            ->with(['brand:id,name'])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
+            ->whereIn('status', ['published', 'active'])
+            ->latest('id')
+            ->take(8)
+            ->get()
+            ->map(function (CosmeticProduct $product) {
+                $regularPrice = $product->price !== null ? (float) $product->price : null;
+                $display = $regularPrice;
+
+                if (!empty($product->discount_type) && $product->discount_value !== null) {
+                    $val = (float) $product->discount_value;
+                    if ($product->discount_type === 'percentage' || $product->discount_type === 'percent') {
+                        $display = max(0, round($regularPrice - (($regularPrice * $val) / 100), 2));
+                    } else {
+                        $display = max(0, round($regularPrice - $val, 2));
+                    }
+                }
+
+                $isSoldOut = $product->status === 'out_of_stock' || ($product->stock !== null && (int) $product->stock <= 0);
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'slug' => $product->slug,
+                    'brand_name' => $product->brand?->name,
+                    'thumbnail_url' => $product->main_image_url,
+                    'hover_image_url' => $product->main_image_url,
+                    'currency' => 'LKR',
+                    'regular_price' => $regularPrice,
+                    'sale_price' => $display,
+                    'display_price' => $display,
+                    'has_discount' => $display < $regularPrice,
+                    'discount_label' => null,
+                    'is_sold_out' => $isSoldOut,
+                    'reviews_count' => (int) ($product->reviews_count ?? 0),
+                    'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'products' => $products,
+        ]);
+    }
+
 }

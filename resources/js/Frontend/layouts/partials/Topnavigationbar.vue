@@ -120,6 +120,14 @@ const isTechMenuActive = computed(() => !!currentCategory.value || !!currentBran
 const isShoeMenuActive = computed(() => {
   return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
 })
+const cosmeticCategories = computed(() => {
+  return Array.isArray(page.props.cosmeticCategories) ? (page.props.cosmeticCategories as any[]) : []
+})
+
+function isCosmeticCategoryActive(name?: string | null) {
+  const v = String(currentParams.value.get('cosmetic_brand') || '').trim()
+  return normalize(name) === normalize(v)
+}
 const isContactUsActive = computed(() => currentPath.value === '/contact-us')
 const cartBadgeCount = computed(() => totalItems.value > 99 ? '99+' : String(totalItems.value))
 
@@ -966,6 +974,79 @@ onBeforeUnmount(() => {
                         </div>
                       </div>
                     </Transition>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <div
+            class="relative"
+            @mouseenter="handleDropdownEnter('cosmetics')"
+            @mouseleave="handleDropdownLeave"
+          >
+            <button
+              type="button"
+              class="nav-link inline-flex items-center gap-1.5"
+              :class="[
+                scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+                /* cosmetic active if brand param present */ isCosmeticCategoryActive() ? 'nav-link--active' : '',
+              ]"
+            >
+              <span>Cosmetics</span>
+              <svg
+                class="h-3.5 w-3.5 transition-transform duration-300"
+                :class="activeDropdown === 'cosmetics' ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+
+              <span
+                class="nav-link-indicator"
+                :class="[
+                  scrolled ? 'bg-black' : 'bg-white',
+                ]"
+              />
+            </button>
+
+            <Transition name="dropdown-fade">
+              <div
+                v-if="activeDropdown === 'cosmetics'"
+                class="dropdown-panel left-0 min-w-[320px] overflow-visible"
+              >
+                <div class="px-2 py-2">
+                  <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                    Cosmetic Brands
+                  </div>
+
+                  <Link
+                    :href="route('frontend.cosmetic-products.index', { search: currentSearch || undefined })"
+                    class="dropdown-link"
+                  >
+                    All Cosmetic Products
+                  </Link>
+
+                  <div
+                    v-for="brand in cosmeticCategories"
+                    :key="brand.id"
+                    class="relative"
+                  >
+                    <Link
+                      :href="route('frontend.cosmetic-products.index', {
+                        brand: brand.name,
+                        search: currentSearch || undefined,
+                      })"
+                      class="dropdown-link flex-1"
+                      :class="isCosmeticCategoryActive(brand.name) ? 'dropdown-link--active' : ''"
+                    >
+                      {{ brand.name }}
+                    </Link>
                   </div>
                 </div>
               </div>

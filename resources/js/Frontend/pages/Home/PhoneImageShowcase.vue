@@ -1,5 +1,125 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+
+type ShowcaseSlide = {
+  id: number | string
+  badge: string
+  title: string
+  description: string
+  image: string
+  alt: string
+}
+
+const props = withDefaults(
+  defineProps<{
+    height?: string
+    autoplayMs?: number
+    slides?: ShowcaseSlide[]
+  }>(),
+  {
+    height: '800px',
+    autoplayMs: 5000,
+    slides: () => [
+      {
+        id: 1,
+        badge: 'Pre-Order Available',
+        title: 'Introducing iPhone 17 Pro Max',
+        description:
+          'Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look premium from every angle, it brings a refined silhouette, a striking pro finish, and a powerful first impression that belongs at the center of your next upgrade.',
+        image: '/assets/images/ip171.webp',
+        alt: 'iPhone 17 Pro Max',
+      },
+      {
+        id: 2,
+        badge: 'Coming Soon',
+        title: 'Meet Samsung S36 Ultra',
+        description:
+          'Step into the next generation with the Samsung S36 Ultra. Built with a sleek modern profile, immersive display presence, and a confident premium finish, it delivers a standout flagship feel crafted for users who want power, style, and everyday impact.',
+        image: '/assets/images/s24.webp',
+        alt: 'Samsung S26 Ultra',
+      },
+    ],
+  },
+)
+
+const currentIndex = ref(0)
+const loading = ref(true)
+const error = ref('')
+const loadedImages = ref<string[]>([])
+
+let sliderTimer: number | null = null
+
+const currentSlide = computed(() => props.slides[currentIndex.value] ?? props.slides[0])
+
+const preloadImages = async () => {
+  loading.value = true
+  error.value = ''
+
+  try {
+    const promises = props.slides.map(
+      (slide) =>
+        new Promise<string>((resolve, reject) => {
+          const img = new Image()
+
+          img.onload = () => resolve(slide.image)
+          img.onerror = () => reject(new Error(`Failed to load image: ${slide.image}`))
+          img.src = slide.image
+        }),
+    )
+
+    loadedImages.value = await Promise.all(promises)
+    loading.value = false
+  } catch (err) {
+    console.error(err)
+    error.value = 'Failed to load showcase images.'
+    loading.value = false
+  }
+}
+
+const nextSlide = () => {
+  if (!props.slides.length) return
+  currentIndex.value = (currentIndex.value + 1) % props.slides.length
+}
+
+const goToSlide = (index: number) => {
+  currentIndex.value = index
+  restartAutoplay()
+}
+
+const startAutoplay = () => {
+  stopAutoplay()
+
+  if (props.slides.length <= 1) return
+
+  sliderTimer = window.setInterval(() => {
+    nextSlide()
+  }, props.autoplayMs)
+}
+
+const stopAutoplay = () => {
+  if (sliderTimer !== null) {
+    window.clearInterval(sliderTimer)
+    sliderTimer = null
+  }
+}
+
+const restartAutoplay = () => {
+  startAutoplay()
+}
+
+onMounted(async () => {
+  await preloadImages()
+  if (!error.value) {
+    startAutoplay()
+  }
+})
+
+onBeforeUnmount(() => {
+  stopAutoplay()
+})
+
+/*
+  Old Lottie code kept commented out as requested for speed improvement.
 
 const DOTLOTTIE_SCRIPT_SRC =
   'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
@@ -7,25 +127,7 @@ const DOTLOTTIE_SCRIPT_SRC =
 const DOTLOTTIE_ANIMATION_SRC =
   'https://lottie.host/7799d1df-13f4-4ae5-9498-c5bbc8362c42/ROZeoYHWYC.lottie'
 
-const props = withDefaults(
-  defineProps<{
-    imagePath?: string
-    height?: string
-    alt?: string
-  }>(),
-{
-  imagePath: '/assets/images/ip171.png',
-  height: '800px',
-  alt: 'iPhone 17 Pro Max',
-}
-)
-
-const loading = ref(true)
-const error = ref('')
-const imageReady = ref(false)
-
 let dotLottieScriptEl: HTMLScriptElement | null = null
-let preloadImage: HTMLImageElement | null = null
 
 const ensureDotLottieScript = () => {
   if (typeof window === 'undefined') return
@@ -38,53 +140,7 @@ const ensureDotLottieScript = () => {
   dotLottieScriptEl.dataset.dotlottieWc = 'true'
   document.head.appendChild(dotLottieScriptEl)
 }
-
-const loadImage = (src: string) => {
-  loading.value = true
-  error.value = ''
-  imageReady.value = false
-
-  if (!src) {
-    error.value = 'Failed to load image.'
-    loading.value = false
-    return
-  }
-
-  preloadImage = new Image()
-
-  preloadImage.onload = () => {
-    imageReady.value = true
-    loading.value = false
-  }
-
-  preloadImage.onerror = () => {
-    error.value = 'Failed to load image.'
-    loading.value = false
-    imageReady.value = false
-  }
-
-  preloadImage.src = src
-}
-
-watch(
-  () => props.imagePath,
-  (newPath) => {
-    loadImage(newPath)
-  },
-  { immediate: true },
-)
-
-onMounted(() => {
-  ensureDotLottieScript()
-})
-
-onBeforeUnmount(() => {
-  if (preloadImage) {
-    preloadImage.onload = null
-    preloadImage.onerror = null
-    preloadImage = null
-  }
-})
+*/
 </script>
 
 <template>
@@ -100,36 +156,45 @@ onBeforeUnmount(() => {
 
     <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-1">
       <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
-        <div class="order-2 lg:order-1">
-          <div
-            class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
-          >
-            Pre-Order Available
-          </div>
+        <div class="order-2 lg:order-1 overflow-hidden">
+          <Transition name="showcase-copy" mode="out-in">
+            <div :key="currentSlide.id">
+              <div
+                class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
+              >
+                {{ currentSlide.badge }}
+              </div>
 
-          <h2
-            class="mt-5 max-w-[11ch] text-[42px] font-semibold leading-[0.9] tracking-[-0.05em] text-white sm:text-[58px] lg:text-[68px] xl:text-[84px]"
-          >
-            Introducing iPhone 17 Pro Max
-          </h2>
+              <h2
+                class="mt-5 max-w-[11ch] text-[42px] font-semibold leading-[0.9] tracking-[-0.05em] text-white sm:text-[58px] lg:text-[68px] xl:text-[84px]"
+              >
+                {{ currentSlide.title }}
+              </h2>
 
-          <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-white/72 sm:text-base sm:leading-8">
-            Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look
-            premium from every angle, it brings a refined silhouette, a striking pro finish, and a
-            powerful first impression that belongs at the center of your next upgrade.
-          </p>
+              <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-white/72 sm:text-base sm:leading-8">
+                {{ currentSlide.description }}
+              </p>
+            </div>
+          </Transition>
         </div>
 
         <div class="order-1 lg:order-2">
-          <div class="phone-showcase__stage-wrap relative ml-auto w-full">
+          <div
+            class="phone-showcase__stage-wrap relative ml-auto w-full"
+            @mouseenter="stopAutoplay"
+            @mouseleave="startAutoplay"
+          >
             <div class="phone-showcase__stage">
-              <img
-                v-if="imageReady && !error"
-                :src="imagePath"
-                :alt="alt"
-                class="phone-showcase__image"
-                draggable="false"
-              >
+              <Transition name="showcase-image" mode="out-in">
+                <img
+                  v-if="!loading && !error"
+                  :key="currentSlide.id"
+                  :src="currentSlide.image"
+                  :alt="currentSlide.alt"
+                  class="phone-showcase__image"
+                  draggable="false"
+                >
+              </Transition>
             </div>
 
             <div
@@ -139,13 +204,7 @@ onBeforeUnmount(() => {
               aria-live="polite"
             >
               <div class="phone-showcase__loading-card">
-                <component
-                  :is="'dotlottie-wc'"
-                  :src="DOTLOTTIE_ANIMATION_SRC"
-                  class="phone-showcase__loader-anim"
-                  autoplay
-                  loop
-                />
+                <div class="phone-showcase__spinner" />
                 <p class="phone-showcase__loading-text">Loading ...</p>
               </div>
             </div>
@@ -160,6 +219,21 @@ onBeforeUnmount(() => {
                 {{ error }}
               </div>
             </div>
+<!-- 
+            <div
+              v-if="!loading && !error && props.slides.length > 1"
+              class="phone-showcase__dots"
+            >
+              <button
+                v-for="(slide, index) in props.slides"
+                :key="slide.id"
+                type="button"
+                class="phone-showcase__dot"
+                :class="{ 'phone-showcase__dot--active': index === currentIndex }"
+                :aria-label="`Go to slide ${index + 1}`"
+                @click="goToSlide(index)"
+              />
+            </div> -->
           </div>
         </div>
       </div>
@@ -178,10 +252,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: clamp(400px, 96vw, 640px);
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.05), transparent 24%),
-    radial-gradient(circle at 50% 84%, rgba(255, 255, 255, 0.03), transparent 26%),
-    #000;
+
   border-radius: 28px;
   display: flex;
   align-items: center;
@@ -189,6 +260,7 @@ onBeforeUnmount(() => {
 }
 
 .phone-showcase__image {
+  display: block;
   width: 100%;
   height: 100%;
   max-width: 92%;
@@ -198,6 +270,7 @@ onBeforeUnmount(() => {
   user-select: none;
   -webkit-user-drag: none;
   filter: drop-shadow(0 18px 42px rgba(0, 0, 0, 0.45));
+  will-change: transform, opacity, filter;
 }
 
 .phone-showcase__loading {
@@ -215,13 +288,17 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.85rem;
   width: min(88%, 340px);
 }
 
-.phone-showcase__loader-anim {
-  width: clamp(118px, 30vw, 300px);
-  height: clamp(118px, 30vw, 300px);
+.phone-showcase__spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.16);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  animation: showcase-spin 0.9s linear infinite;
 }
 
 .phone-showcase__loading-text {
@@ -231,6 +308,85 @@ onBeforeUnmount(() => {
   font-weight: 600;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.phone-showcase__dots {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  gap: 10px;
+  transform: translateX(-50%);
+}
+
+.phone-showcase__dot {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition:
+    transform 0.35s ease,
+    background-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.phone-showcase__dot:hover {
+  transform: scale(1.15);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.phone-showcase__dot--active {
+  background: #fff;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.08);
+}
+
+.showcase-copy-enter-active,
+.showcase-copy-leave-active {
+  transition:
+    opacity 0.8s ease,
+    transform 0.8s ease,
+    filter 0.8s ease;
+}
+
+.showcase-copy-enter-from {
+  opacity: 0;
+  transform: translateY(26px);
+  filter: blur(10px);
+}
+
+.showcase-copy-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+  filter: blur(10px);
+}
+
+.showcase-image-enter-active,
+.showcase-image-leave-active {
+  transition:
+    opacity 0.95s ease,
+    transform 0.95s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.95s ease;
+}
+
+.showcase-image-enter-from {
+  opacity: 0;
+  transform: scale(0.96) translateY(16px);
+  filter: blur(12px);
+}
+
+.showcase-image-leave-to {
+  opacity: 0;
+  transform: scale(1.03) translateY(-12px);
+  filter: blur(12px);
+}
+
+@keyframes showcase-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 640px) {
@@ -245,12 +401,21 @@ onBeforeUnmount(() => {
   }
 
   .phone-showcase__loading-card {
-    gap: 0.25rem;
+    gap: 0.7rem;
   }
 
-  .phone-showcase__loader-anim {
-    width: clamp(100px, 34vw, 150px);
-    height: clamp(100px, 34vw, 150px);
+  .phone-showcase__spinner {
+    width: 46px;
+    height: 46px;
+  }
+
+  .phone-showcase__dots {
+    bottom: 14px;
+  }
+
+  .phone-showcase__dot {
+    width: 9px;
+    height: 9px;
   }
 }
 

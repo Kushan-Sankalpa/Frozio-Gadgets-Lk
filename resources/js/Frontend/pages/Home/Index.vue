@@ -77,6 +77,27 @@ defineProps<{
     stock_status?: string | null
   }>
 }>()
+
+const phoneSlides = [
+  {
+    id: 1,
+    badge: 'Pre-Order Available',
+    title: 'Introducing iPhone 17 Pro Max',
+    description:
+      'Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look premium from every angle, it brings a refined silhouette, a striking pro finish, and a powerful first impression that belongs at the center of your next upgrade.',
+    image: '/assets/images/ip171.webp',
+    alt: 'iPhone 17 Pro Max',
+  },
+  {
+    id: 2,
+    badge: 'Coming Soon',
+    title: 'Meet Samsung S26 Ultra',
+    description:
+      'Step into the next generation with the Samsung S36 Ultra. Built with a sleek modern profile, immersive display presence, and a confident premium finish, it delivers a standout flagship feel crafted for users who want power, style, and everyday impact.',
+    image: '/assets/images/s24.webp',
+    alt: 'Samsung S26 Ultra',
+  },
+]
 </script>
 
 <!--k-->
@@ -94,9 +115,9 @@ defineProps<{
   -->
 
   <PhoneImageShowcase
-    image-path="./assets/images/ip171.png"
+    :slides="phoneSlides"
     height="700px"
-    alt="iPhone 17 Pro Max"
+    :autoplay-ms="5000"
   />
 
   <FeaturedProducts

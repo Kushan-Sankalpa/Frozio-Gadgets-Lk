@@ -7,15 +7,14 @@ import ShoeCategories from './shoecategories.vue'
 import ShoeFeaturedProducts from './ShoeFeaturedProducts.vue'
 // import Cosmetics from './Cosmetics.vue'
 import FeaturedProducts from './FeaturedProducts.vue'
-import ThreeDPhone from '../../components/3dphone.vue'
+// import ThreeDPhone from '../../components/3dphone.vue'
+import PhoneImageShowcase from './PhoneImageShowcase.vue'
 import ThreeDShoe from '../../components/3dshoe.vue'
 import CardSwiper from './cardsswiper.vue'
 
 defineOptions({
   layout: AppLayout,
 })
-
-
 
 defineProps<{
   products: Array<{
@@ -87,9 +86,17 @@ defineProps<{
 
   <TechCategories :categories="categories" />
 
+  <!--
   <ThreeDPhone
     model-path="/models/iphone_17_pro_max.glb"
     height="700px"
+  />
+  -->
+
+  <PhoneImageShowcase
+    image-path="./assets/images/ip171.png"
+    height="700px"
+    alt="iPhone 17 Pro Max"
   />
 
   <FeaturedProducts

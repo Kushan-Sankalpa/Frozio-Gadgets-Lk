@@ -9,7 +9,8 @@ import ShoeFeaturedProducts from './ShoeFeaturedProducts.vue'
 import FeaturedProducts from './FeaturedProducts.vue'
 // import ThreeDPhone from '../../components/3dphone.vue'
 import PhoneImageShowcase from './PhoneImageShowcase.vue'
-import ThreeDShoe from '../../components/3dshoe.vue'
+// import ThreeDShoe from '../../components/3dshoe.vue'
+import ShoeImageShowcase from './ShoeImageShowcase.vue'
 import CardSwiper from './cardsswiper.vue'
 
 defineOptions({
@@ -93,9 +94,30 @@ const phoneSlides = [
     badge: 'Coming Soon',
     title: 'Meet Samsung S26 Ultra',
     description:
-      'Step into the next generation with the Samsung S36 Ultra. Built with a sleek modern profile, immersive display presence, and a confident premium finish, it delivers a standout flagship feel crafted for users who want power, style, and everyday impact.',
+      'Step into the next generation with the Samsung S26 Ultra. Built with a sleek modern profile, immersive display presence, and a confident premium finish, it delivers a standout flagship feel crafted for users who want power, style, and everyday impact.',
     image: '/assets/images/s24.webp',
     alt: 'Samsung S26 Ultra',
+  },
+]
+
+const shoeSlides = [
+  {
+    id: 1,
+    badge: 'New Arrival',
+    title: 'Introducing Air Jordan 1',
+    description:
+      'Step into an iconic silhouette reimagined for a bold modern statement. The Air Jordan 1 combines heritage design, standout details, and unmistakable attitude in a form that continues to define sneaker culture.',
+    image: '/assets/images/adizero.webp',
+    alt: 'Air Jordan 1',
+  },
+  {
+    id: 2,
+    badge: 'Trending Now',
+    title: 'Introducing Adidas Samba',
+    description:
+      'Discover a timeless streetwear essential with the Adidas Samba. Clean lines, classic proportions, and everyday versatility come together in a legendary profile that keeps its style sharp across every generation.',
+    image: '/assets/images/adizero1.webp',
+    alt: 'Adidas Samba',
   },
 ]
 </script>
@@ -137,9 +159,17 @@ const phoneSlides = [
 
   <ShoeCategories :categories="shoeCategories" />
 
+  <!--
   <ThreeDShoe
     model-path="/models/air_jordan_1.glb"
     height="680px"
+  />
+  -->
+
+  <ShoeImageShowcase
+    :slides="shoeSlides"
+    height="680px"
+    :autoplay-ms="5000"
   />
 
   <ShoeFeaturedProducts :products="featuredShoes" />

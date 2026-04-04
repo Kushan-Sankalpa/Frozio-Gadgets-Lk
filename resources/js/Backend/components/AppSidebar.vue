@@ -141,6 +141,10 @@ const mainNavItems: NavItemWithSubmenu[] = [
         title: 'Cosmetic Products',
         href: route('admin.cosmetics.products.index'),
       },
+      {
+        title: 'Product Reviews',
+        href: route('admin.cosmetics.product-reviews.index'),
+      },
     ],
   },
   {

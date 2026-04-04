@@ -308,6 +308,12 @@ class CosmeticProductController extends Controller
         $this->deleteStoredFile($product->main_image_path);
         $this->deleteStoredFiles($product->gallery_image_paths ?: []);
 
+        $product->load('reviews');
+        foreach ($product->reviews as $review) {
+            $this->deleteStoredFiles($review->image_paths ?? []);
+        }
+        $product->reviews()->delete();
+
         $product->variants()->delete();
         $product->delete();
 

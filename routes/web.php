@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\Cosmetics\CosmeticCategoryController;
 use App\Http\Controllers\Admin\Cosmetics\CosmeticCountryOfOriginController;
 use App\Http\Controllers\Admin\Cosmetics\CosmeticProductController;
 use App\Http\Controllers\Admin\Cosmetics\CosmeticProductTypeController;
+use App\Http\Controllers\Admin\Cosmetics\CosmeticProductReviewController;
 use App\Http\Controllers\Admin\Cosmetics\CosmeticSizeVolumeController;
 use App\Http\Controllers\InvoiceController;
 
@@ -305,6 +306,25 @@ Route::prefix('admin')->middleware('web')->group(function () {
                 Route::match(['put', 'patch'], '/{product}', 'update')->name('update');
                 Route::delete('/{product}', 'destroy')->name('destroy');
             });
+
+            Route::prefix('product-reviews')
+                ->name('product-reviews.')
+                ->controller(CosmeticProductReviewController::class)
+                ->scopeBindings()
+                ->group(function () {
+                    Route::get('/', 'products')->name('index');
+                    Route::get('/data', 'productsData')->name('data');
+
+                    Route::prefix('{product}/reviews')->name('reviews.')->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('/data', 'reviewsData')->name('data');
+                        Route::get('/create', 'create')->name('create');
+                        Route::post('/', 'store')->name('store');
+                        Route::get('/{review}/edit', 'edit')->name('edit');
+                        Route::match(['put', 'patch'], '/{review}', 'update')->name('update');
+                        Route::delete('/{review}', 'destroy')->name('destroy');
+                    });
+                });
         });
 
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');

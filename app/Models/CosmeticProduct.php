@@ -79,6 +79,11 @@ class CosmeticProduct extends Model
         return $this->hasMany(CosmeticProductVariant::class, 'cosmetic_product_id');
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(CosmeticProductReview::class, 'product_id');
+    }
+
     public function getMainImageUrlAttribute(): ?string
     {
         if (!$this->main_image_path) {
@@ -98,4 +103,3 @@ class CosmeticProduct extends Model
         ));
     }
 }
-

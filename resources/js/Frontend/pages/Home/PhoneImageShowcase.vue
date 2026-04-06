@@ -60,7 +60,6 @@ const preloadImages = async () => {
       (slide) =>
         new Promise<string>((resolve, reject) => {
           const img = new Image()
-
           img.onload = () => resolve(slide.image)
           img.onerror = () => reject(new Error(`Failed to load image: ${slide.image}`))
           img.src = slide.image
@@ -109,38 +108,12 @@ const restartAutoplay = () => {
 
 onMounted(async () => {
   await preloadImages()
-  if (!error.value) {
-    startAutoplay()
-  }
+  if (!error.value) startAutoplay()
 })
 
 onBeforeUnmount(() => {
   stopAutoplay()
 })
-
-/*
-  Old Lottie code kept commented out as requested for speed improvement.
-
-const DOTLOTTIE_SCRIPT_SRC =
-  'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
-
-const DOTLOTTIE_ANIMATION_SRC =
-  'https://lottie.host/7799d1df-13f4-4ae5-9498-c5bbc8362c42/ROZeoYHWYC.lottie'
-
-let dotLottieScriptEl: HTMLScriptElement | null = null
-
-const ensureDotLottieScript = () => {
-  if (typeof window === 'undefined') return
-  if (document.querySelector('script[data-dotlottie-wc="true"]')) return
-
-  dotLottieScriptEl = document.createElement('script')
-  dotLottieScriptEl.src = DOTLOTTIE_SCRIPT_SRC
-  dotLottieScriptEl.type = 'module'
-  dotLottieScriptEl.async = true
-  dotLottieScriptEl.dataset.dotlottieWc = 'true'
-  document.head.appendChild(dotLottieScriptEl)
-}
-*/
 </script>
 
 <template>
@@ -154,28 +127,30 @@ const ensureDotLottieScript = () => {
       <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_18%,transparent_82%,rgba(255,255,255,0.02))]" />
     </div>
 
-    <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-1">
-      <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
-        <div class="order-2 lg:order-1 overflow-hidden">
-          <Transition name="showcase-copy" mode="out-in">
-            <div :key="currentSlide.id">
-              <div
-                class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
-              >
-                {{ currentSlide.badge }}
+    <div class="phone-showcase__shell relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="phone-showcase__grid grid items-center gap-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
+        <div class="order-2 lg:order-1">
+          <div class="phone-showcase__copy-stage">
+            <Transition name="showcase-copy" mode="out-in">
+              <div :key="currentSlide.id" class="phone-showcase__copy-slide">
+                <div
+                  class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
+                >
+                  {{ currentSlide.badge }}
+                </div>
+
+                <h2
+                  class="mt-5 max-w-[11ch] text-[42px] font-semibold leading-[0.9] tracking-[-0.05em] text-white sm:text-[58px] lg:text-[68px] xl:text-[84px]"
+                >
+                  {{ currentSlide.title }}
+                </h2>
+
+                <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-white/72 sm:text-base sm:leading-8">
+                  {{ currentSlide.description }}
+                </p>
               </div>
-
-              <h2
-                class="mt-5 max-w-[11ch] text-[42px] font-semibold leading-[0.9] tracking-[-0.05em] text-white sm:text-[58px] lg:text-[68px] xl:text-[84px]"
-              >
-                {{ currentSlide.title }}
-              </h2>
-
-              <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-white/72 sm:text-base sm:leading-8">
-                {{ currentSlide.description }}
-              </p>
-            </div>
-          </Transition>
+            </Transition>
+          </div>
         </div>
 
         <div class="order-1 lg:order-2">
@@ -213,13 +188,12 @@ const ensureDotLottieScript = () => {
               v-if="error"
               class="absolute inset-0 z-30 flex items-center justify-center px-6 text-center"
             >
-              <div
-                class="rounded-2xl border border-red-300/25 bg-red-500/15 px-5 py-4 text-sm text-white"
-              >
+              <div class="rounded-2xl border border-red-300/25 bg-red-500/15 px-5 py-4 text-sm text-white">
                 {{ error }}
               </div>
             </div>
-<!-- 
+
+            <!--
             <div
               v-if="!loading && !error && props.slides.length > 1"
               class="phone-showcase__dots"
@@ -233,7 +207,8 @@ const ensureDotLottieScript = () => {
                 :aria-label="`Go to slide ${index + 1}`"
                 @click="goToSlide(index)"
               />
-            </div> -->
+            </div>
+            -->
           </div>
         </div>
       </div>
@@ -242,6 +217,37 @@ const ensureDotLottieScript = () => {
 </template>
 
 <style scoped>
+.phone-showcase {
+  min-height: 820px;
+}
+
+.phone-showcase__shell {
+  min-height: 820px;
+  display: flex;
+  align-items: center;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.phone-showcase__grid {
+  width: 100%;
+}
+
+.phone-showcase__copy-stage {
+  position: relative;
+  height: 360px;
+  overflow: hidden;
+}
+
+.phone-showcase__copy-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .phone-showcase__stage-wrap {
   width: 100%;
   max-width: 100%;
@@ -251,6 +257,7 @@ const ensureDotLottieScript = () => {
   position: relative;
   width: 100%;
   height: clamp(400px, 96vw, 640px);
+  min-height: clamp(400px, 96vw, 640px);
   overflow: hidden;
   border-radius: 28px;
   display: flex;
@@ -383,9 +390,28 @@ const ensureDotLottieScript = () => {
   }
 }
 
+@media (max-width: 1023px) {
+  .phone-showcase,
+  .phone-showcase__shell {
+    min-height: auto;
+  }
+
+  .phone-showcase__shell {
+    display: block;
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+
+  .phone-showcase__copy-stage {
+    height: 320px;
+    margin-top: 8px;
+  }
+}
+
 @media (max-width: 640px) {
   .phone-showcase__stage {
     height: clamp(360px, 92vw, 500px);
+    min-height: clamp(360px, 92vw, 500px);
     border-radius: 22px;
   }
 
@@ -394,17 +420,13 @@ const ensureDotLottieScript = () => {
     max-height: 94%;
   }
 
-  .phone-showcase__loading-card {
-    gap: 0.7rem;
+  .phone-showcase__copy-stage {
+    height: 300px;
   }
 
   .phone-showcase__spinner {
     width: 46px;
     height: 46px;
-  }
-
-  .phone-showcase__dots {
-    bottom: 14px;
   }
 
   .phone-showcase__dot {
@@ -420,6 +442,7 @@ const ensureDotLottieScript = () => {
 
   .phone-showcase__stage {
     height: var(--phone-stage-height);
+    min-height: var(--phone-stage-height);
   }
 }
 </style>

@@ -94,7 +94,7 @@ const phoneSlides = [
     badge: 'Coming Soon',
     title: 'Meet Samsung S26 Ultra',
     description:
-      'Step into the next generation with the Samsung S26 Ultra. Built with a sleek modern profile, immersive display presence, and a confident premium finish, it delivers a standout flagship feel crafted for users who want power, style, and everyday impact.',
+      'Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look premium from every angle, it brings a refined silhouette, a striking pro finish, and a powerful first impression that belongs at the center of your next upgrade.',
     image: '/assets/images/s24.webp',
     alt: 'Samsung S26 Ultra',
   },

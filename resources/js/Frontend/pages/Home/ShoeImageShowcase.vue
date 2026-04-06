@@ -108,49 +108,21 @@ const restartAutoplay = () => {
 
 onMounted(async () => {
   await preloadImages()
-
-  if (!error.value) {
-    startAutoplay()
-  }
+  if (!error.value) startAutoplay()
 })
 
 onBeforeUnmount(() => {
   stopAutoplay()
 })
-
-/*
-  Old 3D / Lottie approach intentionally removed for performance.
-  Kept as comment reference only.
-
-import { onMounted, onBeforeUnmount, ref } from 'vue'
-import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-
-const DOTLOTTIE_SCRIPT_SRC =
-  'https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.3/dist/dotlottie-wc.js'
-
-const DOTLOTTIE_ANIMATION_SRC =
-  'https://lottie.host/6b1767c9-aa5a-4979-a1a6-ca0995bbf626/mqJgNxzu51.lottie'
-*/
 </script>
 
 <template>
   <section
-    class="relative overflow-hidden bg-white"
+    class="shoe-showcase relative overflow-hidden bg-white"
     :style="{ '--shoe-stage-height': height }"
   >
-    <!-- original decorative background kept commented from old 3D version -->
-    <!--
-    <div class="pointer-events-none absolute inset-0">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(17,24,39,0.04),transparent_28%)]" />
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_right_center,rgba(17,24,39,0.035),transparent_26%)]" />
-      <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,39,0.02),transparent_18%,transparent_82%,rgba(17,24,39,0.02))]" />
-    </div>
-    -->
-
-    <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-1 lg:px-8 lg:py-1">
-      <div class="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
+    <div class="shoe-showcase__shell relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="shoe-showcase__grid grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
         <div class="order-1">
           <div
             class="shoe-showcase__stage-wrap relative mr-auto w-full"
@@ -190,44 +162,31 @@ const DOTLOTTIE_ANIMATION_SRC =
                 {{ error }}
               </div>
             </div>
-
-            <!-- <div
-              v-if="!loading && !error && props.slides.length > 1"
-              class="shoe-showcase__dots"
-            >
-              <button
-                v-for="(slide, index) in props.slides"
-                :key="slide.id"
-                type="button"
-                class="shoe-showcase__dot"
-                :class="{ 'shoe-showcase__dot--active': index === currentIndex }"
-                :aria-label="`Go to slide ${index + 1}`"
-                @click="goToSlide(index)"
-              />
-            </div> -->
           </div>
         </div>
 
-        <div class="order-2 overflow-hidden">
-          <Transition name="shoe-copy" mode="out-in">
-            <div :key="currentSlide.id">
-              <div
-                class="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 shadow-sm sm:text-xs"
-              >
-                {{ currentSlide.badge }}
+        <div class="order-2">
+          <div class="shoe-showcase__copy-stage">
+            <Transition name="shoe-copy" mode="out-in">
+              <div :key="currentSlide.id" class="shoe-showcase__copy-slide">
+                <div
+                  class="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 shadow-sm sm:text-xs"
+                >
+                  {{ currentSlide.badge }}
+                </div>
+
+                <h2
+                  class="mt-5 max-w-[11ch] text-[44px] font-semibold leading-[0.92] tracking-[-0.05em] text-slate-900 sm:text-[56px] lg:text-[70px] xl:text-[86px]"
+                >
+                  {{ currentSlide.title }}
+                </h2>
+
+                <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-slate-600 sm:text-base sm:leading-8">
+                  {{ currentSlide.description }}
+                </p>
               </div>
-
-              <h2
-                class="mt-5 max-w-[11ch] text-[44px] font-semibold leading-[0.92] tracking-[-0.05em] text-slate-900 sm:text-[56px] lg:text-[70px] xl:text-[86px]"
-              >
-                {{ currentSlide.title }}
-              </h2>
-
-              <p class="mt-5 max-w-[60ch] text-[15px] leading-7 text-slate-600 sm:text-base sm:leading-8">
-                {{ currentSlide.description }}
-              </p>
-            </div>
-          </Transition>
+            </Transition>
+          </div>
         </div>
       </div>
     </div>
@@ -235,6 +194,37 @@ const DOTLOTTIE_ANIMATION_SRC =
 </template>
 
 <style scoped>
+.shoe-showcase {
+  min-height: 700px;
+}
+
+.shoe-showcase__shell {
+  min-height: 700px;
+  display: flex;
+  align-items: center;
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.shoe-showcase__grid {
+  width: 100%;
+}
+
+.shoe-showcase__copy-stage {
+  position: relative;
+  height: 330px;
+  overflow: hidden;
+}
+
+.shoe-showcase__copy-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .shoe-showcase__stage-wrap {
   width: 100%;
   max-width: 100%;
@@ -244,6 +234,7 @@ const DOTLOTTIE_ANIMATION_SRC =
   position: relative;
   width: 100%;
   height: clamp(380px, 96vw, 620px);
+  min-height: clamp(380px, 96vw, 620px);
   overflow: visible;
   border-radius: 0;
   border: 0;
@@ -305,39 +296,6 @@ const DOTLOTTIE_ANIMATION_SRC =
   color: rgb(71 85 105);
 }
 
-.shoe-showcase__dots {
-  position: absolute;
-  bottom: 18px;
-  left: 50%;
-  z-index: 30;
-  display: flex;
-  gap: 10px;
-  transform: translateX(-50%);
-}
-
-.shoe-showcase__dot {
-  width: 10px;
-  height: 10px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(51, 65, 85, 0.22);
-  cursor: pointer;
-  transition:
-    transform 0.35s ease,
-    background-color 0.35s ease,
-    box-shadow 0.35s ease;
-}
-
-.shoe-showcase__dot:hover {
-  transform: scale(1.15);
-  background: rgba(51, 65, 85, 0.45);
-}
-
-.shoe-showcase__dot--active {
-  background: rgb(15 23 42);
-  box-shadow: 0 0 0 6px rgba(15, 23, 42, 0.08);
-}
-
 .shoe-copy-enter-active,
 .shoe-copy-leave-active {
   transition:
@@ -378,27 +336,37 @@ const DOTLOTTIE_ANIMATION_SRC =
   }
 }
 
+@media (max-width: 1023px) {
+  .shoe-showcase,
+  .shoe-showcase__shell {
+    min-height: auto;
+  }
+
+  .shoe-showcase__shell {
+    display: block;
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+
+  .shoe-showcase__copy-stage {
+    height: 280px;
+    margin-top: 8px;
+  }
+}
+
 @media (max-width: 640px) {
   .shoe-showcase__stage {
     height: clamp(340px, 92vw, 500px);
+    min-height: clamp(340px, 92vw, 500px);
   }
 
-  .shoe-showcase__loading-card {
-    gap: 0.7rem;
+  .shoe-showcase__copy-stage {
+    height: 260px;
   }
 
   .shoe-showcase__spinner {
     width: 46px;
     height: 46px;
-  }
-
-  .shoe-showcase__dots {
-    bottom: 14px;
-  }
-
-  .shoe-showcase__dot {
-    width: 9px;
-    height: 9px;
   }
 }
 
@@ -409,6 +377,7 @@ const DOTLOTTIE_ANIMATION_SRC =
 
   .shoe-showcase__stage {
     height: var(--shoe-stage-height);
+    min-height: var(--shoe-stage-height);
   }
 }
 </style>

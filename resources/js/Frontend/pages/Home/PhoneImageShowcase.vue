@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="phone-showcase__shell relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="phone-showcase__grid grid items-center gap-12 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
+      <div class="phone-showcase__grid grid items-center gap-6 sm:gap-8 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:gap-12 xl:gap-16">
         <div class="order-2 lg:order-1">
           <div class="phone-showcase__copy-stage">
             <Transition name="showcase-copy" mode="out-in">
@@ -201,15 +201,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .phone-showcase {
-  min-height: 920px;
+  min-height: 820px;
 }
 
 .phone-showcase__shell {
-  min-height: 920px;
+  min-height: 820px;
   display: flex;
   align-items: center;
-  padding-top: 72px;
-  padding-bottom: 72px;
+  padding-top: 44px;
+  padding-bottom: 44px;
 }
 
 .phone-showcase__grid {
@@ -349,15 +349,16 @@ onBeforeUnmount(() => {
     min-height: auto;
   }
 
-  .phone-showcase__shell {
+   .phone-showcase__shell {
     display: block;
-    padding-top: 44px;
-    padding-bottom: 44px;
+    padding-top: 28px;
+    padding-bottom: 28px;
   }
 
-  .phone-showcase__copy-stage {
-    height: 390px;
-    margin-top: 18px;
+
+ .phone-showcase__copy-stage {
+    height: 360px;
+    margin-top: 6px;
   }
 
   .phone-showcase__copy-slide {
@@ -379,7 +380,7 @@ onBeforeUnmount(() => {
   }
 
   .phone-showcase__copy-stage {
-    height: 360px;
+    height: 320px;
   }
 
   .phone-showcase__copy-slide {

@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
     :style="{ '--shoe-stage-height': height }"
   >
     <div class="shoe-showcase__shell relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="shoe-showcase__grid grid items-center gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
+     <div class="shoe-showcase__grid grid items-center gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:gap-12 xl:gap-16">
         <div class="order-1">
           <div
             class="shoe-showcase__stage-wrap relative mr-auto w-full"
@@ -195,15 +195,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .shoe-showcase {
-  min-height: 780px;
+  min-height: 700px;
 }
 
 .shoe-showcase__shell {
-  min-height: 780px;
+  min-height: 700px;
   display: flex;
   align-items: center;
-  padding-top: 64px;
-  padding-bottom: 64px;
+  padding-top: 40px;
+  padding-bottom: 40px;
 }
 
 .shoe-showcase__grid {
@@ -345,20 +345,21 @@ onBeforeUnmount(() => {
     min-height: auto;
   }
 
-  .shoe-showcase__shell {
+.shoe-showcase__shell {
     display: block;
-    padding-top: 40px;
-    padding-bottom: 40px;
+    padding-top: 24px;
+    padding-bottom: 24px;
   }
 
-  .shoe-showcase__copy-stage {
-    height: 340px;
-    margin-top: 16px;
+   .shoe-showcase__copy-stage {
+    height: 320px;
+    margin-top: 6px;
   }
+
 
   .shoe-showcase__copy-slide {
-    padding-top: 18px;
-    padding-bottom: 18px;
+    padding-top: 14px;
+    padding-bottom: 14px;
   }
 }
 
@@ -369,12 +370,12 @@ onBeforeUnmount(() => {
   }
 
   .shoe-showcase__copy-stage {
-    height: 310px;
+    height: 280px;
   }
 
-  .shoe-showcase__copy-slide {
-    padding-top: 18px;
-    padding-bottom: 18px;
+   .shoe-showcase__copy-slide {
+    padding-top: 14px;
+    padding-bottom: 14px;
   }
 
   .shoe-showcase__spinner {

@@ -264,8 +264,10 @@ const DOTLOTTIE_ANIMATION_SRC =
   object-position: center;
   user-select: none;
   -webkit-user-drag: none;
-  filter: drop-shadow(0 20px 38px rgba(15, 23, 42, 0.16));
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .shoe-showcase__loading {
@@ -274,7 +276,6 @@ const DOTLOTTIE_ANIMATION_SRC =
   justify-content: center;
   padding: 1rem;
   background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(2px);
 }
 
 .shoe-showcase__loading-card {
@@ -341,40 +342,34 @@ const DOTLOTTIE_ANIMATION_SRC =
 .shoe-copy-leave-active {
   transition:
     opacity 0.8s ease,
-    transform 0.8s ease,
-    filter 0.8s ease;
+    transform 0.8s ease;
 }
 
 .shoe-copy-enter-from {
   opacity: 0;
   transform: translateY(24px);
-  filter: blur(10px);
 }
 
 .shoe-copy-leave-to {
   opacity: 0;
   transform: translateY(-18px);
-  filter: blur(10px);
 }
 
 .shoe-image-enter-active,
 .shoe-image-leave-active {
   transition:
     opacity 0.95s ease,
-    transform 0.95s cubic-bezier(0.22, 1, 0.36, 1),
-    filter 0.95s ease;
+    transform 0.95s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shoe-image-enter-from {
   opacity: 0;
   transform: scale(0.96) translateY(16px);
-  filter: blur(12px);
 }
 
 .shoe-image-leave-to {
   opacity: 0;
   transform: scale(1.03) translateY(-12px);
-  filter: blur(12px);
 }
 
 @keyframes shoe-showcase-spin {

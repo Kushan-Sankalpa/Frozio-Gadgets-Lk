@@ -252,7 +252,6 @@ const ensureDotLottieScript = () => {
   width: 100%;
   height: clamp(400px, 96vw, 640px);
   overflow: hidden;
-
   border-radius: 28px;
   display: flex;
   align-items: center;
@@ -269,8 +268,10 @@ const ensureDotLottieScript = () => {
   object-position: center;
   user-select: none;
   -webkit-user-drag: none;
-  filter: drop-shadow(0 18px 42px rgba(0, 0, 0, 0.45));
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .phone-showcase__loading {
@@ -278,7 +279,6 @@ const ensureDotLottieScript = () => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  backdrop-filter: blur(2px);
   background: rgba(0, 0, 0, 0.18);
   border-radius: 28px;
 }
@@ -347,40 +347,34 @@ const ensureDotLottieScript = () => {
 .showcase-copy-leave-active {
   transition:
     opacity 0.8s ease,
-    transform 0.8s ease,
-    filter 0.8s ease;
+    transform 0.8s ease;
 }
 
 .showcase-copy-enter-from {
   opacity: 0;
   transform: translateY(26px);
-  filter: blur(10px);
 }
 
 .showcase-copy-leave-to {
   opacity: 0;
   transform: translateY(-20px);
-  filter: blur(10px);
 }
 
 .showcase-image-enter-active,
 .showcase-image-leave-active {
   transition:
     opacity 0.95s ease,
-    transform 0.95s cubic-bezier(0.22, 1, 0.36, 1),
-    filter 0.95s ease;
+    transform 0.95s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .showcase-image-enter-from {
   opacity: 0;
   transform: scale(0.96) translateY(16px);
-  filter: blur(12px);
 }
 
 .showcase-image-leave-to {
   opacity: 0;
   transform: scale(1.03) translateY(-12px);
-  filter: blur(12px);
 }
 
 @keyframes showcase-spin {

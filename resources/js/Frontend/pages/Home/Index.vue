@@ -176,5 +176,5 @@ const shoeSlides = [
 
   <!-- <Cosmetics /> -->
 
-  <CardSwiper />
+  <!-- <CardSwiper /> -->
 </template>

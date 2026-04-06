@@ -15,7 +15,7 @@ const year = computed(() => new Date().getFullYear())
         <div class="footer-brand">
           <Link :href="route('frontend.root')" class="brand-link" aria-label="FrozioHub Home">
             <img
-              src="/assets/images/froziohub_new.png"
+              src="/assets/images/froziohub_new - Copy.png"
               alt="FrozioHub"
               class="footer-logo"
             />
@@ -332,6 +332,53 @@ const year = computed(() => new Date().getFullYear())
     grid-template-columns: 1fr;
     gap: 24px;
   }
+
+  @media (max-width: 767px) {
+  .footer-container {
+    padding: 52px 16px 18px;
+  }
+
+  .footer-brand {
+    text-align: center;
+  }
+
+  .brand-link {
+    display: flex;
+    justify-content: center;
+  }
+
+  .brand-text {
+    margin: 20px auto 0;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .footer-column {
+    padding: 0;
+  }
+
+  .footer-title {
+    margin-bottom: 14px;
+  }
+
+  .footer-logo {
+    height: 88px;
+    max-width: 280px;
+  }
+
+  .brand-text {
+    font-size: 0.93rem;
+    line-height: 1.75;
+  }
+
+  .footer-bottom {
+    margin-top: 34px;
+    padding-top: 18px;
+  }
+}
 
   .footer-column {
     padding: 0;

@@ -40,7 +40,7 @@ function prev() {
 }
 
 function stopAutoplay() {
-  if (autoplayTimer) {
+  if (autoplayTimer !== null) {
     window.clearInterval(autoplayTimer)
     autoplayTimer = null
   }
@@ -59,8 +59,9 @@ function startAutoplay() {
 function markInteraction() {
   stopAutoplay()
 
-  if (resumeTimer) {
+  if (resumeTimer !== null) {
     window.clearTimeout(resumeTimer)
+    resumeTimer = null
   }
 
   resumeTimer = window.setTimeout(() => {
@@ -75,7 +76,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopAutoplay()
 
-  if (resumeTimer) {
+  if (resumeTimer !== null) {
     window.clearTimeout(resumeTimer)
     resumeTimer = null
   }
@@ -93,7 +94,7 @@ watch(
 <template>
   <section v-if="hasSlides" class="w-full">
     <div
-      class="relative overflow-hidden bg-black"
+      class="relative overflow-hidden"
       @pointerdown="markInteraction"
       @touchstart.passive="markInteraction"
       @wheel.passive="markInteraction"
@@ -105,9 +106,9 @@ watch(
         <div
           v-for="b in slides"
           :key="b.id"
-          class="min-w-full"
+          class="min-w-full shrink-0"
         >
-          <div class="relative h-[430px] w-full overflow-hidden bg-black sm:h-[520px] md:h-[560px] lg:h-[620px]">
+          <div class="relative h-[430px] w-full overflow-hidden sm:h-[520px] md:h-[560px] lg:h-[620px]">
             <template v-if="b.desktop_image_url || b.mobile_image_url">
               <picture class="block h-full w-full">
                 <source
@@ -118,7 +119,7 @@ watch(
                 <img
                   :src="b.desktop_image_url || b.mobile_image_url || ''"
                   :alt="b.name || 'Home banner'"
-                  class="h-full w-full object-contain md:object-cover"
+                  class="block h-full w-full object-cover object-center"
                   loading="eager"
                 />
               </picture>
@@ -127,7 +128,7 @@ watch(
             <video
               v-else-if="b.video_url"
               :src="b.video_url"
-              class="h-full w-full object-cover"
+              class="block h-full w-full object-cover object-center"
               autoplay
               muted
               playsinline

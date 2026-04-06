@@ -1,6 +1,6 @@
 <template>
   <div class="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-    <div class="font-semibold text-neutral-800 mb-4">All Home Banners</div>
+    <div class="mb-4 font-semibold text-neutral-800">All Home Banners</div>
 
     <div @click="onTableClick">
       <DataTable
@@ -15,7 +15,8 @@
           <tr>
             <th style="width: 60px;">#</th>
             <th>Banner Name</th>
-            <th style="width: 180px;">Video</th>
+            <th style="width: 180px;">Desktop Image</th>
+            <th style="width: 180px;">Mobile Image</th>
             <th>Description</th>
             <th style="width: 220px;">Actions</th>
           </tr>
@@ -37,37 +38,43 @@ const reloadKey = ref<number>(0)
 const columns = [
   { data: 'id', name: 'id' },
   { data: 'name', name: 'name' },
- { data: 'video_url', name: 'video_path', orderable: false, searchable: false },
-
+  { data: 'desktop_image_url', name: 'desktop_image_path', orderable: false, searchable: false },
+  { data: 'mobile_image_url', name: 'mobile_image_path', orderable: false, searchable: false },
   { data: 'description', name: 'description' },
   { data: 'actions', name: 'actions', orderable: false, searchable: false },
 ]
 
-// Render raw HTML for video + actions
 const columnDefs = [
-  // Video column (index 2)
   {
     targets: 2,
     render: (d: any) => {
-      if (!d) return '<span class="text-xs text-neutral-400">No Video</span>'
+      if (!d) return '<span class="text-xs text-neutral-400">No Image</span>'
 
       return `
-        <video
+        <img
           src="${d}"
-          muted
-          playsinline
-          preload="metadata"
-          controls
-          class="h-16 w-28 rounded-lg border border-neutral-200 bg-black object-cover"
-        ></video>
+          alt="Desktop Banner"
+          class="h-16 w-28 rounded-lg border border-neutral-200 bg-neutral-100 object-cover"
+        />
       `
     },
   },
+  {
+    targets: 3,
+    render: (d: any) => {
+      if (!d) return '<span class="text-xs text-neutral-400">No Image</span>'
 
-  // Actions column (index 4) - keep raw HTML
-  { targets: 4, render: (d: any) => d },
+      return `
+        <img
+          src="${d}"
+          alt="Mobile Banner"
+          class="h-16 w-28 rounded-lg border border-neutral-200 bg-neutral-100 object-cover"
+        />
+      `
+    },
+  },
+  { targets: 5, render: (d: any) => d },
 ]
-
 
 function onTableClick(e: MouseEvent) {
   const target = e.target as HTMLElement

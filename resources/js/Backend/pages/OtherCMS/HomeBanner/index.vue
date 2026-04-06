@@ -9,16 +9,18 @@ import { route } from 'ziggy-js'
   <AppLayout>
     <Head title="Home Banners" />
 
-    <div class="p-6 space-y-4">
+    <div class="space-y-4 p-6">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 class="text-2xl font-bold">Home Banners</h1>
-          <p class="text-sm text-neutral-500">Manage home banner videos and descriptions.</p>
+          <p class="text-sm text-neutral-500">
+            Manage desktop and mobile home banner images.
+          </p>
         </div>
 
         <Link
           :href="route('homebanners.create')"
-          class="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-red-500 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-500 hover:text-white transition"
+          class="inline-flex w-full items-center justify-center rounded-full border border-red-500 px-4 py-2 text-sm font-medium text-red-500 transition hover:bg-red-500 hover:text-white sm:w-auto"
         >
           + New Home Banner
         </Link>

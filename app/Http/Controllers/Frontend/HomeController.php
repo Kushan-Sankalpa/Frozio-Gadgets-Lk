@@ -25,18 +25,20 @@ class HomeController extends Controller
         $activeShoeSubcategory = request('shoe_subcategory');
         $search = trim((string) request('search', ''));
 
-        $banners = HomeBanner::query()
-            ->latest()
-            ->get()
-            ->map(function (HomeBanner $b) {
-                return [
-                    'id' => $b->id,
-                    'name' => $b->name,
-                    'description' => $b->description,
-                    'video_url' => $b->video_url,
-                ];
-            })
-            ->values();
+       $banners = HomeBanner::query()
+    ->latest()
+    ->get()
+    ->map(function (HomeBanner $b) {
+        return [
+            'id' => $b->id,
+            'name' => $b->name,
+            'description' => $b->description,
+            'desktop_image_url' => $b->desktop_image_url,
+            'mobile_image_url' => $b->mobile_image_url,
+            'video_url' => $b->video_url, // legacy fallback
+        ];
+    })
+    ->values();
 
         $categories = Category::query()
             ->where('status', 'active')

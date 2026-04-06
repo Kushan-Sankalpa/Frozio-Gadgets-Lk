@@ -12,18 +12,36 @@ class HomeBanner extends Model
 
     protected $fillable = [
         'name',
-        'video_path',
         'description',
+        'video_path',
+        'desktop_image_path',
+        'mobile_image_path',
     ];
 
-    protected $appends = ['video_url'];
+    protected $appends = [
+        'video_url',
+        'desktop_image_url',
+        'mobile_image_url',
+    ];
 
     public function getVideoUrlAttribute(): ?string
-{
-    if (!$this->video_path) return null;
+    {
+        return $this->video_path
+            ? Storage::disk('public')->url($this->video_path)
+            : null;
+    }
 
-   
-    return url('/storage/' . ltrim($this->video_path, '/'));
-}
+    public function getDesktopImageUrlAttribute(): ?string
+    {
+        return $this->desktop_image_path
+            ? Storage::disk('public')->url($this->desktop_image_path)
+            : null;
+    }
 
+    public function getMobileImageUrlAttribute(): ?string
+    {
+        return $this->mobile_image_path
+            ? Storage::disk('public')->url($this->mobile_image_path)
+            : null;
+    }
 }

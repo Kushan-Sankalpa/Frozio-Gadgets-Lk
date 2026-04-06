@@ -195,6 +195,7 @@ watch(
           @click="goTo(i)"
         />
       </div>
+      <!--ajsj-->
     </div>
   </section>
 </template>

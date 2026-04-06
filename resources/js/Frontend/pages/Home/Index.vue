@@ -101,24 +101,24 @@ const phoneSlides = [
 ]
 
 const shoeSlides = [
-  {
-    id: 1,
-    badge: 'New Arrival',
-    title: 'Introducing Air Jordan 1',
-    description:
-      'Step into an iconic silhouette reimagined for a bold modern statement. The Air Jordan 1 combines heritage design, standout details, and unmistakable attitude in a form that continues to define sneaker culture.',
-    image: '/assets/images/adizero.webp',
-    alt: 'Air Jordan 1',
-  },
-  {
-    id: 2,
-    badge: 'Trending Now',
-    title: 'Introducing Adidas Samba',
-    description:
-      'Discover a timeless streetwear essential with the Adidas Samba. Clean lines, classic proportions, and everyday versatility come together in a legendary profile that keeps its style sharp across every generation.',
-    image: '/assets/images/adizero1.webp',
-    alt: 'Adidas Samba',
-  },
+ {
+  id: 1,
+  badge: 'New Arrival',
+  title: 'Introducing Adidas Adizero Evo SL EXO',
+  description:
+    'Engineered for speed and precision, the Adizero Evo SL EXO delivers lightweight performance with a sleek, modern edge. Designed for runners who demand agility and comfort, it blends advanced cushioning, breathable materials, and a streamlined silhouette to help you push limits and redefine your pace.',
+  image: '/assets/images/adizero.webp',
+  alt: 'Adidas Adizero Evo SL EXO',
+},
+  // {
+  //   id: 2,
+  //   badge: 'Trending Now',
+  //   title: 'Introducing Adidas Samba',
+  //   description:
+  //     'Discover a timeless streetwear essential with the Adidas Samba. Clean lines, classic proportions, and everyday versatility come together in a legendary profile that keeps its style sharp across every generation.',
+  //   image: '/assets/images/adizero1.webp',
+  //   alt: 'Adidas Samba',
+  // },
 ]
 </script>
 

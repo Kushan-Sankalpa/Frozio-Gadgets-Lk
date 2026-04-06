@@ -521,9 +521,9 @@ onBeforeUnmount(() => {
               <div
                 v-for="item in skeletons"
                 :key="item"
-                class="featured-slide overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm sm:rounded-[24px]"
+                class="featured-slide overflow-hidden rounded-[20px] border border-neutral-200 bg-white sm:rounded-[24px]"
               >
-                <div class="relative h-[160px] animate-pulse bg-white sm:h-[190px] xl:h-[210px]">
+                <div class="relative h-[220px] animate-pulse bg-white sm:h-[190px] xl:h-[210px]">
                   <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
                 </div>
 
@@ -545,13 +545,13 @@ onBeforeUnmount(() => {
                 v-for="(product, index) in repeatedProducts"
                 :key="`${product.id}-${index}`"
                 :href="productUrl(product)"
-                class="featured-slide product-card group block overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 sm:rounded-[24px]"
+                class="featured-slide product-card group block overflow-hidden rounded-[20px] border border-neutral-200 bg-white outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 sm:rounded-[24px]"
               >
                 <div class="relative overflow-hidden bg-white">
                   <div class="absolute left-3 top-3 z-20 flex flex-col gap-1.5 sm:left-4 sm:top-4 sm:gap-2">
                     <span
                       v-if="product.has_discount && product.discount_label"
-                      class="inline-flex w-fit items-center rounded-md bg-[#ef5a4f] px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:text-xs"
+                      class="inline-flex w-fit items-center rounded-md bg-[#ef5a4f] px-2.5 py-1 text-[10px] font-semibold text-white sm:px-3 sm:text-xs"
                     >
                       {{ normalizedDiscount(product.discount_label) }}
                     </span>
@@ -566,7 +566,7 @@ onBeforeUnmount(() => {
                     </div>
                   </div>
 
-                  <div class="relative flex h-[160px] items-center justify-center px-3 pb-3 pt-10 sm:h-[190px] sm:px-4 sm:pb-4 sm:pt-12 xl:h-[210px]">
+                  <div class="relative flex h-[220px] items-center justify-center px-3 pb-4 pt-12 sm:h-[190px] sm:px-4 sm:pb-4 sm:pt-12 xl:h-[210px]">
                     <img
                       :src="product.thumbnail_url || product.hover_image_url || ''"
                       :alt="product.name"
@@ -664,7 +664,7 @@ onBeforeUnmount(() => {
                     <span
                       v-for="color in product.colors"
                       :key="color.id"
-                      class="h-6 w-6 rounded-full border border-neutral-300 shadow-sm"
+                      class="h-6 w-6 rounded-full border border-neutral-300"
                       :style="colorSwatchStyle(color)"
                       :title="color.name"
                     />
@@ -696,7 +696,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .featured-products-section {
   width: 100%;
-  padding: 28px 0 8px;
+  padding: 34px 0 18px;
 }
 
 .featured-shell {
@@ -821,12 +821,9 @@ onBeforeUnmount(() => {
 }
 
 .featured-products-panel {
-  /* background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); */
-  /* border: 1px solid #eef2f7; */
   border-radius: 24px;
-  padding: 16px;
-  /* box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07); */
-  overflow: hidden;
+  padding: 18px 0;
+  overflow: visible;
 }
 
 .featured-products-panel__header {
@@ -835,6 +832,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 14px;
+  padding: 0 16px;
 }
 
 .featured-products-panel__title {
@@ -865,7 +863,6 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   color: #0f172a;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
   cursor: pointer;
   transition:
     transform 0.2s ease,
@@ -901,10 +898,11 @@ onBeforeUnmount(() => {
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-snap-type: x mandatory;
-  scroll-padding-left: 0;
+  scroll-padding-left: 16px;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
+  padding: 10px 16px 14px;
 }
 
 .featured-products-track::-webkit-scrollbar {
@@ -942,21 +940,20 @@ onBeforeUnmount(() => {
 }
 
 .product-card {
-  transition:
-    transform 0.4s ease,
-    box-shadow 0.4s ease;
+  transition: transform 0.4s ease;
+  box-shadow: none !important;
 }
 
 .product-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
+  box-shadow: none !important;
 }
 
 .product-main-image,
 .product-hover-image {
   position: absolute;
-  max-width: calc(100% - 1.5rem);
-  max-height: calc(100% - 1.5rem);
+  max-width: calc(100% - 0.5rem);
+  max-height: calc(100% - 0.5rem);
   object-fit: contain;
   transition:
     opacity 0.4s ease,
@@ -1059,17 +1056,24 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .featured-products-section {
-    padding-top: 24px;
+    padding-top: 28px;
+    padding-bottom: 20px;
   }
 
   .featured-products-panel {
-    padding: 14px;
+    padding: 18px 0 20px;
     border-radius: 22px;
   }
 
   .featured-products-panel__header {
     align-items: flex-start;
     flex-direction: column;
+    padding: 0 14px;
+  }
+
+  .featured-products-track {
+    padding: 12px 14px 18px;
+    scroll-padding-left: 14px;
   }
 
   .featured-slide {
@@ -1085,6 +1089,12 @@ onBeforeUnmount(() => {
 
   .featured-banner__title {
     font-size: 26px;
+  }
+
+  .product-main-image,
+  .product-hover-image {
+    max-width: calc(100% - 0.25rem);
+    max-height: calc(100% - 0.25rem);
   }
 }
 

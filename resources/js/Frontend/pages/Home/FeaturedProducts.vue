@@ -523,7 +523,7 @@ onBeforeUnmount(() => {
                 :key="item"
                 class="featured-slide overflow-hidden rounded-[20px] border border-neutral-200 bg-white sm:rounded-[24px]"
               >
-                <div class="relative h-[220px] animate-pulse bg-white sm:h-[190px] xl:h-[210px]">
+                <div class="relative h-[160px] animate-pulse bg-white sm:h-[190px] xl:h-[210px]">
                   <div class="absolute left-3 top-3 h-5 w-16 rounded bg-neutral-200 sm:left-4 sm:top-4 sm:h-6 sm:w-20" />
                 </div>
 
@@ -566,7 +566,7 @@ onBeforeUnmount(() => {
                     </div>
                   </div>
 
-                  <div class="relative flex h-[220px] items-center justify-center px-3 pb-4 pt-12 sm:h-[190px] sm:px-4 sm:pb-4 sm:pt-12 xl:h-[210px]">
+                  <div class="relative flex h-[160px] items-center justify-center px-3 pb-3 pt-10 sm:h-[190px] sm:px-4 sm:pb-4 sm:pt-12 xl:h-[210px]">
                     <img
                       :src="product.thumbnail_url || product.hover_image_url || ''"
                       :alt="product.name"
@@ -696,7 +696,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .featured-products-section {
   width: 100%;
-  padding: 34px 0 18px;
+  padding: 28px 0 8px;
 }
 
 .featured-shell {
@@ -822,8 +822,8 @@ onBeforeUnmount(() => {
 
 .featured-products-panel {
   border-radius: 24px;
-  padding: 18px 0;
-  overflow: visible;
+  padding: 16px;
+  overflow: hidden;
 }
 
 .featured-products-panel__header {
@@ -832,7 +832,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 14px;
-  padding: 0 16px;
 }
 
 .featured-products-panel__title {
@@ -898,11 +897,12 @@ onBeforeUnmount(() => {
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-snap-type: x mandatory;
-  scroll-padding-left: 16px;
+  scroll-padding-left: 0;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
-  padding: 10px 16px 14px;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .featured-products-track::-webkit-scrollbar {
@@ -940,20 +940,20 @@ onBeforeUnmount(() => {
 }
 
 .product-card {
+  box-shadow: none;
   transition: transform 0.4s ease;
-  box-shadow: none !important;
 }
 
 .product-card:hover {
   transform: translateY(-6px);
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .product-main-image,
 .product-hover-image {
   position: absolute;
-  max-width: calc(100% - 0.5rem);
-  max-height: calc(100% - 0.5rem);
+  max-width: calc(100% - 1.5rem);
+  max-height: calc(100% - 1.5rem);
   object-fit: contain;
   transition:
     opacity 0.4s ease,
@@ -1056,24 +1056,22 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .featured-products-section {
-    padding-top: 28px;
-    padding-bottom: 20px;
+    padding-top: 24px;
   }
 
   .featured-products-panel {
-    padding: 18px 0 20px;
+    padding: 14px;
     border-radius: 22px;
   }
 
   .featured-products-panel__header {
     align-items: flex-start;
     flex-direction: column;
-    padding: 0 14px;
   }
 
   .featured-products-track {
-    padding: 12px 14px 18px;
-    scroll-padding-left: 14px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   .featured-slide {
@@ -1089,12 +1087,6 @@ onBeforeUnmount(() => {
 
   .featured-banner__title {
     font-size: 26px;
-  }
-
-  .product-main-image,
-  .product-hover-image {
-    max-width: calc(100% - 0.25rem);
-    max-height: calc(100% - 0.25rem);
   }
 }
 

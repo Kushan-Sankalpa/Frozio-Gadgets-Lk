@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
     :style="{ '--shoe-stage-height': height }"
   >
     <div class="shoe-showcase__shell relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="shoe-showcase__grid grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
+      <div class="shoe-showcase__grid grid items-center gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] xl:gap-16">
         <div class="order-1">
           <div
             class="shoe-showcase__stage-wrap relative mr-auto w-full"
@@ -170,7 +170,7 @@ onBeforeUnmount(() => {
             <Transition name="shoe-copy" mode="out-in">
               <div :key="currentSlide.id" class="shoe-showcase__copy-slide">
                 <div
-                  class="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 shadow-sm sm:text-xs"
+                  class="inline-flex w-fit items-center self-start rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 shadow-sm sm:text-xs"
                 >
                   {{ currentSlide.badge }}
                 </div>
@@ -195,15 +195,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .shoe-showcase {
-  min-height: 700px;
+  min-height: 780px;
 }
 
 .shoe-showcase__shell {
-  min-height: 700px;
+  min-height: 780px;
   display: flex;
   align-items: center;
-  padding-top: 20px;
-  padding-bottom: 20px;
+  padding-top: 64px;
+  padding-bottom: 64px;
 }
 
 .shoe-showcase__grid {
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
 
 .shoe-showcase__copy-stage {
   position: relative;
-  height: 330px;
+  height: 400px;
   overflow: hidden;
 }
 
@@ -223,6 +223,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
+  padding-top: 22px;
+  padding-bottom: 22px;
 }
 
 .shoe-showcase__stage-wrap {
@@ -233,8 +236,8 @@ onBeforeUnmount(() => {
 .shoe-showcase__stage {
   position: relative;
   width: 100%;
-  height: clamp(380px, 96vw, 620px);
-  min-height: clamp(380px, 96vw, 620px);
+  height: clamp(390px, 96vw, 640px);
+  min-height: clamp(390px, 96vw, 640px);
   overflow: visible;
   border-radius: 0;
   border: 0;
@@ -344,13 +347,18 @@ onBeforeUnmount(() => {
 
   .shoe-showcase__shell {
     display: block;
-    padding-top: 32px;
-    padding-bottom: 32px;
+    padding-top: 40px;
+    padding-bottom: 40px;
   }
 
   .shoe-showcase__copy-stage {
-    height: 280px;
-    margin-top: 8px;
+    height: 340px;
+    margin-top: 16px;
+  }
+
+  .shoe-showcase__copy-slide {
+    padding-top: 18px;
+    padding-bottom: 18px;
   }
 }
 
@@ -361,7 +369,12 @@ onBeforeUnmount(() => {
   }
 
   .shoe-showcase__copy-stage {
-    height: 260px;
+    height: 310px;
+  }
+
+  .shoe-showcase__copy-slide {
+    padding-top: 18px;
+    padding-bottom: 18px;
   }
 
   .shoe-showcase__spinner {

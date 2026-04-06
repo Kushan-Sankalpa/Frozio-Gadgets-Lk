@@ -128,13 +128,13 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="phone-showcase__shell relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="phone-showcase__grid grid items-center gap-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
+      <div class="phone-showcase__grid grid items-center gap-12 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] xl:gap-16">
         <div class="order-2 lg:order-1">
           <div class="phone-showcase__copy-stage">
             <Transition name="showcase-copy" mode="out-in">
               <div :key="currentSlide.id" class="phone-showcase__copy-slide">
                 <div
-                  class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
+                  class="inline-flex w-fit items-center self-start rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/75 sm:text-xs"
                 >
                   {{ currentSlide.badge }}
                 </div>
@@ -192,23 +192,6 @@ onBeforeUnmount(() => {
                 {{ error }}
               </div>
             </div>
-
-            <!--
-            <div
-              v-if="!loading && !error && props.slides.length > 1"
-              class="phone-showcase__dots"
-            >
-              <button
-                v-for="(slide, index) in props.slides"
-                :key="slide.id"
-                type="button"
-                class="phone-showcase__dot"
-                :class="{ 'phone-showcase__dot--active': index === currentIndex }"
-                :aria-label="`Go to slide ${index + 1}`"
-                @click="goToSlide(index)"
-              />
-            </div>
-            -->
           </div>
         </div>
       </div>
@@ -218,15 +201,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .phone-showcase {
-  min-height: 820px;
+  min-height: 920px;
 }
 
 .phone-showcase__shell {
-  min-height: 820px;
+  min-height: 920px;
   display: flex;
   align-items: center;
-  padding-top: 20px;
-  padding-bottom: 20px;
+  padding-top: 72px;
+  padding-bottom: 72px;
 }
 
 .phone-showcase__grid {
@@ -235,7 +218,7 @@ onBeforeUnmount(() => {
 
 .phone-showcase__copy-stage {
   position: relative;
-  height: 360px;
+  height: 460px;
   overflow: hidden;
 }
 
@@ -246,6 +229,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
+  padding-top: 26px;
+  padding-bottom: 26px;
 }
 
 .phone-showcase__stage-wrap {
@@ -256,8 +242,8 @@ onBeforeUnmount(() => {
 .phone-showcase__stage {
   position: relative;
   width: 100%;
-  height: clamp(400px, 96vw, 640px);
-  min-height: clamp(400px, 96vw, 640px);
+  height: clamp(420px, 96vw, 680px);
+  min-height: clamp(420px, 96vw, 680px);
   overflow: hidden;
   border-radius: 28px;
   display: flex;
@@ -317,39 +303,6 @@ onBeforeUnmount(() => {
   color: rgba(255, 255, 255, 0.92);
 }
 
-.phone-showcase__dots {
-  position: absolute;
-  bottom: 18px;
-  left: 50%;
-  z-index: 30;
-  display: flex;
-  gap: 10px;
-  transform: translateX(-50%);
-}
-
-.phone-showcase__dot {
-  width: 10px;
-  height: 10px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.28);
-  cursor: pointer;
-  transition:
-    transform 0.35s ease,
-    background-color 0.35s ease,
-    box-shadow 0.35s ease;
-}
-
-.phone-showcase__dot:hover {
-  transform: scale(1.15);
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.phone-showcase__dot--active {
-  background: #fff;
-  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.08);
-}
-
 .showcase-copy-enter-active,
 .showcase-copy-leave-active {
   transition:
@@ -398,13 +351,18 @@ onBeforeUnmount(() => {
 
   .phone-showcase__shell {
     display: block;
-    padding-top: 32px;
-    padding-bottom: 32px;
+    padding-top: 44px;
+    padding-bottom: 44px;
   }
 
   .phone-showcase__copy-stage {
-    height: 320px;
-    margin-top: 8px;
+    height: 390px;
+    margin-top: 18px;
+  }
+
+  .phone-showcase__copy-slide {
+    padding-top: 18px;
+    padding-bottom: 18px;
   }
 }
 
@@ -421,17 +379,17 @@ onBeforeUnmount(() => {
   }
 
   .phone-showcase__copy-stage {
-    height: 300px;
+    height: 360px;
+  }
+
+  .phone-showcase__copy-slide {
+    padding-top: 20px;
+    padding-bottom: 20px;
   }
 
   .phone-showcase__spinner {
     width: 46px;
     height: 46px;
-  }
-
-  .phone-showcase__dot {
-    width: 9px;
-    height: 9px;
   }
 }
 

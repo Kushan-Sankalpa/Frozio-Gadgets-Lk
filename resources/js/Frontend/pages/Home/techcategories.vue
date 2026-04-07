@@ -61,34 +61,34 @@ const skeletonCards = computed(() => [0, 1, 2, 3])
 const cardClass = (index: number) => {
   switch (index) {
     case 0:
-      return 'col-start-1 row-start-1 row-span-2 min-h-[280px] sm:min-h-[380px] xl:min-h-[460px]'
+      return 'min-h-[220px] sm:col-start-1 sm:row-start-1 sm:row-span-2 sm:min-h-[380px] xl:min-h-[460px]'
     case 1:
-      return 'col-start-2 row-start-1 row-span-2 min-h-[280px] sm:min-h-[380px] xl:min-h-[460px]'
+      return 'min-h-[220px] sm:col-start-2 sm:row-start-1 sm:row-span-2 sm:min-h-[380px] xl:min-h-[460px]'
     case 2:
-      return 'col-start-3 row-start-1 min-h-[132px] sm:min-h-[182px] xl:min-h-[220px]'
+      return 'min-h-[180px] sm:col-start-3 sm:row-start-1 sm:min-h-[182px] xl:min-h-[220px]'
     case 3:
-      return 'col-start-3 row-start-2 min-h-[132px] sm:min-h-[182px] xl:min-h-[220px]'
+      return 'min-h-[180px] sm:col-start-3 sm:row-start-2 sm:min-h-[182px] xl:min-h-[220px]'
     default:
-      return ''
+      return 'min-h-[180px]'
   }
 }
 
 const titleClass = (index: number) => {
   return index < 2
-    ? 'text-[14px] leading-[0.95] sm:text-[24px] xl:text-[36px]'
-    : 'text-[11px] leading-[1] sm:text-[16px] xl:text-[28px]'
+    ? 'text-[20px] leading-[1] sm:text-[24px] xl:text-[36px]'
+    : 'text-[18px] leading-[1.05] sm:text-[16px] xl:text-[28px]'
 }
 
 const contentClass = (index: number) => {
   return index < 2
-    ? 'p-3 sm:p-5 xl:p-8'
-    : 'p-2.5 sm:p-4 xl:p-6'
+    ? 'p-4 sm:p-5 xl:p-8'
+    : 'p-4 sm:p-4 xl:p-6'
 }
 
 const buttonClass = (index: number) => {
   return index < 2
-    ? 'px-2 py-1 text-[7px] tracking-[0.14em] sm:px-3 sm:py-1.5 sm:text-[9px] sm:tracking-[0.18em] xl:px-5 xl:py-2.5 xl:text-[12px] xl:tracking-[0.24em]'
-    : 'px-1.5 py-1 text-[6px] tracking-[0.12em] sm:px-2.5 sm:py-1.5 sm:text-[8px] sm:tracking-[0.14em] xl:px-4 xl:py-2 xl:text-[11px] xl:tracking-[0.18em]'
+    ? 'px-3 py-1.5 text-[10px] tracking-[0.14em] sm:px-3 sm:py-1.5 sm:text-[9px] sm:tracking-[0.18em] xl:px-5 xl:py-2.5 xl:text-[12px] xl:tracking-[0.24em]'
+    : 'px-3 py-1.5 text-[10px] tracking-[0.12em] sm:px-2.5 sm:py-1.5 sm:text-[8px] sm:tracking-[0.14em] xl:px-4 xl:py-2 xl:text-[11px] xl:tracking-[0.18em]'
 }
 </script>
 
@@ -101,7 +101,7 @@ const buttonClass = (index: number) => {
     </div>
 
     <!-- Skeleton loader -->
-    <div v-if="loading" class="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-4 xl:gap-5">
+    <div v-if="loading" class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:grid-rows-2 sm:gap-4 xl:gap-5">
       <div
         v-for="index in skeletonCards"
         :key="`skeleton-${index}`"
@@ -114,12 +114,12 @@ const buttonClass = (index: number) => {
           <div>
             <div
               class="skeleton-line shimmer rounded-full"
-              :class="index < 2 ? 'h-6 w-32 sm:h-8 sm:w-44 xl:h-10 xl:w-56' : 'h-4 w-24 sm:h-6 sm:w-32 xl:h-8 xl:w-40'"
+              :class="index < 2 ? 'h-6 w-32 sm:h-8 sm:w-44 xl:h-10 xl:w-56' : 'h-5 w-28 sm:h-6 sm:w-32 xl:h-8 xl:w-40'"
             ></div>
 
             <div
               class="skeleton-line shimmer mt-3 rounded-full opacity-80"
-              :class="index < 2 ? 'h-3 w-24 sm:h-4 sm:w-32 xl:h-5 xl:w-40' : 'h-2.5 w-20 sm:h-3 sm:w-24 xl:h-4 xl:w-28'"
+              :class="index < 2 ? 'h-3 w-24 sm:h-4 sm:w-32 xl:h-5 xl:w-40' : 'h-3 w-20 sm:h-3 sm:w-24 xl:h-4 xl:w-28'"
             ></div>
           </div>
 
@@ -143,7 +143,10 @@ const buttonClass = (index: number) => {
     </div>
 
     <!-- Real categories -->
-    <div v-else-if="visibleCategories.length" class="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-4 xl:gap-5">
+    <div
+      v-else-if="visibleCategories.length"
+      class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:grid-rows-2 sm:gap-4 xl:gap-5"
+    >
       <Link
         v-for="(category, index) in visibleCategories"
         :key="category.id"
@@ -184,7 +187,7 @@ const buttonClass = (index: number) => {
 
             <div
               v-if="!category.image_url"
-              class="rounded-full border border-white/16 bg-white/10 px-1.5 py-1 text-[6px] font-semibold uppercase tracking-[0.1em] text-white/80 backdrop-blur sm:px-2 sm:text-[7px] xl:px-3 xl:py-1.5 xl:text-[10px] xl:tracking-[0.2em]"
+              class="rounded-full border border-white/16 bg-white/10 px-1.5 py-1 text-[8px] font-semibold uppercase tracking-[0.1em] text-white/80 backdrop-blur sm:px-2 sm:text-[7px] xl:px-3 xl:py-1.5 xl:text-[10px] xl:tracking-[0.2em]"
             >
               No Image
             </div>

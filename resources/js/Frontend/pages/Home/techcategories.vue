@@ -96,7 +96,7 @@ const buttonClass = (index: number) => {
   <section class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-14 lg:px-8">
     <div class="mb-5 sm:mb-8">
       <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
-        Tech Categories
+       Mobile Essentials
       </h2>
     </div>
 
@@ -208,19 +208,11 @@ const buttonClass = (index: number) => {
   translate: 0 0;
   min-width: 0;
   box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
-  transition:
-    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  animation:
-    fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both,
-    floatCard var(--float-duration, 5.5s) ease-in-out infinite;
-  animation-delay:
-    var(--card-delay, 0ms),
-    calc(var(--card-delay, 0ms) + 0.85s);
+  
 }
 
 .tech-card:hover {
-  transform: translateY(-8px);
+ 
   box-shadow: 0 28px 70px rgba(15, 23, 42, 0.18);
 }
 

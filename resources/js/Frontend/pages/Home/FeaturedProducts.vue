@@ -37,7 +37,7 @@ const props = withDefaults(
     search?: string | null
   }>(),
   {
-    title: 'Featured Products',
+    title: 'Trending Now',
     subtitle:
       'Discover our featured technology picks, selected for standout design, reliable performance, and everyday value.',
     activeCategory: null,
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
         >
           <div class="featured-products-panel__header">
             <div>
-              <h3 class="featured-products-panel__title">Featured Collection</h3>
+              <!-- <h3 class="featured-products-panel__title">Featured Collection</h3> -->
               <p class="featured-products-panel__subtitle">
                 <!-- 3 cards visible, 6 total cards, smooth infinite one-by-one carousel. -->
               </p>

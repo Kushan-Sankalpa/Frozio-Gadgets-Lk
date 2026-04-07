@@ -723,7 +723,7 @@ onBeforeUnmount(() => {
                 isTechMenuActive ? 'nav-link--active' : '',
               ]"
             >
-              <span>Tech Products</span>
+              <span>Mobile Essentials</span>
               <svg
                 class="h-3.5 w-3.5 transition-transform duration-300"
                 :class="activeDropdown === 'tech' ? 'rotate-180' : ''"
@@ -761,7 +761,7 @@ onBeforeUnmount(() => {
                     class="dropdown-link"
                     :class="!currentCategory && !currentBrand ? 'dropdown-link--active' : ''"
                   >
-                    All Tech Products
+                    All Mobile Essentials
                   </Link>
 
                   <div
@@ -855,7 +855,7 @@ onBeforeUnmount(() => {
                 :href="route('frontend.shoe-products.index')"
                 class="inline-flex items-center"
               >
-                <span>Shoe Products</span>
+                <span>Featured Footwear</span>
               </Link>
 
               <svg
@@ -895,7 +895,7 @@ onBeforeUnmount(() => {
                     class="dropdown-link"
                     :class="!currentShoeCategory && !currentShoeSubcategory ? 'dropdown-link--active' : ''"
                   >
-                    All Shoe Products
+                    All Featured Footwear
                   </Link>
 
                   <div
@@ -1396,7 +1396,7 @@ onBeforeUnmount(() => {
               class="mobile-accordion"
               @click="openMobileTech = !openMobileTech"
             >
-              <span>Tech Products</span>
+              <span>Mobile Essentials</span>
               <svg
                 class="h-4 w-4 transition-transform duration-300"
                 :class="openMobileTech ? 'rotate-180' : ''"
@@ -1419,7 +1419,7 @@ onBeforeUnmount(() => {
                     class="mobile-sub-link"
                     @click="openMobileMenu = false"
                   >
-                    All Tech Products
+                    All Mobile Essentials
                   </Link>
 
                   <div
@@ -1492,7 +1492,7 @@ onBeforeUnmount(() => {
               class="mobile-accordion"
               @click="openMobileShoe = !openMobileShoe"
             >
-              <span>Shoe Products</span>
+              <span>Featured Footwear</span>
               <svg
                 class="h-4 w-4 transition-transform duration-300"
                 :class="openMobileShoe ? 'rotate-180' : ''"

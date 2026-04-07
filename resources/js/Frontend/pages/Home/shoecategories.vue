@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
   >
     <div class="mb-5 sm:mb-8">
       <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
-        Shoe Categories
+        Shoe Collection
       </h2>
     </div>
 

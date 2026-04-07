@@ -198,10 +198,10 @@ onBeforeUnmount(() => {
     <div class="mb-5 flex items-end justify-between gap-3 sm:mb-7">
       <div>
         <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
-          Featured Shoes
+          Featured Footwear
         </h2>
         <p class="mt-1 text-sm text-neutral-500 sm:text-base">
-          Selected featured shoe products from the latest collection.
+         Handpicked shoes from our latest collection.
         </p>
       </div>
     </div>

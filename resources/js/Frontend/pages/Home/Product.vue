@@ -345,10 +345,10 @@ onBeforeUnmount(() => {
     <div class="mb-5 flex flex-col gap-4 sm:mb-7">
       <div>
         <h2 class="text-2xl font-semibold tracking-[-0.03em] text-gray-900 sm:text-4xl">
-          Products
+          Our Collection
         </h2>
         <p class="mt-1 text-sm text-neutral-500 sm:text-base">
-          Browse products by category.
+          Carefully selected devices and accessories for you.
         </p>
       </div>
 

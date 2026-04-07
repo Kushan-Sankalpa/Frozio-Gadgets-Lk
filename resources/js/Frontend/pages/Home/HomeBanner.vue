@@ -135,7 +135,7 @@ watch(
               loop
             />
 
-            <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/5" />
+            <div class="absolute inset-0 bg-gradient-to-t  via-black/10 to-black/5" />
 
             <div
               v-if="b.name || b.description"

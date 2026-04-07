@@ -85,7 +85,7 @@ const phoneSlides = [
     badge: 'Pre-Order Available',
     title: 'Introducing iPhone 17 Pro Max',
     description:
-      'Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look premium from every angle, it brings a refined silhouette, a striking pro finish, and a powerful first impression that belongs at the center of your next upgrade.',
+      'Experience a sleek premium design, powerful performance, and a next-level flagship feel built for everyday excellence.',
     image: '/assets/images/ip171.webp',
     alt: 'iPhone 17 Pro Max',
   },
@@ -94,11 +94,11 @@ const phoneSlides = [
     badge: 'Coming Soon',
     title: 'Meet Samsung S26 Ultra',
     description:
-      'Discover a bold new flagship experience with the iPhone 17 Pro Max. Designed to look premium from every angle, it brings a refined silhouette, a striking pro finish, and a powerful first impression that belongs at the center of your next upgrade.',
+      'A bold flagship with a stunning display, refined design, and powerful features made for work, play, and creativity.',
     image: '/assets/images/s24.webp',
     alt: 'Samsung S26 Ultra',
   },
-]
+];
 
 const shoeSlides = [
  {
@@ -106,7 +106,7 @@ const shoeSlides = [
   badge: 'New Arrival',
   title: 'Introducing Adidas Adizero Evo SL EXO',
   description:
-    'Engineered for speed and precision, the Adizero Evo SL EXO delivers lightweight performance with a sleek, modern edge. Designed for runners who demand agility and comfort, it blends advanced cushioning, breathable materials, and a streamlined silhouette to help you push limits and redefine your pace.',
+      'Lightweight, fast, and built for comfort with a sleek performance-driven design.',
   image: '/assets/images/adizero.webp',
   alt: 'Adidas Adizero Evo SL EXO',
 },

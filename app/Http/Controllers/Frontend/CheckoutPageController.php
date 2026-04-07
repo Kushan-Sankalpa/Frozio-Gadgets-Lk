@@ -281,7 +281,7 @@ class CheckoutPageController extends Controller
             'grand_total' => $totals['grand_total'],
             'balance_due' => $totals['balance_due'],
             'notes' => $notes ?: null,
-            'terms' => 'Auto-created from web order. Remaining invoice details can be updated from admin.',
+            'terms' => 'Auto-created from web order.',
             'status' => 'draft',
             'order_status' => 'confirmed',
         ]);

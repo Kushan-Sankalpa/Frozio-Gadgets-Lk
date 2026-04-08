@@ -744,37 +744,36 @@ class InvoiceController extends Controller
         return $path;
     }
 
-    protected function shopInfo(): array
-    {
-        $logoFile = public_path('assets/images/froziohub-logo.png');
-        $logoBase64 = null;
+   protected function shopInfo(): array
+{
+    $logoFile = public_path('assets/images/froziohubcolored.png');
+    $logoBase64 = null;
 
-        if (file_exists($logoFile)) {
-            $extension = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
+    if (file_exists($logoFile)) {
+        $extension = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
 
-            $mime = match ($extension) {
-                'jpg', 'jpeg' => 'image/jpeg',
-                'svg' => 'image/svg+xml',
-                default => 'image/png',
-            };
+        $mime = match ($extension) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'svg' => 'image/svg+xml',
+            default => 'image/png',
+        };
 
-            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
-        }
-
-        return [
-            'name' => 'Frozio Hub',
-            'address_lines' => [
-                '522/c, Dhramapala mawatha,',
-                'Aggona junction, Koswatta',
-            ],
-            'phone' => '0765807548',
-            'website' => 'www.froziohub.com',
-            'logo_url' => asset('assets/images/froziohub-logo.png'),
-            'logo_path' => $logoFile,
-            'logo_base64' => $logoBase64,
-        ];
+        $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
     }
 
+    return [
+        'name' => 'Frozio Hub',
+        'address_lines' => [
+            '522/c, Dhramapala mawatha,',
+            'Aggona junction, Koswatta',
+        ],
+        'phone' => '0765807548',
+        'website' => 'www.froziohub.com',
+        'logo_url' => asset('assets/images/froziohubcolored.png'),
+        'logo_path' => $logoFile,
+        'logo_base64' => $logoBase64,
+    ];
+}
     protected function techProductsPayload()
     {
         $storageMap = StorageOption::query()->get()->keyBy('id');

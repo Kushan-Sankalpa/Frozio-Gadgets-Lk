@@ -1,26 +1,11 @@
 @php
-    $fontUrl = asset('assets/fonts/CustomFontRegular.otf');
-    $fontFamily = "'DriftBarberCustomFont', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif";
-    $accentColor = '#ff2000';
+    $appUrl = rtrim(config('app.url') ?: url('/'), '/');
+    $fontFamily = "Arial, Helvetica, sans-serif";
+    $accentColor = '#ADD8E6';
 
-    $logoFile = public_path('assets/images/froziohubcolored.png');
-    $logoBase64 = null;
+    $logoPath = 'assets/images/froziohubcolored.png';
+    $logoSrc = $appUrl . '/' . ltrim($logoPath, '/');
 
-    if (file_exists($logoFile)) {
-        $extension = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
-        $mime = match ($extension) {
-            'jpg', 'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            default => 'image/png',
-        };
-
-        $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
-    }
-
-    $logoSrc = $logoBase64 ?: asset('assets/images/froziohubcolored.png');
     $orderItems = isset($linkedOrder) && $linkedOrder?->items ? $linkedOrder->items->values() : collect();
 
     $introTitle = match ($orderStatus) {
@@ -32,7 +17,7 @@
     };
 
     $introMessage = match ($orderStatus) {
-        'confirmed' => "We're getting your order ready. We will notify you when it has been dispatched/delivered.",
+        'confirmed' => "We're getting your order ready. We will notify you when it has been dispatched or delivered.",
         'dispatched' => "Your order is on the way. We will notify you once it has been delivered.",
         'delivered' => "Your order has been delivered successfully. Thank you for shopping with us.",
         'cancelled' => "Your order was cancelled. Please review the latest details below.",
@@ -42,53 +27,40 @@
     $shippingMethodLabel = $invoice->ship_via
         ?: ($invoice->delivery_method ? ucfirst(str_replace('_', ' ', (string) $invoice->delivery_method)) : 'Standard Delivery');
 
-    $resolveImage = function (?string $rawImage): ?string {
-        if (empty($rawImage)) {
+    $resolveImage = function (?string $rawImage) use ($appUrl): ?string {
+        if (!$rawImage) {
             return null;
         }
 
-        if (\Illuminate\Support\Str::startsWith($rawImage, ['http://', 'https://', 'data:'])) {
+        $rawImage = trim($rawImage);
+
+        if ($rawImage === '') {
+            return null;
+        }
+
+        if (\Illuminate\Support\Str::startsWith($rawImage, ['http://', 'https://'])) {
             return $rawImage;
         }
 
+        if (\Illuminate\Support\Str::startsWith($rawImage, 'data:')) {
+            return null;
+        }
+
         $trimmed = ltrim($rawImage, '/');
-        $publicPath = public_path($trimmed);
 
-        if (file_exists($publicPath)) {
-            $extension = strtolower(pathinfo($publicPath, PATHINFO_EXTENSION));
-            $mime = match ($extension) {
-                'jpg', 'jpeg' => 'image/jpeg',
-                'png' => 'image/png',
-                'gif' => 'image/gif',
-                'webp' => 'image/webp',
-                'svg' => 'image/svg+xml',
-                default => 'image/jpeg',
-            };
-
-            return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($publicPath));
+        if (\Illuminate\Support\Str::startsWith($trimmed, ['storage/', 'assets/', 'uploads/'])) {
+            return $appUrl . '/' . $trimmed;
         }
 
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($rawImage)) {
-            $diskPath = \Illuminate\Support\Facades\Storage::disk('public')->path($rawImage);
-
-            if (file_exists($diskPath)) {
-                $extension = strtolower(pathinfo($diskPath, PATHINFO_EXTENSION));
-                $mime = match ($extension) {
-                    'jpg', 'jpeg' => 'image/jpeg',
-                    'png' => 'image/png',
-                    'gif' => 'image/gif',
-                    'webp' => 'image/webp',
-                    'svg' => 'image/svg+xml',
-                    default => 'image/jpeg',
-                };
-
-                return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($diskPath));
-            }
-
-            return url(\Illuminate\Support\Facades\Storage::disk('public')->url($rawImage));
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($trimmed)) {
+            return $appUrl . '/storage/' . $trimmed;
         }
 
-        return url($trimmed);
+        if (file_exists(public_path($trimmed))) {
+            return $appUrl . '/' . $trimmed;
+        }
+
+        return $appUrl . '/' . $trimmed;
     };
 @endphp
 
@@ -98,20 +70,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $statusLabel }} Order</title>
-    <style>
-        @font-face {
-            font-family: 'DriftBarberCustomFont';
-            src: url('{{ $fontUrl }}') format('opentype');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
-        }
-    </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f6fb;font-family:{{ $fontFamily }};color:#111827;">
 <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#f4f6fb;opacity:0;">
     {{ $introTitle }} Order {{ $invoice->invoice_no }}
 </div>
+
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6fb;margin:0;padding:24px 12px;font-family:{{ $fontFamily }};">
     <tr>
         <td align="center">
@@ -121,7 +85,7 @@
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td align="left" valign="top" style="padding-right:12px;">
-                                    <img src="{{ $logoSrc }}" alt="Frozio Hub" style="display:block;max-width:170px;width:170px;height:auto;border:0;">
+                                    <img src="{{ $logoSrc }}" alt="Frozio Hub" style="display:block;max-width:170px;width:170px;height:auto;border:0;outline:none;text-decoration:none;background:transparent;">
                                 </td>
                                 <td align="right" valign="top">
                                     <div style="font-size:11px;color:#94a3b8;letter-spacing:0.2em;text-transform:uppercase;">Invoice</div>
@@ -186,21 +150,18 @@
                                     <td style="padding:16px;">
                                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                                             <tr>
-                                                <td valign="top" style="width:96px;padding-right:14px;">
-                                                    @if ($imageUrl)
-                                                        <img src="{{ $imageUrl }}" alt="{{ $productName }}" style="display:block;width:84px;height:84px;border-radius:12px;border:1px solid #e5e7eb;object-fit:cover;background:#f8fafc;">
-                                                    @else
-                                                        <div style="width:84px;height:84px;border-radius:12px;border:1px solid #e5e7eb;background:#f9fafb;text-align:center;line-height:84px;font-size:12px;color:#9ca3af;">
-                                                            No Image
-                                                        </div>
-                                                    @endif
-                                                </td>
+                                                @if ($imageUrl)
+                                                    <td valign="top" style="width:96px;padding-right:14px;">
+                                                        <img src="{{ $imageUrl }}" alt="{{ $productName }}" width="84" style="display:block;width:84px;max-width:84px;height:auto;border:0;outline:none;text-decoration:none;background:transparent;">
+                                                    </td>
+                                                @endif
+
                                                 <td valign="top">
                                                     <div style="font-size:16px;line-height:1.5;font-weight:700;color:#111827;">{{ $productName }}</div>
 
                                                     @if (!empty($metaParts))
                                                         <div style="padding-top:5px;font-size:13px;line-height:1.7;color:#6b7280;">
-                                                            {{ implode(' &bull; ', $metaParts) }}
+                                                            {{ implode(' • ', $metaParts) }}
                                                         </div>
                                                     @endif
 

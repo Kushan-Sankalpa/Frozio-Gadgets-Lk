@@ -32,7 +32,7 @@
             }
         </style>
 
-        <title inertia>{{ config('app.name', 'Drift Barber') }}</title>
+        <title inertia>{{ config('app.name', 'FrozioHub') }}</title>
 
         <link rel="icon" href="/assets/images/froziohubcolored.png" sizes="any">
         <link rel="icon" href="/assets/images/froziohubcolored.png" type="image/svg+xml">

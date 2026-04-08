@@ -6,7 +6,6 @@ import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import { route, ZiggyVue } from 'ziggy-js';
 import { initializeTheme } from './Backend/composables/useAppearance';
-import './echo';
 
 
 
@@ -17,7 +16,7 @@ configureEcho({
     broadcaster: 'reverb',
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'FrozioHub';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

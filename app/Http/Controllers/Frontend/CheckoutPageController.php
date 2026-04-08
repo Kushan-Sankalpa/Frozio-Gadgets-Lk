@@ -11,6 +11,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -156,7 +157,8 @@ class CheckoutPageController extends Controller
 
         $customerMailSent = false;
         $adminMailSent = false;
-        $adminNotificationEmail = env('ORDER_NOTIFICATION_EMAIL', config('mail.from.address'));
+        $adminNotificationEmail = config('mail.order_notification.address', config('mail.from.address'));
+        $mailer = $this->resolveCheckoutMailer();
 
         try {
             if (!empty($invoice->customer_email)) {
@@ -169,7 +171,7 @@ class CheckoutPageController extends Controller
                     ]);
                 }
 
-                Mail::to($invoice->customer_email)->send($customerMail);
+                Mail::mailer($mailer)->to($invoice->customer_email)->send($customerMail);
                 $customerMailSent = true;
             }
         } catch (Throwable $throwable) {
@@ -187,7 +189,7 @@ class CheckoutPageController extends Controller
                     ]);
                 }
 
-                Mail::to($adminNotificationEmail)->send($adminMail);
+                Mail::mailer($mailer)->to($adminNotificationEmail)->send($adminMail);
                 $adminMailSent = true;
             }
         } catch (Throwable $throwable) {
@@ -435,7 +437,7 @@ class CheckoutPageController extends Controller
 
     private function shopInfo(): array
     {
-        $logoFile = public_path('assets/images/froziohub-logo.png');
+        $logoFile = public_path('assets/images/froziohubcolored.png');
         $logoBase64 = null;
 
         if (file_exists($logoFile)) {
@@ -458,10 +460,36 @@ class CheckoutPageController extends Controller
             ],
             'phone' => '0765807548',
             'website' => 'www.froziohub.com',
-            'logo_url' => asset('assets/images/froziohub-logo.png'),
+           'logo_url' => asset('assets/images/froziohubcolored.png'),
             'logo_path' => $logoFile,
             'logo_base64' => $logoBase64,
         ];
+    }
+
+    private function resolveCheckoutMailer(): string
+    {
+        $default = (string) config('mail.default', 'log');
+
+        if (!in_array($default, ['log', 'array'], true)) {
+            return $default;
+        }
+
+        $smtpHost = config('mail.mailers.smtp.host');
+        $smtpUser = config('mail.mailers.smtp.username');
+
+        if (!empty($smtpHost) && !empty($smtpUser)) {
+            Log::info('Checkout mailer fallback to smtp because default mailer is non-delivery.', [
+                'default_mailer' => $default,
+            ]);
+
+            return 'smtp';
+        }
+
+        Log::warning('Checkout emails will not be delivered because the mailer is not configured.', [
+            'default_mailer' => $default,
+        ]);
+
+        return $default;
     }
 }
 //kuh

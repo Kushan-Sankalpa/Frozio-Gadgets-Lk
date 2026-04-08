@@ -29,7 +29,7 @@ class NewOrderAdminNotificationMail extends Mailable
         return new Content(
             view: 'emails.orders.admin_notification',
             with: [
-                'order' => $this->order,
+                'order' => $this->order->loadMissing('items'),
             ],
         );
     }

@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Invoice;
+use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -28,12 +29,17 @@ class InvoiceOrderStatusMail extends Mailable
 
     public function content(): Content
     {
+        $linkedOrder = Order::with('items')
+            ->where('order_number', $this->invoice->invoice_no)
+            ->first();
+
         return new Content(
             view: 'emails.invoices.order_status',
             with: [
-                'invoice' => $this->invoice,
+                'invoice' => $this->invoice->loadMissing('items'),
                 'orderStatus' => $this->orderStatus,
                 'statusLabel' => $this->labelForStatus(),
+                'linkedOrder' => $linkedOrder,
             ],
         );
     }

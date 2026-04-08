@@ -29,7 +29,7 @@ class OrderConfirmationMail extends Mailable
         return new Content(
             view: 'emails.orders.confirmation',
             with: [
-                'order' => $this->order,
+                'order' => $this->order->loadMissing('items'),
             ],
         );
     }

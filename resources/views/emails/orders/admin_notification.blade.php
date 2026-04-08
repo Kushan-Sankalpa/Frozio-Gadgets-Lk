@@ -1,7 +1,7 @@
 ﻿@php
     $fontUrl = asset('assets/fonts/CustomFontRegular.otf');
     $fontFamily = "'DriftBarberCustomFont', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif";
-    $accentColor = '#ff2000';
+    $accentColor = '#ADD8E6';
 
     $logoFile = public_path('assets/images/froziohubcolored.png');
     $logoBase64 = null;

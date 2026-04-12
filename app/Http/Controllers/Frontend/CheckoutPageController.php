@@ -386,30 +386,43 @@ class CheckoutPageController extends Controller
 
     private function nextInvoiceNumberForUpdate(): string
     {
-        $latestInvoiceNo = optional(
-            Invoice::query()
-                ->select('id', 'invoice_no')
-                ->lockForUpdate()
-                ->latest('id')
-                ->first()
-        )->invoice_no;
+        Invoice::query()
+            ->select('id')
+            ->lockForUpdate()
+            ->latest('id')
+            ->first();
 
-        return $this->formatNextInvoiceNumber($latestInvoiceNo);
+        Order::query()
+            ->select('id')
+            ->lockForUpdate()
+            ->latest('id')
+            ->first();
+
+        $nextSequence = $this->maxInvoiceSequence() + 1;
+
+        return $this->formatInvoiceNumber($nextSequence);
     }
 
-    private function formatNextInvoiceNumber(?string $latestInvoiceNo): string
+    private function maxInvoiceSequence(): int
     {
-        if (!$latestInvoiceNo) {
-            return 'INV-001';
-        }
+        $invoiceMax = (int) (Invoice::query()
+            ->where('invoice_no', 'like', 'INV-%')
+            ->selectRaw('MAX(SUBSTR(invoice_no, 5) + 0) as max_seq')
+            ->value('max_seq') ?? 0);
 
-        if (preg_match('/(\d+)$/', $latestInvoiceNo, $matches)) {
-            $next = ((int) $matches[1]) + 1;
+        $orderMax = (int) (Order::query()
+            ->where('order_number', 'like', 'INV-%')
+            ->selectRaw('MAX(SUBSTR(order_number, 5) + 0) as max_seq')
+            ->value('max_seq') ?? 0);
 
-            return 'INV-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
-        }
+        return max($invoiceMax, $orderMax);
+    }
 
-        return 'INV-001';
+    private function formatInvoiceNumber(int $sequence): string
+    {
+        $sequence = max(1, $sequence);
+
+        return 'INV-' . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
     }
 
     private function generateAndStoreInvoicePdf(Invoice $invoice): string

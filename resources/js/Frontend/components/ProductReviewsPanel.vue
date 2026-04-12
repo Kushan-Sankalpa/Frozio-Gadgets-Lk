@@ -84,6 +84,7 @@ const draftRating = ref(0)
 const hoveredDraftRating = ref(0)
 const invoiceDigits = ref('')
 const customerName = ref('')
+const postAnonymously = ref(false)
 const reviewContent = ref('')
 const reviewImageFiles = ref<File[]>([])
 const reviewImagePreviewUrls = ref<string[]>([])
@@ -95,7 +96,7 @@ const submitting = ref(false)
 let stepTimer: number | null = null
 let successTimer: number | null = null
 const MAX_REVIEW_IMAGES = 8
-const MAX_REVIEW_THUMBNAILS = 4
+const MAX_REVIEW_THUMBNAILS = 1
 
 const cacheKey = computed(() => {
   if (!props.fetchUrl) return ''
@@ -429,6 +430,66 @@ function prevGalleryImage() {
   activeGalleryIndex.value = (activeGalleryIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length
 }
 
+let galleryTouchStartX: number | null = null
+let galleryTouchStartY: number | null = null
+let galleryTouchLastX: number | null = null
+let galleryTouchLastY: number | null = null
+
+function onGalleryTouchStart(event: TouchEvent) {
+  if (!galleryImages.value.length) return
+  if (event.touches.length !== 1) return
+
+  const touch = event.touches[0]
+  galleryTouchStartX = touch.clientX
+  galleryTouchStartY = touch.clientY
+  galleryTouchLastX = touch.clientX
+  galleryTouchLastY = touch.clientY
+}
+
+function onGalleryTouchMove(event: TouchEvent) {
+  if (galleryTouchStartX === null || galleryTouchStartY === null) return
+  if (event.touches.length !== 1) return
+
+  const touch = event.touches[0]
+  galleryTouchLastX = touch.clientX
+  galleryTouchLastY = touch.clientY
+}
+
+function resetGalleryTouch() {
+  galleryTouchStartX = null
+  galleryTouchStartY = null
+  galleryTouchLastX = null
+  galleryTouchLastY = null
+}
+
+function onGalleryTouchEnd() {
+  if (
+    galleryTouchStartX === null
+    || galleryTouchStartY === null
+    || galleryTouchLastX === null
+    || galleryTouchLastY === null
+  ) {
+    resetGalleryTouch()
+    return
+  }
+
+  const deltaX = galleryTouchLastX - galleryTouchStartX
+  const deltaY = galleryTouchLastY - galleryTouchStartY
+  const absX = Math.abs(deltaX)
+  const absY = Math.abs(deltaY)
+
+  resetGalleryTouch()
+
+  if (absX < 44 || absX < absY) return
+
+  if (deltaX > 0) {
+    nextGalleryImage()
+    return
+  }
+
+  prevGalleryImage()
+}
+
 function openAddReview() {
   resetAddReviewDraft()
   addReviewOpen.value = true
@@ -445,6 +506,7 @@ function resetAddReviewDraft() {
   hoveredDraftRating.value = 0
   invoiceDigits.value = ''
   customerName.value = ''
+  postAnonymously.value = false
   reviewContent.value = ''
   submitError.value = null
   submitting.value = false
@@ -551,6 +613,12 @@ function onReviewImagesChange(event: Event) {
   input.value = ''
 }
 
+watch(postAnonymously, (checked) => {
+  if (checked) {
+    customerName.value = ''
+  }
+})
+
 async function submitAddReview() {
   submitError.value = null
   clearSuccessMessage()
@@ -561,18 +629,8 @@ async function submitAddReview() {
     return
   }
 
-  if (!customerName.value.trim()) {
-    submitError.value = 'Please enter your name.'
-    return
-  }
-
   if (!draftRating.value) {
     submitError.value = 'Please select a rating first.'
-    return
-  }
-
-  if (!reviewContent.value.trim()) {
-    submitError.value = 'Please write your review before submitting.'
     return
   }
 
@@ -581,9 +639,16 @@ async function submitAddReview() {
   try {
     const formData = new FormData()
     formData.append('invoice_no', invoiceNo)
-    formData.append('customer_name', customerName.value.trim())
+    formData.append('anonymous', postAnonymously.value ? '1' : '0')
     formData.append('rating', String(draftRating.value))
-    formData.append('long_description', reviewContent.value.trim())
+
+    if (!postAnonymously.value && customerName.value.trim()) {
+      formData.append('customer_name', customerName.value.trim())
+    }
+
+    if (reviewContent.value.trim()) {
+      formData.append('long_description', reviewContent.value.trim())
+    }
 
     reviewImageFiles.value.forEach((file) => {
       formData.append('images[]', file)
@@ -965,12 +1030,22 @@ watch(
             </svg>
           </button>
 
-          <div class="flex h-full w-full items-center justify-center px-4 py-16 sm:px-8 sm:py-20" @click.stop>
-            <img
-              :src="activeGalleryItem.src"
-              alt="Review image preview"
-              class="max-h-[88vh] max-w-[96vw] object-contain drop-shadow-[0_30px_70px_rgba(15,23,42,0.25)]"
-            />
+          <div
+            class="flex h-full w-full items-center justify-center px-4 py-16 sm:px-8 sm:py-20"
+            @touchstart.passive="onGalleryTouchStart"
+            @touchmove.passive="onGalleryTouchMove"
+            @touchend="onGalleryTouchEnd"
+            @touchcancel="onGalleryTouchEnd"
+            @click.stop
+          >
+            <Transition name="gallery-image" mode="out-in">
+              <img
+                :key="activeGalleryItem.key"
+                :src="activeGalleryItem.src"
+                alt="Review image preview"
+                class="max-h-[88vh] max-w-[96vw] object-contain drop-shadow-[0_30px_70px_rgba(15,23,42,0.25)]"
+              />
+            </Transition>
           </div>
 
           <div
@@ -1001,19 +1076,19 @@ watch(
 
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div
-          v-if="addReviewOpen"
-          class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/60 px-4 py-6"
-          @click="closeAddReview"
-        >
           <div
-            class="w-full max-w-xl overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl"
-            @click.stop
+            v-if="addReviewOpen"
+            class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/60 px-4 py-6"
+            @click="closeAddReview"
           >
-            <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
-              <div>
-                <div class="text-base font-semibold text-slate-950">
-                  Add a review
+            <div
+              class="flex max-h-[calc(100vh-3rem)] w-full max-w-xl flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl"
+              @click.stop
+            >
+              <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+                <div>
+                  <div class="text-base font-semibold text-slate-950">
+                    Add a review
                 </div>
                 <div class="mt-1 text-sm text-slate-500">
                   Share your experience with this product.
@@ -1028,15 +1103,15 @@ watch(
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
-              </button>
-            </div>
+                </button>
+              </div>
 
-            <div class="px-5 py-5 sm:px-6 sm:py-6">
-              <Transition name="review-step" mode="out-in">
-                <div v-if="addReviewStep === 1" key="review-step-1" class="text-center">
-                  <h3 class="text-xl font-semibold tracking-[-0.02em] text-slate-950">
-                    How would you rate this product?
-                  </h3>
+              <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+                <Transition name="review-step" mode="out-in">
+                  <div v-if="addReviewStep === 1" key="review-step-1" class="text-center">
+                    <h3 class="text-xl font-semibold tracking-[-0.02em] text-slate-950">
+                      How would you rate this product?
+                    </h3>
                   <p class="mt-2 text-sm leading-6 text-slate-500">
                     We would love it if you would share a bit about your experience.
                   </p>
@@ -1090,7 +1165,13 @@ watch(
                   </div>
                 </div>
 
-                <form v-else key="review-step-2" class="space-y-5" @submit.prevent="submitAddReview">
+                <form
+                  v-else
+                  id="add-review-form"
+                  key="review-step-2"
+                  class="space-y-5"
+                  @submit.prevent="submitAddReview"
+                >
                   <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                       <img
@@ -1155,20 +1236,31 @@ watch(
 
                   <div>
                     <label for="review-customer-name" class="mb-2 block text-sm font-semibold text-slate-900">
-                      Your name
+                      Your name (optional)
                     </label>
                     <input
                       id="review-customer-name"
                       v-model="customerName"
                       type="text"
                       placeholder="Enter your name"
-                      class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
+                      class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                      :disabled="postAnonymously"
                     >
+
+                    <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                      <input
+                        id="review-anonymous"
+                        v-model="postAnonymously"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900/20"
+                      >
+                      <span>Post as anonymous</span>
+                    </label>
                   </div>
 
                   <div>
                     <label for="review-content" class="mb-2 block text-sm font-semibold text-slate-900">
-                      Review content
+                      Review content (optional)
                     </label>
                     <textarea
                       id="review-content"
@@ -1176,7 +1268,7 @@ watch(
                       rows="5"
                       placeholder="Tell us about your experience with this product"
                       class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
-                    />
+                    ></textarea>
                   </div>
 
                   <div>
@@ -1219,33 +1311,40 @@ watch(
                     </div>
                   </div>
 
-                  <div
-                    v-if="submitError"
-                    class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                  >
-                    {{ submitError }}
-                  </div>
-
-                  <div class="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:items-center sm:justify-end">
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                      @click="closeAddReview"
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      type="submit"
-                      class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                      :disabled="submitting"
-                    >
-                      <span v-if="submitting">Submitting...</span>
-                      <span v-else>Add review</span>
-                    </button>
-                  </div>
                 </form>
               </Transition>
+            </div>
+
+            <div
+              v-if="addReviewStep === 2"
+              class="shrink-0 border-t border-slate-200 bg-white px-5 py-4 sm:px-6"
+            >
+              <div
+                v-if="submitError"
+                class="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {{ submitError }}
+              </div>
+
+              <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  @click="closeAddReview"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  form="add-review-form"
+                  class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="submitting"
+                >
+                  <span v-if="submitting">Submitting...</span>
+                  <span v-else>Add review</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1280,6 +1379,16 @@ watch(
   opacity: 0;
   transform: translateY(14px);
   filter: blur(2px);
+}
+
+.gallery-image-enter-active,
+.gallery-image-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.gallery-image-enter-from,
+.gallery-image-leave-to {
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

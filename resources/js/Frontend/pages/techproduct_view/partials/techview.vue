@@ -1029,6 +1029,9 @@ watch(currentVariant, (variant) => {
 
                   <span class="detail-rating-value">
                     {{ formatRating(product.reviews_avg_rating) }}
+                    <span class="ml-1 text-xs font-medium text-slate-400">
+                      ({{ product.reviews_count ?? 0 }})
+                    </span>
                   </span>
                 </div>
               </div>

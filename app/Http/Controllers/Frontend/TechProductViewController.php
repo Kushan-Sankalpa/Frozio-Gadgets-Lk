@@ -298,14 +298,20 @@ class TechProductViewController extends Controller
 
         $validated = $request->validate([
             'invoice_no' => ['required', 'string', 'regex:/^INV-\\d+$/', 'max:50'],
-            'customer_name' => ['required', 'string', 'max:255'],
+            'anonymous' => ['nullable', 'boolean'],
+            'customer_name' => ['nullable', 'string', 'max:255'],
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
-            'long_description' => ['required', 'string', 'max:5000'],
+            'long_description' => ['nullable', 'string', 'max:5000'],
             'images' => ['nullable', 'array', 'max:8'],
             'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         $invoiceNo = $validated['invoice_no'];
+        $anonymous = (bool) ($validated['anonymous'] ?? false);
+        $customerName = $anonymous ? null : ($validated['customer_name'] ?? null);
+        $customerName = filled($customerName) ? $customerName : null;
+        $longDescription = $validated['long_description'] ?? null;
+        $longDescription = filled($longDescription) ? $longDescription : null;
 
         $invoiceExists = Invoice::query()->where('invoice_no', $invoiceNo)->exists()
             || Order::query()->where('order_number', $invoiceNo)->exists();
@@ -337,10 +343,10 @@ class TechProductViewController extends Controller
         $review->product_id = $product->id;
         $review->invoice_no = $invoiceNo;
         $review->rating = (int) $validated['rating'];
-        $review->customer_name = $validated['customer_name'];
+        $review->customer_name = $customerName;
         $review->customer_email = null;
         $review->short_description = null;
-        $review->long_description = $validated['long_description'];
+        $review->long_description = $longDescription;
         $review->image_paths = $imagePaths;
         $review->save();
 

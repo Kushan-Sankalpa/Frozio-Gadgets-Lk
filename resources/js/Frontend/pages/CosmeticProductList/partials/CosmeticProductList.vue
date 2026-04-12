@@ -271,6 +271,9 @@ function productHref(product: CosmeticProductCard) {
 
                   <span class="product-rating-value">
                     {{ formatRating(product.reviews_avg_rating) }}
+                    <span class="ml-1 text-[11px] font-medium text-slate-400">
+                      ({{ product.reviews_count ?? 0 }})
+                    </span>
                   </span>
                 </div>
 

@@ -13,6 +13,7 @@ class ShoeProductReview extends Model
 
     protected $fillable = [
         'product_id',
+        'invoice_no',
         'rating',
         'customer_name',
         'customer_email',
@@ -60,4 +61,3 @@ class ShoeProductReview extends Model
             ->all();
     }
 }
-

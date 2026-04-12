@@ -82,15 +82,20 @@ const addReviewOpen = ref(false)
 const addReviewStep = ref<1 | 2>(1)
 const draftRating = ref(0)
 const hoveredDraftRating = ref(0)
-const orderId = ref('')
+const invoiceDigits = ref('')
+const customerName = ref('')
 const reviewContent = ref('')
 const reviewImageFiles = ref<File[]>([])
 const reviewImagePreviewUrls = ref<string[]>([])
 const reviewImageInputKey = ref(0)
 const submitError = ref<string | null>(null)
+const submitSuccess = ref<string | null>(null)
 const submitting = ref(false)
 
 let stepTimer: number | null = null
+let successTimer: number | null = null
+const MAX_REVIEW_IMAGES = 8
+const MAX_REVIEW_THUMBNAILS = 4
 
 const cacheKey = computed(() => {
   if (!props.fetchUrl) return ''
@@ -438,7 +443,8 @@ function resetAddReviewDraft() {
   addReviewStep.value = 1
   draftRating.value = 0
   hoveredDraftRating.value = 0
-  orderId.value = ''
+  invoiceDigits.value = ''
+  customerName.value = ''
   reviewContent.value = ''
   submitError.value = null
   submitting.value = false
@@ -453,9 +459,28 @@ function resetAddReviewDraft() {
   }
 }
 
+function clearSuccessMessage() {
+  submitSuccess.value = null
+
+  if (successTimer !== null) {
+    window.clearTimeout(successTimer)
+    successTimer = null
+  }
+}
+
+function showSuccessMessage(message: string) {
+  clearSuccessMessage()
+  submitSuccess.value = message
+  successTimer = window.setTimeout(() => {
+    submitSuccess.value = null
+    successTimer = null
+  }, 4500)
+}
+
 function selectDraftRating(rating: number) {
   draftRating.value = rating
   submitError.value = null
+  clearSuccessMessage()
 
   if (stepTimer !== null) {
     window.clearTimeout(stepTimer)
@@ -477,26 +502,133 @@ function cleanupReviewPreviewUrls() {
   })
 }
 
+function removeReviewImage(index: number) {
+  const url = reviewImagePreviewUrls.value[index]
+  if (url) {
+    URL.revokeObjectURL(url)
+  }
+
+  reviewImagePreviewUrls.value.splice(index, 1)
+  reviewImageFiles.value.splice(index, 1)
+}
+
+function sanitizeInvoiceDigits(value: string) {
+  return String(value ?? '')
+    .replace(/\D+/g, '')
+    .slice(0, 12)
+}
+
+function buildInvoiceNo(digits: string) {
+  const sanitized = sanitizeInvoiceDigits(digits)
+  if (!sanitized) return null
+
+  const parsed = Number.parseInt(sanitized, 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return null
+
+  const normalized = String(parsed).padStart(3, '0')
+  return `INV-${normalized}`
+}
+
+function getCsrfToken() {
+  const token = document?.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+  return token || ''
+}
+
 function onReviewImagesChange(event: Event) {
   const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? []).slice(0, 8)
+  const selected = Array.from(input.files ?? [])
+  if (!selected.length) return
 
-  cleanupReviewPreviewUrls()
+  const remaining = Math.max(0, MAX_REVIEW_IMAGES - reviewImageFiles.value.length)
+  const nextFiles = selected.slice(0, remaining)
 
-  reviewImageFiles.value = files
-  reviewImagePreviewUrls.value = files.map((file) => URL.createObjectURL(file))
+  reviewImageFiles.value = [...reviewImageFiles.value, ...nextFiles]
+  reviewImagePreviewUrls.value = [
+    ...reviewImagePreviewUrls.value,
+    ...nextFiles.map((file) => URL.createObjectURL(file)),
+  ]
+
+  input.value = ''
 }
 
 async function submitAddReview() {
   submitError.value = null
+  clearSuccessMessage()
+  const invoiceNo = buildInvoiceNo(invoiceDigits.value)
+
+  if (!invoiceNo) {
+    submitError.value = 'Please enter your invoice ID number.'
+    return
+  }
+
+  if (!customerName.value.trim()) {
+    submitError.value = 'Please enter your name.'
+    return
+  }
+
+  if (!draftRating.value) {
+    submitError.value = 'Please select a rating first.'
+    return
+  }
+
+  if (!reviewContent.value.trim()) {
+    submitError.value = 'Please write your review before submitting.'
+    return
+  }
+
   submitting.value = true
 
   try {
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 320)
+    const formData = new FormData()
+    formData.append('invoice_no', invoiceNo)
+    formData.append('customer_name', customerName.value.trim())
+    formData.append('rating', String(draftRating.value))
+    formData.append('long_description', reviewContent.value.trim())
+
+    reviewImageFiles.value.forEach((file) => {
+      formData.append('images[]', file)
     })
 
-    submitError.value = 'The order ID you entered was not found in our system. Please check and try again.'
+    const res = await fetch(props.fetchUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': getCsrfToken(),
+      },
+      body: formData,
+    })
+
+    const payload = await res.json().catch(() => null)
+
+    if (!res.ok) {
+      const errors = payload?.errors && typeof payload.errors === 'object' ? payload.errors : null
+      const firstError = errors
+        ? Object.values(errors).flatMap((value: any) => (Array.isArray(value) ? value : [value]))[0]
+        : null
+
+      submitError.value = String(firstError || payload?.message || 'Failed to submit review. Please try again.')
+      return
+    }
+
+    showSuccessMessage(String(payload?.message || 'Review submitted successfully.'))
+
+    const fetchUrl = props.fetchUrl
+    closeAddReview()
+
+    loaded.value = false
+    loading.value = false
+    loadingMore.value = false
+    hydratingGallery.value = false
+    error.value = null
+    errorScope.value = null
+    reviews.value = []
+    imageModalOpen.value = false
+    activeGalleryIndex.value = 0
+    clearCacheForFetchUrl(fetchUrl)
+
+    await loadInitial()
   } finally {
     submitting.value = false
   }
@@ -544,6 +676,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
   cleanupReviewPreviewUrls()
   updateBodyScrollLock(false)
+  clearSuccessMessage()
 
   if (stepTimer !== null) {
     window.clearTimeout(stepTimer)
@@ -603,6 +736,7 @@ watch(
     imageModalOpen.value = false
     activeGalleryIndex.value = 0
     closeAddReview()
+    clearSuccessMessage()
 
     if (props.active) {
       loadInitial()
@@ -659,6 +793,13 @@ watch(
     </div>
 
     <div class="px-4 py-5 sm:px-6">
+      <div
+        v-if="submitSuccess"
+        class="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+      >
+        {{ submitSuccess }}
+      </div>
+
       <div v-if="loading && !reviews.length" class="space-y-4">
         <div v-for="n in 3" :key="`review-skel-${n}`" class="space-y-3 rounded-2xl border border-slate-200 p-4">
           <div class="h-4 w-32 animate-pulse rounded bg-slate-100" />
@@ -722,10 +863,10 @@ watch(
 
             <div v-if="review.image_urls?.length" class="mt-4 flex flex-wrap gap-3">
               <button
-                v-for="(url, idx) in review.image_urls"
+                v-for="(url, idx) in review.image_urls.slice(0, MAX_REVIEW_THUMBNAILS)"
                 :key="`${review.id}-img-${idx}`"
                 type="button"
-                class="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                class="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
                 @click="openImageModal(review.id, idx)"
               >
                 <img
@@ -734,6 +875,12 @@ watch(
                   class="h-24 w-24 object-cover transition duration-300 group-hover:scale-[1.04] sm:h-28 sm:w-28"
                   loading="lazy"
                 />
+                <div
+                  v-if="idx === MAX_REVIEW_THUMBNAILS - 1 && review.image_urls.length > MAX_REVIEW_THUMBNAILS"
+                  class="absolute inset-0 flex items-center justify-center bg-slate-950/60 text-sm font-semibold text-white"
+                >
+                  +{{ review.image_urls.length - MAX_REVIEW_THUMBNAILS }}
+                </div>
               </button>
             </div>
           </article>
@@ -746,7 +893,7 @@ watch(
             :disabled="loadingMore"
             @click="loadMore"
           >
-            <span v-if="loadingMore">Loading…</span>
+            <span v-if="loadingMore">Loading...</span>
             <span v-else>Load {{ nextLoadCount }} more review{{ nextLoadCount === 1 ? '' : 's' }}</span>
           </button>
           <div class="mt-2 text-center text-xs text-slate-400">
@@ -984,14 +1131,37 @@ watch(
                   </div>
 
                   <div>
-                    <label for="review-order-id" class="mb-2 block text-sm font-semibold text-slate-900">
-                      Please enter your Order ID
+                    <label for="review-invoice-id" class="mb-2 block text-sm font-semibold text-slate-900">
+                      Please enter your Order INV ID
+                    </label>
+                    <div
+                      class="flex overflow-hidden rounded-2xl border border-slate-200 bg-white transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-900/5"
+                    >
+                      <span class="flex items-center bg-slate-50 px-4 text-sm font-semibold text-slate-500">
+                        INV-
+                      </span>
+                      <input
+                        id="review-invoice-id"
+                        v-model="invoiceDigits"
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="e.g. 010"
+                        class="w-full flex-1 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                        @input="invoiceDigits = sanitizeInvoiceDigits(invoiceDigits)"
+                      >
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="review-customer-name" class="mb-2 block text-sm font-semibold text-slate-900">
+                      Your name
                     </label>
                     <input
-                      id="review-order-id"
-                      v-model="orderId"
+                      id="review-customer-name"
+                      v-model="customerName"
                       type="text"
-                      placeholder="Enter your order ID"
+                      placeholder="Enter your name"
                       class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
                     >
                   </div>
@@ -1028,13 +1198,23 @@ watch(
                       <div
                         v-for="(url, index) in reviewImagePreviewUrls"
                         :key="`preview-image-${index}`"
-                        class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                        class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
                       >
                         <img
                           :src="url"
                           alt="Selected review image"
                           class="h-20 w-20 object-cover sm:h-24 sm:w-24"
                         >
+                        <button
+                          type="button"
+                          class="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900"
+                          aria-label="Remove image"
+                          @click="removeReviewImage(index)"
+                        >
+                          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 6l12 12M18 6L6 18" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1060,7 +1240,7 @@ watch(
                       class="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                       :disabled="submitting"
                     >
-                      <span v-if="submitting">Checking order…</span>
+                      <span v-if="submitting">Submitting...</span>
                       <span v-else>Add review</span>
                     </button>
                   </div>

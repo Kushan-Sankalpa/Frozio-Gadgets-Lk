@@ -4,10 +4,16 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\ColorOption;
+use App\Models\CosmeticProductReview;
+use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductReview;
+use App\Models\ShoeProductReview;
 use App\Models\StorageOption;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -284,6 +290,79 @@ class TechProductViewController extends Controller
                 'has_more' => ($offset + $returned) < $total,
             ],
         ]);
+    }
+
+    public function storeReview(Request $request, Product $product): JsonResponse
+    {
+        abort_if($product->status !== 'active', 404);
+
+        $validated = $request->validate([
+            'invoice_no' => ['required', 'string', 'regex:/^INV-\\d+$/', 'max:50'],
+            'customer_name' => ['required', 'string', 'max:255'],
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'long_description' => ['required', 'string', 'max:5000'],
+            'images' => ['nullable', 'array', 'max:8'],
+            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        $invoiceNo = $validated['invoice_no'];
+
+        $invoiceExists = Invoice::query()->where('invoice_no', $invoiceNo)->exists()
+            || Order::query()->where('order_number', $invoiceNo)->exists();
+
+        if (!$invoiceExists) {
+            throw ValidationException::withMessages([
+                'invoice_no' => 'The invoice ID you entered was not found in our system. Please check and try again.',
+            ]);
+        }
+
+        $invoiceAlreadyReviewed = ProductReview::query()->where('invoice_no', $invoiceNo)->exists()
+            || ShoeProductReview::query()->where('invoice_no', $invoiceNo)->exists()
+            || CosmeticProductReview::query()->where('invoice_no', $invoiceNo)->exists();
+
+        if ($invoiceAlreadyReviewed) {
+            throw ValidationException::withMessages([
+                'invoice_no' => 'A review has already been submitted using this invoice ID.',
+            ]);
+        }
+
+        $imagePaths = $request->hasFile('images')
+            ? collect($request->file('images'))
+                ->map(fn ($file) => $file->store('product-reviews', 'public'))
+                ->values()
+                ->all()
+            : [];
+
+        $review = new ProductReview();
+        $review->product_id = $product->id;
+        $review->invoice_no = $invoiceNo;
+        $review->rating = (int) $validated['rating'];
+        $review->customer_name = $validated['customer_name'];
+        $review->customer_email = null;
+        $review->short_description = null;
+        $review->long_description = $validated['long_description'];
+        $review->image_paths = $imagePaths;
+        $review->save();
+
+        $product->loadCount('reviews')->loadAvg('reviews', 'rating');
+
+        return response()->json([
+            'message' => 'Review submitted successfully.',
+            'summary' => [
+                'reviews_count' => (int) ($product->reviews_count ?? 0),
+                'avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+            ],
+            'review' => [
+                'id' => $review->id,
+                'rating' => $review->rating !== null ? (int) $review->rating : null,
+                'customer_name' => $review->customer_name,
+                'short_description' => $review->short_description,
+                'long_description' => $review->long_description,
+                'image_urls' => $review->image_urls ?? [],
+                'created_at' => $review->created_at?->format('d/m/Y'),
+                'created_at_iso' => $review->created_at?->toIso8601String(),
+            ],
+        ], 201);
     }
 
     private function relatedProducts(Product $product)

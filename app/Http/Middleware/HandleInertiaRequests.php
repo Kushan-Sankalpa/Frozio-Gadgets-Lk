@@ -4,6 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\CosmeticBrand;
+use App\Models\CosmeticCategory;
+use App\Models\CosmeticProduct;
 use App\Models\ShoeCategory;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -123,9 +126,78 @@ class HandleInertiaRequests extends Middleware
                     ];
                 })
                 ->values();
+
+            $shared['cosmeticBrands'] = fn () => $this->cosmeticNavBrands();
         }
 
         return $shared;
+    }
+
+    private function cosmeticNavBrands()
+    {
+        $pairs = CosmeticProduct::query()
+            ->select(['brand_id', 'category_id'])
+            ->where('status', 'active')
+            ->whereNotNull('brand_id')
+            ->whereNotNull('category_id')
+            ->distinct()
+            ->get();
+
+        $brandIds = $pairs->pluck('brand_id')->filter()->unique()->values();
+        $categoryIds = $pairs->pluck('category_id')->filter()->unique()->values();
+
+        $brands = CosmeticBrand::query()
+            ->whereIn('id', $brandIds)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'logo_path', 'status'])
+            ->keyBy('id');
+
+        $categories = CosmeticCategory::query()
+            ->whereIn('id', $categoryIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug'])
+            ->keyBy('id');
+
+        $brandCategoryMap = [];
+
+        foreach ($pairs as $pair) {
+            $brandId = (int) $pair->brand_id;
+            $categoryId = (int) $pair->category_id;
+
+            if (!isset($brandCategoryMap[$brandId])) {
+                $brandCategoryMap[$brandId] = [];
+            }
+
+            $brandCategoryMap[$brandId][$categoryId] = true;
+        }
+
+        return $brands
+            ->values()
+            ->map(function (CosmeticBrand $brand) use ($brandCategoryMap, $categories) {
+                $categoryIdSet = $brandCategoryMap[(int) $brand->id] ?? [];
+
+                $brandCategories = collect(array_keys($categoryIdSet))
+                    ->map(fn ($categoryId) => $categories->get((int) $categoryId))
+                    ->filter()
+                    ->sortBy('name')
+                    ->map(fn (CosmeticCategory $category) => [
+                        'id' => $category->id,
+                        'name' => $category->name,
+                        'slug' => $category->slug,
+                    ])
+                    ->values();
+
+                return [
+                    'id' => $brand->id,
+                    'name' => $brand->name,
+                    'logo_url' => $brand->logo_url,
+                    'status' => $brand->status,
+                    'categories' => $brandCategories,
+                ];
+            })
+            ->filter(fn (array $brand) => count($brand['categories'] ?? []) > 0)
+            ->values();
     }
 
     private function getPermissions($user): array

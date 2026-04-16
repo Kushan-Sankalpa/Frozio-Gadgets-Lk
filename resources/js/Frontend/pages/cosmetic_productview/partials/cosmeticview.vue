@@ -3,12 +3,12 @@ import { Link, router } from '@inertiajs/vue3'
 import { computed, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 import ProductReviewsPanel from '@/Frontend/components/ProductReviewsPanel.vue'
+import StarRating from '@/Frontend/components/StarRating.vue'
 
 type BreadcrumbItem = { label: string; href: string | null }
 type ShellData = { name?: string | null; breadcrumb?: BreadcrumbItem[] }
 type GalleryItem = { id: string | number; src: string }
-
-type Volume = { id: number | string; label: string }
+type CosmeticVolume = { id: number | string; label: string }
 
 type CosmeticVariant = {
   id: string | number
@@ -29,21 +29,23 @@ type ProductPayload = {
   name: string
   slug?: string | null
   sku?: string | null
+  batch_number?: string | null
+  manufacture_date?: string | null
+  expiry_date?: string | null
   short_description?: string | null
   long_description?: string | null
   brand?: { id?: number | string | null; name?: string | null; logo_url?: string | null } | null
   category?: { id?: number | string | null; name?: string | null } | null
-  subcategory?: { id?: number | string | null; name?: string | null } | null
+  product_type?: { id?: number | string | null; name?: string | null } | null
+  country?: { id?: number | string | null; name?: string | null; code?: string | null; flag_image_url?: string | null } | null
   breadcrumb?: BreadcrumbItem[]
   main_image?: string | null
   gallery: GalleryItem[]
-  volumes: Volume[]
+  volumes: CosmeticVolume[]
   variants: CosmeticVariant[]
-  size_chart_image?: string | null
   base_price?: number | null
   old_price?: number | null
   current_price?: number | null
-  has_discount?: boolean
   discount_label?: string | null
   default_volume_id?: number | string | null
   stock_count?: number | null
@@ -52,7 +54,7 @@ type ProductPayload = {
   reviews_avg_rating?: number | null
 }
 
-type TabKey = 'description' | 'size-chart' | 'delivery' | 'reviews'
+type TabKey = 'description' | 'details' | 'delivery' | 'reviews'
 
 const props = defineProps<{
   loading: boolean
@@ -61,9 +63,7 @@ const props = defineProps<{
   shell?: ShellData | null
 }>()
 
-const emit = defineEmits<{
-  (e: 'retry'): void
-}>()
+const emit = defineEmits<{ (e: 'retry'): void }>()
 
 const selectedVolumeId = ref<number | string | null>(null)
 const activeImage = ref<string | null>(null)
@@ -73,8 +73,7 @@ const flashMessage = ref('')
 
 const reviewsFetchUrl = computed(() => {
   const key = props.product?.slug || props.product?.id
-  if (!key) return ''
-  return `/cosmetic-products/${key}/reviews`
+  return key ? `/cosmetic-products/${key}/reviews` : ''
 })
 
 const breadcrumbItems = computed(() => {
@@ -86,7 +85,7 @@ const breadcrumbItems = computed(() => {
 })
 
 const volumes = computed(() => props.product?.volumes ?? [])
-const productVariants = computed(() => props.product?.variants ?? [])
+const variants = computed(() => props.product?.variants ?? [])
 
 const thumbnailImages = computed(() => {
   const gallery = props.product?.gallery ?? []
@@ -100,21 +99,30 @@ const thumbnailImages = computed(() => {
 })
 
 const currentVariant = computed<CosmeticVariant | null>(() => {
-  const exactInStock = productVariants.value.find((variant) => {
-    return variant.volume_id === selectedVolumeId.value && variant.status !== 'inactive' && variant.in_stock
+  const exactInStock = variants.value.find((variant) => {
+    return variant.volume_id === selectedVolumeId.value
+      && variant.status !== 'inactive'
+      && variant.in_stock
   })
   if (exactInStock) return exactInStock
 
-  const exactActive = productVariants.value.find((variant) => {
-    return variant.volume_id === selectedVolumeId.value && variant.status !== 'inactive'
+  const exactActive = variants.value.find((variant) => {
+    return variant.volume_id === selectedVolumeId.value
+      && variant.status !== 'inactive'
   })
   if (exactActive) return exactActive
 
-  return productVariants.value.find((variant) => variant.in_stock) || productVariants.value.find((variant) => variant.status !== 'inactive') || productVariants.value[0] || null
+  return variants.value.find((variant) => variant.in_stock)
+    || variants.value.find((variant) => variant.status !== 'inactive')
+    || variants.value[0]
+    || null
 })
 
 const currentPrice = computed(() => {
-  return currentVariant.value?.final_price_lkr ?? props.product?.current_price ?? props.product?.base_price ?? 0
+  return currentVariant.value?.final_price_lkr
+    ?? props.product?.current_price
+    ?? props.product?.base_price
+    ?? 0
 })
 
 const currentOldPrice = computed(() => {
@@ -129,17 +137,18 @@ const hasDiscount = computed(() => {
   return !!currentOldPrice.value && Number(currentOldPrice.value) > Number(currentPrice.value)
 })
 
-const stockCount = computed(() => Number(currentVariant.value?.stock_count ?? props.product?.stock_count ?? 0))
+const stockCount = computed(() => {
+  return Number(currentVariant.value?.stock_count ?? props.product?.stock_count ?? 0)
+})
 
 const isInStock = computed(() => {
   if (currentVariant.value) {
     return !!currentVariant.value.in_stock && stockCount.value > 0
   }
-
   return !!props.product?.in_stock && Number(props.product?.stock_count ?? 0) > 0
 })
 
-const availabilityText = computed(() => (isInStock.value ? 'In Stock' : 'Out of Stock'))
+const availabilityText = computed(() => (isInStock.value ? 'In stock' : 'Out of stock'))
 
 const selectedVolumeLabel = computed(() => {
   const matched = volumes.value.find((item) => item.id === selectedVolumeId.value)
@@ -151,20 +160,37 @@ const canIncreaseQty = computed(() => {
 })
 
 const displayImage = computed(() => {
-  return activeImage.value || props.product?.main_image || props.product?.gallery?.[0]?.src || ''
+  return activeImage.value
+    || props.product?.main_image
+    || props.product?.gallery?.[0]?.src
+    || ''
 })
 
-const sizeChartImage = computed(() => props.product?.size_chart_image || '/assets/images/volume-chart.webp')
-
 const currentProductUrl = computed(() => {
-  if (typeof window !== 'undefined') {
-    return window.location.pathname
-  }
-
+  if (typeof window !== 'undefined') return window.location.pathname
   const key = props.product?.slug || props.product?.id
   return props.product && key
     ? route('frontend.cosmetic-products.show', { product: key })
     : null
+})
+
+const detailRows = computed(() => {
+  const product = props.product
+  if (!product) return []
+
+  const rows = [
+    { label: 'Brand', value: product.brand?.name || null },
+    { label: 'Category', value: product.category?.name || null },
+    { label: 'Product Type', value: product.product_type?.name || null },
+    { label: 'Country of Origin', value: product.country?.name || null },
+    { label: 'Selected Volume', value: selectedVolumeLabel.value !== 'N/A' ? selectedVolumeLabel.value : null },
+    { label: 'Batch Number', value: product.batch_number || null },
+    { label: 'Manufacture Date', value: product.manufacture_date || null },
+    { label: 'Expiry Date', value: product.expiry_date || null },
+    { label: 'SKU', value: currentVariant.value?.sku || product.sku || null },
+  ]
+
+  return rows.filter((row) => !!row.value)
 })
 
 const deliveryParagraphs = [
@@ -175,59 +201,46 @@ const deliveryParagraphs = [
 ]
 
 function formatPrice(value: number | null | undefined) {
-  if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) {
-    return 'Rs 0.00'
-  }
-
+  if (value === null || typeof value === 'undefined' || Number.isNaN(Number(value))) return 'Rs 0.00'
   return `Rs ${Number(value).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
-function clampRating(value: number | null | undefined) {
-  const rating = Number(value ?? 0)
-  if (!Number.isFinite(rating)) return 0
-  return Math.max(0, Math.min(5, rating))
-}
-
-function formatRating(value: number | null | undefined) { return clampRating(value).toFixed(1) }
-
-function starFillStyle(value: number | null | undefined, starNumber: number) {
-  const rating = clampRating(value)
-  const fill = Math.max(0, Math.min(1, rating - (starNumber - 1)))
-  const unfilledPercent = (1 - fill) * 100
-  return { clipPath: `inset(0 ${unfilledPercent}% 0 0)` }
-}
-
-function ratingAriaLabel(value: number | null | undefined, count: number | null | undefined) {
-  const rating = formatRating(value)
-  const reviews = Number(count ?? 0)
-  if (reviews > 0) return `${rating} out of 5 stars based on ${reviews} reviews`
-  return `${rating} out of 5 stars`
 }
 
 function showMessage(message: string) {
   flashMessage.value = message
-  window.setTimeout(() => { if (flashMessage.value === message) flashMessage.value = '' }, 2200)
+  window.setTimeout(() => {
+    if (flashMessage.value === message) flashMessage.value = ''
+  }, 2200)
 }
 
 function ensureSelections() {
   if (!props.product) return
 
   const defaultVariant = currentVariant.value
-
-  selectedVolumeId.value = props.product.default_volume_id ?? defaultVariant?.volume_id ?? volumes.value[0]?.id ?? null
+  selectedVolumeId.value = props.product.default_volume_id
+    ?? defaultVariant?.volume_id
+    ?? volumes.value[0]?.id
+    ?? null
 
   activeImage.value = props.product.main_image || thumbnailImages.value[0]?.src || null
   quantity.value = 1
 }
 
-function selectVolume(volumeId: number | string) { selectedVolumeId.value = volumeId }
-function selectImage(src: string) { activeImage.value = src }
-function setTab(tab: TabKey) { activeTab.value = tab }
-function decreaseQuantity() { quantity.value = Math.max(1, quantity.value - 1) }
-function increaseQuantity() { if (!canIncreaseQty.value) return; quantity.value += 1 }
+function selectVolume(volumeId: number | string) {
+  selectedVolumeId.value = volumeId
+}
+
+function decreaseQuantity() {
+  quantity.value = Math.max(1, quantity.value - 1)
+}
+
+function increaseQuantity() {
+  if (!canIncreaseQty.value) return
+  quantity.value += 1
+}
 
 function cartPayload() {
   if (!props.product || !currentVariant.value) return null
+
   return {
     productId: props.product.id,
     variantId: currentVariant.value.id,
@@ -248,33 +261,54 @@ function cartPayload() {
 function addToCart() {
   try {
     if (!props.product || !currentVariant.value || !isInStock.value) return
-    const payload = cartPayload(); if (!payload) return
-    window.dispatchEvent(new CustomEvent('cosmetic-product:add-to-cart', { detail: payload }))
+    const payload = cartPayload()
+    if (!payload) return
+
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', { detail: payload }))
     showMessage('Product added to cart.')
-  } catch (error) { console.error('Error while adding product to cart:', error) }
+  } catch (error) {
+    console.error('Error while adding product to cart:', error)
+  }
 }
 
 function buyNow() {
   try {
     if (!props.product || !currentVariant.value || !isInStock.value) return
-    const payload = cartPayload(); if (!payload) return
-    window.dispatchEvent(new CustomEvent('cosmetic-product:add-to-cart', { detail: payload }))
+    const payload = cartPayload()
+    if (!payload) return
+
+    window.dispatchEvent(new CustomEvent('tech-product:add-to-cart', { detail: payload }))
     showMessage('Ready for checkout.')
     router.visit(route('frontend.checkout.index'))
-  } catch (error) { console.error('Error while processing buy now:', error) }
+  } catch (error) {
+    console.error('Error while processing buy now:', error)
+  }
 }
 
-watch(() => props.product, () => { selectedVolumeId.value = null; activeImage.value = null; ensureSelections() }, { immediate: true })
-watch(currentVariant, () => { quantity.value = Math.min(quantity.value, Math.max(1, stockCount.value)) })
+watch(() => props.product, () => {
+  selectedVolumeId.value = null
+  activeImage.value = null
+  ensureSelections()
+}, { immediate: true })
+
+watch(currentVariant, () => {
+  quantity.value = Math.min(quantity.value, Math.max(1, stockCount.value))
+})
 </script>
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-    <nav aria-label="Breadcrumb" class="mb-6 page-enter">
+    <nav aria-label="Breadcrumb" class="mb-6">
       <ol class="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-        <li v-for="(item, index) in breadcrumbItems" :key="`${item.label}-${index}`" class="flex items-center gap-2">
+        <li
+          v-for="(item, index) in breadcrumbItems"
+          :key="`${item.label}-${index}`"
+          class="flex items-center gap-2"
+        >
           <template v-if="item.href">
-            <Link :href="item.href" class="transition hover:text-slate-900">{{ item.label }}</Link>
+            <Link :href="item.href" class="transition hover:text-slate-900">
+              {{ item.label }}
+            </Link>
           </template>
           <template v-else>
             <span class="font-medium text-slate-900">{{ item.label }}</span>
@@ -285,98 +319,368 @@ watch(currentVariant, () => { quantity.value = Math.min(quantity.value, Math.max
     </nav>
 
     <Transition name="fade-slide" mode="out-in">
-      <div v-if="flashMessage" key="flash-message" class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700">{{ flashMessage }}</div>
+      <div
+        v-if="flashMessage"
+        key="flash-message"
+        class="mb-4 border-b border-emerald-200 pb-3 text-sm font-medium text-emerald-700"
+      >
+        {{ flashMessage }}
+      </div>
     </Transition>
 
-    <div v-if="error" class="rounded-[28px] border border-red-200 bg-red-50 px-6 py-12 text-center">
-      <h3 class="text-lg font-semibold text-red-700">Failed to load product</h3>
-      <p class="mt-2 text-sm text-red-500">Please try again or refresh.</p>
-
-      <button type="button" class="mt-5 inline-flex items-center justify-center rounded-2xl bg-neutral-900 px-5 py-3 text-sm font-semibold text-white" @click="emit('retry')">Retry</button>
+    <div v-if="error && !loading" class="py-14 text-center">
+      <h2 class="text-xl font-semibold text-red-700">Failed to load product details</h2>
+      <p class="mt-2 text-sm text-red-500">{{ error }}</p>
+      <button
+        type="button"
+        class="mt-5 border-b border-slate-900 pb-1 text-sm font-semibold text-slate-900 transition hover:opacity-70"
+        @click="emit('retry')"
+      >
+        Retry
+      </button>
     </div>
 
-    <div v-else class="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-      <div class="lg:col-span-2">
-        <div class="rounded-[28px] border border-neutral-200 bg-white p-4 sm:p-6">
-          <div class="grid grid-cols-1 gap-6 md:grid-cols-6">
-            <div class="md:col-span-1">
-              <div class="space-y-3">
-                <button v-for="img in thumbnailImages" :key="img.id" type="button" class="block w-full overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 p-2" @click="selectImage(img.src)">
-                  <img :src="img.src" :alt="`thumb-${img.id}`" class="h-20 w-full object-contain" />
+    <div v-else class="grid gap-10 lg:grid-cols-[minmax(0,1.02fr)_minmax(360px,0.98fr)] lg:gap-12">
+      <section>
+        <template v-if="loading || !product">
+          <div class="min-h-[420px] rounded-[28px] border border-slate-200 bg-white p-6">
+            <div class="h-full w-full animate-pulse rounded-[24px] bg-slate-100" />
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="grid gap-4 md:grid-cols-[78px_minmax(0,1fr)]">
+            <div
+              v-if="thumbnailImages.length"
+              class="order-2 flex gap-3 overflow-x-auto py-2 md:order-1 md:flex-col md:overflow-visible md:py-0"
+            >
+              <button
+                v-for="image in thumbnailImages"
+                :key="image.id"
+                type="button"
+                class="h-20 min-w-20 overflow-hidden rounded-2xl border bg-white sm:h-[88px] sm:min-w-[88px]"
+                :class="displayImage === image.src
+                  ? 'border-slate-900 shadow-sm'
+                  : 'border-slate-200 hover:border-slate-400'"
+                @click="activeImage = image.src"
+              >
+                <img :src="image.src" :alt="product.name" class="h-full w-full object-contain p-2" />
+              </button>
+            </div>
+
+            <div class="order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2">
+              <img v-if="displayImage" :src="displayImage" :alt="product.name" class="max-h-[440px] w-full object-contain" />
+            </div>
+          </div>
+
+          <div class="mt-10 hidden border-b border-slate-200 lg:block">
+            <div class="flex items-end gap-8">
+              <button
+                type="button"
+                class="relative pb-4 text-sm transition sm:text-base"
+                :class="activeTab === 'description' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                @click="activeTab = 'description'"
+              >
+                Description
+                <span v-if="activeTab === 'description'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+              </button>
+              <button
+                type="button"
+                class="relative pb-4 text-sm transition sm:text-base"
+                :class="activeTab === 'details' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                @click="activeTab = 'details'"
+              >
+                Details
+                <span v-if="activeTab === 'details'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+              </button>
+              <button
+                type="button"
+                class="relative pb-4 text-sm transition sm:text-base"
+                :class="activeTab === 'delivery' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                @click="activeTab = 'delivery'"
+              >
+                Delivery
+                <span v-if="activeTab === 'delivery'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+              </button>
+              <button
+                type="button"
+                class="relative pb-4 text-sm transition sm:text-base"
+                :class="activeTab === 'reviews' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                @click="activeTab = 'reviews'"
+              >
+                Reviews ({{ product.reviews_count ?? 0 }})
+                <span v-if="activeTab === 'reviews'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+              </button>
+            </div>
+          </div>
+
+          <div class="hidden pt-6 lg:block">
+            <div v-if="activeTab === 'description'" class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]" v-html="product.long_description || product.short_description || '<p>No description available.</p>'" />
+
+            <div v-else-if="activeTab === 'details'" class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+              <div class="divide-y divide-slate-200">
+                <div
+                  v-for="row in detailRows"
+                  :key="row.label"
+                  class="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4"
+                >
+                  <div class="text-sm font-semibold text-slate-900">{{ row.label }}</div>
+                  <div class="text-sm text-slate-600">{{ row.value }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="activeTab === 'delivery'" class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]">
+              <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">{{ paragraph }}</p>
+            </div>
+
+            <div v-else>
+              <ProductReviewsPanel
+                :fetchUrl="reviewsFetchUrl"
+                :active="activeTab === 'reviews'"
+                :initialCount="product.reviews_count ?? 0"
+                :initialAvg="product.reviews_avg_rating ?? 0"
+                :productName="product.name"
+                :productImage="product.main_image || product.gallery?.[0]?.src || null"
+              />
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <aside class="pt-1">
+        <template v-if="loading || !product">
+          <div class="space-y-5">
+            <div class="h-4 w-24 animate-pulse rounded bg-slate-100" />
+            <div class="h-10 w-4/5 animate-pulse rounded bg-slate-200" />
+            <div class="h-5 w-full animate-pulse rounded bg-slate-100" />
+            <div class="h-5 w-5/6 animate-pulse rounded bg-slate-100" />
+            <div class="h-10 w-52 animate-pulse rounded bg-slate-200" />
+          </div>
+        </template>
+
+        <template v-else>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            {{ product.category?.name || product.product_type?.name || 'Cosmetics' }}
+          </p>
+
+          <h1 class="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-950 sm:text-[2.25rem]">
+            {{ product.name }}
+          </h1>
+
+          <p v-if="product.short_description" class="mt-4 text-sm leading-7 text-slate-600 sm:text-[15px]">
+            {{ product.short_description }}
+          </p>
+
+          <div class="mt-6">
+            <div class="flex flex-wrap items-center gap-3">
+              <span
+                v-if="hasDiscount && currentDiscountLabel"
+                class="inline-flex items-center text-xs font-semibold uppercase tracking-[0.12em] text-[#ef5a4f]"
+              >
+                {{ currentDiscountLabel }}
+              </span>
+            </div>
+
+            <div class="mt-2 flex flex-wrap items-end gap-3">
+              <span v-if="hasDiscount && currentOldPrice" class="text-lg font-medium text-slate-400 line-through">
+                {{ formatPrice(currentOldPrice) }}
+              </span>
+              <span class="text-3xl font-bold text-slate-950 sm:text-4xl">
+                {{ formatPrice(currentPrice) }}
+              </span>
+            </div>
+
+            <div v-if="product.reviews_avg_rating" class="mt-3">
+              <StarRating :rating="product.reviews_avg_rating" :count="product.reviews_count ?? 0" :show-count="true" />
+            </div>
+
+            <div class="mt-4 flex flex-wrap items-center gap-4">
+              <img
+                v-if="product.brand?.logo_url"
+                :src="product.brand.logo_url"
+                :alt="product.brand?.name || 'Brand logo'"
+                class="h-10 w-auto object-contain"
+              />
+
+              <div
+                v-if="product.country?.flag_image_url || product.country?.name"
+                class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                <img
+                  v-if="product.country?.flag_image_url"
+                  :src="product.country.flag_image_url"
+                  :alt="product.country?.name ? `${product.country.name} flag` : 'Country flag'"
+                  class="h-5 w-5 rounded-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>{{ product.country?.name || 'Country' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <ul class="mt-8 space-y-3 text-sm text-slate-700">
+            <li class="flex items-start gap-3">
+              <span class="mt-[7px] h-1.5 w-1.5 rounded-full bg-slate-900" />
+              <span><span class="font-semibold text-slate-900">Availability:</span> {{ availabilityText }}</span>
+            </li>
+            <li v-if="product.batch_number" class="flex items-start gap-3">
+              <span class="mt-[7px] h-1.5 w-1.5 rounded-full bg-slate-900" />
+              <span><span class="font-semibold text-slate-900">Batch:</span> {{ product.batch_number }}</span>
+            </li>
+            <li v-if="product.expiry_date" class="flex items-start gap-3">
+              <span class="mt-[7px] h-1.5 w-1.5 rounded-full bg-slate-900" />
+              <span><span class="font-semibold text-slate-900">Expiry:</span> {{ product.expiry_date }}</span>
+            </li>
+          </ul>
+
+          <div v-if="volumes.length" class="mt-8">
+            <p class="text-sm font-semibold text-slate-900">Available Volumes</p>
+            <div class="mt-3 flex flex-wrap items-center gap-4">
+              <button
+                v-for="volume in volumes"
+                :key="volume.id"
+                type="button"
+                class="border-b pb-1 text-sm transition"
+                :class="selectedVolumeId === volume.id
+                  ? 'border-slate-900 font-semibold text-slate-950'
+                  : 'border-transparent font-medium text-slate-500 hover:border-slate-400 hover:text-slate-900'"
+                @click="selectVolume(volume.id)"
+              >
+                {{ volume.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-8 flex flex-wrap items-center gap-6 border-b border-t border-slate-200 py-5">
+            <div class="flex items-center gap-4">
+              <button type="button" class="text-2xl leading-none text-slate-700 transition hover:text-slate-950" @click="decreaseQuantity">-</button>
+              <span class="min-w-[28px] text-center text-lg font-semibold text-slate-950">{{ quantity }}</span>
+              <button
+                type="button"
+                class="text-2xl leading-none text-slate-700 transition hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-300"
+                :disabled="!canIncreaseQty"
+                @click="increaseQuantity"
+              >
+                +
+              </button>
+            </div>
+            <p class="text-sm text-slate-500">{{ stockCount > 0 ? `${stockCount} available` : 'Currently unavailable' }}</p>
+          </div>
+
+          <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              class="inline-flex min-h-[52px] items-center justify-center border border-slate-900 px-6 text-sm font-semibold text-slate-950 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+              :disabled="!isInStock"
+              @click="addToCart"
+            >
+              Add to Cart
+            </button>
+
+            <button
+              type="button"
+              class="inline-flex min-h-[52px] items-center justify-center bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              :disabled="!isInStock"
+              @click="buyNow"
+            >
+              Buy Now
+            </button>
+          </div>
+
+          <div class="mt-6 text-sm text-slate-500">
+            <p><span class="font-semibold text-slate-800">Selected Volume:</span> {{ selectedVolumeLabel }}</p>
+            <p class="mt-1"><span class="font-semibold text-slate-800">SKU:</span> {{ currentVariant?.sku || product.sku || 'N/A' }}</p>
+          </div>
+
+          <div class="mt-10 lg:hidden">
+            <div class="border-b border-slate-200">
+              <div class="flex items-end gap-8 overflow-x-auto">
+                <button
+                  type="button"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                  :class="activeTab === 'description' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="activeTab = 'description'"
+                >
+                  Description
+                  <span v-if="activeTab === 'description'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+                </button>
+                <button
+                  type="button"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                  :class="activeTab === 'details' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="activeTab = 'details'"
+                >
+                  Details
+                  <span v-if="activeTab === 'details'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+                </button>
+                <button
+                  type="button"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                  :class="activeTab === 'delivery' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="activeTab = 'delivery'"
+                >
+                  Delivery
+                  <span v-if="activeTab === 'delivery'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
+                </button>
+                <button
+                  type="button"
+                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                  :class="activeTab === 'reviews' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+                  @click="activeTab = 'reviews'"
+                >
+                  Reviews ({{ product.reviews_count ?? 0 }})
+                  <span v-if="activeTab === 'reviews'" class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950" />
                 </button>
               </div>
             </div>
 
-            <div class="md:col-span-5">
-              <div class="flex items-start gap-6">
-                <div class="w-full rounded-lg border border-neutral-100 bg-white p-4">
-                  <img :src="displayImage" :alt="props.product?.name || 'product'" class="mx-auto max-h-[520px] object-contain" />
+            <div class="pt-6">
+              <div v-if="activeTab === 'description'" class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]" v-html="product.long_description || product.short_description || '<p>No description available.</p>'" />
+              <div v-else-if="activeTab === 'details'" class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                <div class="divide-y divide-slate-200">
+                  <div
+                    v-for="row in detailRows"
+                    :key="`mobile-${row.label}`"
+                    class="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4"
+                  >
+                    <div class="text-sm font-semibold text-slate-900">{{ row.label }}</div>
+                    <div class="text-sm text-slate-600">{{ row.value }}</div>
+                  </div>
                 </div>
-
-                <div class="hidden w-64 shrink-0 md:block"></div>
+              </div>
+              <div v-else-if="activeTab === 'delivery'" class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]">
+                <p v-for="(paragraph, index) in deliveryParagraphs" :key="`mobile-delivery-${index}`">{{ paragraph }}</p>
+              </div>
+              <div v-else>
+                <ProductReviewsPanel
+                  :fetchUrl="reviewsFetchUrl"
+                  :active="activeTab === 'reviews'"
+                  :initialCount="product.reviews_count ?? 0"
+                  :initialAvg="product.reviews_avg_rating ?? 0"
+                  :productName="product.name"
+                  :productImage="product.main_image || product.gallery?.[0]?.src || null"
+                />
               </div>
             </div>
           </div>
-        </div>
-
-        <div class="mt-6 rounded-[28px] border border-neutral-200 bg-white p-4 sm:p-6">
-          <div class="prose max-w-none text-neutral-800" v-html="props.product?.long_description || props.product?.short_description || ''"></div>
-        </div>
-      </div>
-
-      <aside class="space-y-5">
-        <div class="overflow-hidden rounded-[28px] border border-neutral-200 bg-white p-5">
-          <h1 class="text-lg font-semibold text-neutral-900">{{ props.product?.name || 'Product' }}</h1>
-          <div class="mt-2 flex items-center justify-between gap-3">
-            <div>
-              <div class="text-sm text-neutral-500">Brand</div>
-              <div class="text-sm font-medium text-neutral-900">{{ props.product?.brand?.name || '-' }}</div>
-            </div>
-
-            <div class="text-right">
-              <div class="text-sm text-neutral-500">Availability</div>
-              <div :class="isInStock ? 'text-emerald-600' : 'text-red-600'" class="text-sm font-semibold">{{ availabilityText }}</div>
-            </div>
-          </div>
-
-          <div class="mt-4">
-            <div class="text-sm text-neutral-500">Price</div>
-            <div class="mt-1 flex items-baseline gap-3">
-              <div class="text-2xl font-bold text-neutral-900">{{ formatPrice(currentPrice) }}</div>
-              <div v-if="hasDiscount" class="text-sm font-semibold text-neutral-400 line-through">{{ formatPrice(currentOldPrice) }}</div>
-            </div>
-          </div>
-
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-neutral-900">Volume</label>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <button v-for="vol in volumes" :key="vol.id" type="button" class="rounded-full border px-3.5 py-2 text-sm font-medium" :class="selectedVolumeId === vol.id ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700'" @click="selectVolume(vol.id)">{{ vol.label }}</button>
-            </div>
-          </div>
-
-          <div class="mt-4 flex items-center gap-3">
-            <div class="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1">
-              <button type="button" class="h-9 w-9 rounded-md bg-white text-neutral-900" @click="decreaseQuantity">-</button>
-              <div class="min-w-[44px] text-center font-medium">{{ quantity }}</div>
-              <button type="button" class="h-9 w-9 rounded-md bg-white text-neutral-900" @click="increaseQuantity">+</button>
-            </div>
-
-            <button type="button" class="inline-flex items-center gap-2 rounded-2xl bg-neutral-900 px-4 py-3 text-sm font-semibold text-white" @click="addToCart">Add to cart</button>
-          </div>
-
-          <div class="mt-3 text-sm text-neutral-500">SKU: {{ props.product?.sku || '-' }}</div>
-        </div>
+        </template>
       </aside>
-    </div>
-
-    <div class="mt-6">
-      <ProductReviewsPanel v-if="props.product" :fetch-url="reviewsFetchUrl" :initial-count="props.product?.reviews_count" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.fade-slide-enter-active, .fade-slide-leave-active { transition: opacity 0.24s ease, transform 0.24s ease }
-.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-6px) }
-.fade-slide-enter-to, .fade-slide-leave-from { opacity: 1; transform: translateY(0) }
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
 </style>
+

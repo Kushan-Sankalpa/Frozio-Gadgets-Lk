@@ -4,11 +4,28 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 type BrandItem = {
   id: number | string
   name: string
+  logo_url?: string | null
+}
+
+type CategoryItem = {
+  id: number | string
+  name: string
+  slug?: string | null
+  brands?: BrandItem[]
+}
+
+type CountryItem = {
+  id: number | string
+  name: string
+  code?: string | null
+  flag_image_url?: string | null
 }
 
 type Filters = {
   search?: string | null
-  brand?: string | null
+  cosmetic_category?: string | null
+  cosmetic_brand?: string | null
+  cosmetic_country?: string | null
   stock?: string | null
   sale?: boolean
   sort?: string | null
@@ -19,7 +36,8 @@ type Filters = {
 
 const props = defineProps<{
   filters: Filters
-  brands: BrandItem[]
+  categories: CategoryItem[]
+  countries: CountryItem[]
   loading?: boolean
 }>()
 
@@ -30,7 +48,9 @@ const emit = defineEmits<{
 
 const localFilters = ref<Filters>({
   search: '',
-  brand: '',
+  cosmetic_category: '',
+  cosmetic_brand: '',
+  cosmetic_country: '',
   stock: '',
   sale: false,
   sort: 'latest',
@@ -44,6 +64,10 @@ const isDesktopView = ref(false)
 const isSyncingFromProps = ref(false)
 
 let autoApplyTimer: ReturnType<typeof setTimeout> | null = null
+
+function normalize(value: string | null | undefined) {
+  return String(value ?? '').trim().toLowerCase()
+}
 
 function syncViewportState() {
   isDesktopView.value = window.innerWidth >= 1280
@@ -60,7 +84,9 @@ function queueApply() {
   autoApplyTimer = setTimeout(() => {
     emit('apply', {
       search: String(localFilters.value.search || '').trim(),
-      brand: localFilters.value.brand || '',
+      cosmetic_category: localFilters.value.cosmetic_category || '',
+      cosmetic_brand: localFilters.value.cosmetic_brand || '',
+      cosmetic_country: localFilters.value.cosmetic_country || '',
       stock: localFilters.value.stock || '',
       sale: !!localFilters.value.sale,
       sort: localFilters.value.sort || 'latest',
@@ -78,7 +104,9 @@ watch(
 
     localFilters.value = {
       search: value?.search || '',
-      brand: value?.brand || '',
+      cosmetic_category: value?.cosmetic_category || '',
+      cosmetic_brand: value?.cosmetic_brand || '',
+      cosmetic_country: value?.cosmetic_country || '',
       stock: value?.stock || '',
       sale: !!value?.sale,
       sort: value?.sort || 'latest',
@@ -92,6 +120,43 @@ watch(
     })
   },
   { immediate: true, deep: true }
+)
+
+const activeCategory = computed(() => {
+  return props.categories.find(
+    (category) => normalize(category.name) === normalize(localFilters.value.cosmetic_category)
+  )
+})
+
+const visibleBrands = computed(() => {
+  if (activeCategory.value?.brands?.length) {
+    return activeCategory.value.brands
+  }
+
+  const allBrands = props.categories.flatMap((category) => category.brands || [])
+  const seen = new Set<string>()
+
+  return allBrands.filter((brand) => {
+    const key = normalize(brand.name)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+})
+
+watch(
+  () => localFilters.value.cosmetic_category,
+  (newValue, oldValue) => {
+    if (newValue !== oldValue) {
+      const exists = visibleBrands.value.some(
+        (brand) => normalize(brand.name) === normalize(localFilters.value.cosmetic_brand)
+      )
+
+      if (!exists) {
+        localFilters.value.cosmetic_brand = ''
+      }
+    }
+  }
 )
 
 watch(
@@ -115,7 +180,9 @@ function resetFilters() {
 
   localFilters.value = {
     search: '',
-    brand: '',
+    cosmetic_category: '',
+    cosmetic_brand: '',
+    cosmetic_country: '',
     stock: '',
     sale: false,
     sort: 'latest',
@@ -203,14 +270,14 @@ onBeforeUnmount(() => {
               <input
                 v-model="localFilters.search"
                 type="text"
-                placeholder="Search cosmetic name, SKU, brand..."
+                placeholder="Search name, batch, brand..."
                 class="w-full rounded-2xl border border-neutral-200 bg-neutral-50/70 px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:bg-white"
               />
             </div>
 
             <div class="space-y-3">
               <label class="block text-sm font-semibold text-neutral-900">
-                Brand
+                Category
               </label>
 
               <div class="flex flex-wrap gap-2">
@@ -218,29 +285,120 @@ onBeforeUnmount(() => {
                   type="button"
                   class="rounded-full border px-3.5 py-2 text-sm font-medium transition"
                   :class="
-                    !localFilters.brand
+                    !localFilters.cosmetic_category
                       ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm'
                       : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-900 hover:text-neutral-900'
                   "
-                  @click="localFilters.brand = ''"
+                  @click="localFilters.cosmetic_category = ''"
                 >
                   All
                 </button>
 
                 <button
-                  v-for="brand in brands"
-                  :key="brand.id"
+                  v-for="category in categories"
+                  :key="category.id"
                   type="button"
                   class="rounded-full border px-3.5 py-2 text-sm font-medium transition"
                   :class="
-                    localFilters.brand === brand.name
+                    localFilters.cosmetic_category === category.name
                       ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm'
                       : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-900 hover:text-neutral-900'
                   "
-                  @click="localFilters.brand = brand.name"
+                  @click="localFilters.cosmetic_category = category.name"
                 >
-                  {{ brand.name }}
+                  {{ category.name }}
                 </button>
+              </div>
+            </div>
+
+            <Transition name="field-fade" mode="out-in">
+              <div
+                :key="localFilters.cosmetic_category || 'no-category'"
+                class="space-y-3"
+              >
+                <label class="block text-sm font-semibold text-neutral-900">
+                  Brand
+                </label>
+
+                <div
+                  v-if="visibleBrands.length"
+                  class="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                >
+                  <button
+                    type="button"
+                    class="flex min-h-[92px] flex-col items-center justify-center rounded-2xl border px-3 py-3 transition"
+                    :class="
+                      !localFilters.cosmetic_brand
+                        ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm'
+                        : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-900 hover:text-neutral-900'
+                    "
+                    @click="localFilters.cosmetic_brand = ''"
+                  >
+                    <span class="text-sm font-semibold">All Brands</span>
+                  </button>
+
+                  <button
+                    v-for="brand in visibleBrands"
+                    :key="brand.id"
+                    type="button"
+                    class="flex min-h-[92px] flex-col items-center justify-center rounded-2xl border px-3 py-3 transition"
+                    :class="
+                      localFilters.cosmetic_brand === brand.name
+                        ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm'
+                        : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-900 hover:text-neutral-900'
+                    "
+                    @click="localFilters.cosmetic_brand = brand.name"
+                  >
+                    <img
+                      v-if="brand.logo_url"
+                      :src="brand.logo_url"
+                      :alt="brand.name"
+                      class="mb-2 h-10 w-10 rounded-full bg-white p-1 object-contain"
+                    />
+                    <span class="line-clamp-1 text-center text-xs font-semibold">
+                      {{ brand.name }}
+                    </span>
+                  </button>
+                </div>
+
+                <div
+                  v-else
+                  class="rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-500"
+                >
+                  No brands available for this category.
+                </div>
+              </div>
+            </Transition>
+
+            <div class="space-y-2">
+              <label class="block text-sm font-semibold text-neutral-900">
+                Country of Origin
+              </label>
+
+              <div class="relative">
+                <select
+                  v-model="localFilters.cosmetic_country"
+                  class="w-full appearance-none rounded-2xl border border-neutral-200 bg-neutral-50/70 px-4 py-3 pr-11 text-sm font-medium text-neutral-900 outline-none transition focus:border-neutral-900 focus:bg-white"
+                >
+                  <option value="">All countries</option>
+                  <option
+                    v-for="country in countries"
+                    :key="country.id"
+                    :value="country.name"
+                  >
+                    {{ country.name }}
+                  </option>
+                </select>
+
+                <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-neutral-400">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fill-rule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </span>
               </div>
             </div>
 
@@ -369,7 +527,7 @@ onBeforeUnmount(() => {
 
 .filter-collapse-enter-to,
 .filter-collapse-leave-from {
-  max-height: 1200px;
+  max-height: 1400px;
   opacity: 1;
   transform: translateY(0);
 }
@@ -387,3 +545,4 @@ onBeforeUnmount(() => {
   transform: translateY(-6px);
 }
 </style>
+

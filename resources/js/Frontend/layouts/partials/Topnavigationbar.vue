@@ -33,6 +33,20 @@ type ShoeCategory = {
   subcategories?: ShoeSubcategory[]
 }
 
+type CosmeticNavCategory = {
+  id: number | string
+  name: string
+  slug?: string | null
+}
+
+type CosmeticNavBrand = {
+  id: number | string
+  name: string
+  logo_url?: string | null
+  status?: string | null
+  categories?: CosmeticNavCategory[]
+}
+
 type SearchSuggestion = {
   id: number | string
   name: string
@@ -54,12 +68,15 @@ const scrolled = ref(false)
 const openMobileMenu = ref(false)
 const openMobileTech = ref(false)
 const openMobileShoe = ref(false)
+const openMobileCosmetics = ref(false)
 const openMobileTechCategoryId = ref<number | string | null>(null)
 const openMobileShoeCategoryId = ref<number | string | null>(null)
+const openMobileCosmeticBrandId = ref<number | string | null>(null)
 
-const activeDropdown = ref<'tech' | 'shoes' | null>(null)
+const activeDropdown = ref<'tech' | 'shoes' | 'cosmetics' | null>(null)
 const activeTechSubMenu = ref<number | string | null>(null)
 const activeShoeSubMenu = ref<number | string | null>(null)
+const activeCosmeticSubMenu = ref<number | string | null>(null)
 
 const searchOpen = ref(false)
 const mobileSearchBarOpen = ref(false)
@@ -89,6 +106,12 @@ const shoeCategories = computed<ShoeCategory[]>(() => {
     : []
 })
 
+const cosmeticBrands = computed<CosmeticNavBrand[]>(() => {
+  return Array.isArray(page.props.cosmeticBrands)
+    ? (page.props.cosmeticBrands as CosmeticNavBrand[])
+    : []
+})
+
 const currentParams = computed(() => {
   const url = page.url || ''
   const query = url.includes('?') ? url.split('?')[1] : ''
@@ -101,11 +124,14 @@ const currentPath = computed(() => {
 })
 
 const isShoeListingPage = computed(() => currentPath.value.startsWith('/shoe-products'))
+const isCosmeticListingPage = computed(() => currentPath.value.startsWith('/cosmetic-products'))
 
 const currentCategory = computed(() => currentParams.value.get('category') || '')
 const currentBrand = computed(() => currentParams.value.get('brand') || '')
 const currentShoeCategory = computed(() => currentParams.value.get('shoe_category') || '')
 const currentShoeSubcategory = computed(() => currentParams.value.get('shoe_subcategory') || '')
+const currentCosmeticCategory = computed(() => currentParams.value.get('cosmetic_category') || '')
+const currentCosmeticBrand = computed(() => currentParams.value.get('cosmetic_brand') || '')
 const currentSearch = computed(() => currentParams.value.get('search') || '')
 
 const isHomeActive = computed(() => {
@@ -114,11 +140,16 @@ const isHomeActive = computed(() => {
     && !currentBrand.value
     && !currentShoeCategory.value
     && !currentShoeSubcategory.value
+    && !currentCosmeticCategory.value
+    && !currentCosmeticBrand.value
 })
 
 const isTechMenuActive = computed(() => !!currentCategory.value || !!currentBrand.value)
 const isShoeMenuActive = computed(() => {
   return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
+})
+const isCosmeticMenuActive = computed(() => {
+  return isCosmeticListingPage.value || !!currentCosmeticBrand.value || !!currentCosmeticCategory.value
 })
 
 const isContactUsActive = computed(() => currentPath.value === '/contact-us')
@@ -131,8 +162,10 @@ function wait(ms: number) {
 function resetMobileAccordionState() {
   openMobileTech.value = false
   openMobileShoe.value = false
+  openMobileCosmetics.value = false
   openMobileTechCategoryId.value = null
   openMobileShoeCategoryId.value = null
+  openMobileCosmeticBrandId.value = null
 }
 
 watch(
@@ -144,6 +177,7 @@ watch(
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
+    activeCosmeticSubMenu.value = null
     searchOpen.value = false
 
     cancelSuggestionRequest()
@@ -217,6 +251,14 @@ function isShoeSubcategoryActive(name?: string | null) {
   return normalize(currentShoeSubcategory.value) === normalize(name)
 }
 
+function isCosmeticBrandActive(name?: string | null) {
+  return normalize(currentCosmeticBrand.value) === normalize(name)
+}
+
+function isCosmeticCategoryActive(name?: string | null) {
+  return normalize(currentCosmeticCategory.value) === normalize(name)
+}
+
 function clearDropdownTimer() {
   if (dropdownCloseTimer) {
     clearTimeout(dropdownCloseTimer)
@@ -224,7 +266,7 @@ function clearDropdownTimer() {
   }
 }
 
-function handleDropdownEnter(name: 'tech' | 'shoes') {
+function handleDropdownEnter(name: 'tech' | 'shoes' | 'cosmetics') {
   clearDropdownTimer()
   activeDropdown.value = name
 }
@@ -235,6 +277,7 @@ function handleDropdownLeave() {
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
+    activeCosmeticSubMenu.value = null
   }, 140)
 }
 
@@ -246,6 +289,11 @@ function openTechSubMenu(id: number | string | null) {
 function openShoeSubMenu(id: number | string | null) {
   clearDropdownTimer()
   activeShoeSubMenu.value = id
+}
+
+function openCosmeticSubMenu(id: number | string | null) {
+  clearDropdownTimer()
+  activeCosmeticSubMenu.value = id
 }
 
 function openSearchPanel() {
@@ -321,13 +369,26 @@ function submitSearch() {
     !!currentShoeCategory.value ||
     !!currentShoeSubcategory.value
 
+  const goToCosmeticPage =
+    isCosmeticListingPage.value ||
+    !!currentCosmeticBrand.value ||
+    !!currentCosmeticCategory.value
+
+  const destination = goToShoePage
+    ? 'frontend.shoe-products.index'
+    : goToCosmeticPage
+      ? 'frontend.cosmetic-products.index'
+      : 'frontend.root'
+
   router.get(
-    route(goToShoePage ? 'frontend.shoe-products.index' : 'frontend.root'),
+    route(destination),
     {
-      category: goToShoePage ? undefined : currentCategory.value || undefined,
-      brand: goToShoePage ? undefined : currentBrand.value || undefined,
+      category: goToShoePage || goToCosmeticPage ? undefined : currentCategory.value || undefined,
+      brand: goToShoePage || goToCosmeticPage ? undefined : currentBrand.value || undefined,
       shoe_category: goToShoePage ? currentShoeCategory.value || undefined : undefined,
       shoe_subcategory: goToShoePage ? currentShoeSubcategory.value || undefined : undefined,
+      cosmetic_category: goToCosmeticPage ? currentCosmeticCategory.value || undefined : undefined,
+      cosmetic_brand: goToCosmeticPage ? currentCosmeticBrand.value || undefined : undefined,
       search: searchQuery.value.trim() || undefined,
     },
     {
@@ -356,6 +417,10 @@ function toggleMobileShoeCategory(id: number | string) {
   openMobileShoeCategoryId.value = openMobileShoeCategoryId.value === id ? null : id
 }
 
+function toggleMobileCosmeticBrand(id: number | string) {
+  openMobileCosmeticBrandId.value = openMobileCosmeticBrandId.value === id ? null : id
+}
+
 function handleScroll() {
   scrolled.value = window.scrollY > 28
 }
@@ -373,6 +438,7 @@ function handleKeydown(event: KeyboardEvent) {
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
+    activeCosmeticSubMenu.value = null
     openMobileMenu.value = false
     mobileSearchBarOpen.value = false
     closeSearchPanel()
@@ -390,6 +456,7 @@ function handleClickOutside(event: MouseEvent) {
     activeDropdown.value = null
     activeTechSubMenu.value = null
     activeShoeSubMenu.value = null
+    activeCosmeticSubMenu.value = null
     mobileSearchBarOpen.value = false
     closeSearchPanel()
     closeSuggestionDropdown()
@@ -973,7 +1040,149 @@ onBeforeUnmount(() => {
             </Transition>
           </div>
 
-        
+          <div
+            class="relative"
+            @mouseenter="handleDropdownEnter('cosmetics')"
+            @mouseleave="handleDropdownLeave"
+          >
+            <div
+              class="nav-link inline-flex items-center gap-1.5"
+              :class="[
+                scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
+                isCosmeticMenuActive ? 'nav-link--active' : '',
+              ]"
+            >
+              <Link
+                :href="route('frontend.cosmetic-products.index')"
+                class="inline-flex items-center"
+              >
+                <span>Cosmetics</span>
+              </Link>
+
+              <svg
+                class="h-3.5 w-3.5 transition-transform duration-300"
+                :class="activeDropdown === 'cosmetics' ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+
+              <span
+                class="nav-link-indicator"
+                :class="[
+                  isCosmeticMenuActive ? 'nav-link-indicator--active' : '',
+                  scrolled ? 'bg-black' : 'bg-white',
+                ]"
+              />
+            </div>
+
+            <Transition name="dropdown-fade">
+              <div
+                v-if="activeDropdown === 'cosmetics'"
+                class="dropdown-panel left-0 min-w-[320px] overflow-visible"
+              >
+                <div class="px-2 py-2">
+                  <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                    Cosmetic Brands
+                  </div>
+
+                  <Link
+                    :href="route('frontend.cosmetic-products.index', { search: currentSearch || undefined })"
+                    class="dropdown-link"
+                    :class="!currentCosmeticBrand && !currentCosmeticCategory ? 'dropdown-link--active' : ''"
+                  >
+                    All Cosmetics
+                  </Link>
+
+                  <div
+                    v-for="brand in cosmeticBrands"
+                    :key="brand.id"
+                    class="relative"
+                    @mouseenter="openCosmeticSubMenu(brand.categories?.length ? brand.id : null)"
+                  >
+                    <div class="flex items-center">
+                      <Link
+                        :href="route('frontend.cosmetic-products.index', {
+                          cosmetic_brand: brand.name,
+                          search: currentSearch || undefined,
+                        })"
+                        class="dropdown-link flex-1"
+                        :class="isCosmeticBrandActive(brand.name) && !currentCosmeticCategory ? 'dropdown-link--active' : ''"
+                      >
+                        <span class="flex items-center gap-2">
+                          <img
+                            v-if="brand.logo_url"
+                            :src="brand.logo_url"
+                            :alt="brand.name"
+                            class="h-5 w-5 rounded-full bg-white/10 object-contain"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                          <span>{{ brand.name }}</span>
+                        </span>
+                      </Link>
+
+                      <span
+                        v-if="brand.categories?.length"
+                        class="pointer-events-none pr-3 text-white/35"
+                      >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path
+                            fill-rule="evenodd"
+                            d="M7.21 14.77a.75.75 0 010-1.06L10.94 10 7.21 6.29a.75.75 0 111.06-1.06l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06 0z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                      </span>
+                    </div>
+
+                    <Transition name="submenu-fade">
+                      <div
+                        v-if="brand.categories?.length && activeCosmeticSubMenu === brand.id && activeDropdown === 'cosmetics'"
+                        class="submenu-panel"
+                      >
+                        <div class="px-2 py-2">
+                          <div class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                            {{ brand.name }} Categories
+                          </div>
+
+                          <Link
+                            :href="route('frontend.cosmetic-products.index', {
+                              cosmetic_brand: brand.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="dropdown-link"
+                            :class="isCosmeticBrandActive(brand.name) && !currentCosmeticCategory ? 'dropdown-link--active' : ''"
+                          >
+                            View All
+                          </Link>
+
+                          <Link
+                            v-for="category in brand.categories || []"
+                            :key="category.id"
+                            :href="route('frontend.cosmetic-products.index', {
+                              cosmetic_brand: brand.name,
+                              cosmetic_category: category.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="dropdown-link"
+                            :class="isCosmeticBrandActive(brand.name) && isCosmeticCategoryActive(category.name) ? 'dropdown-link--active' : ''"
+                          >
+                            {{ category.name }}
+                          </Link>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
 
           <Link
             :href="route('frontend.contact-us.index')"
@@ -1573,6 +1782,112 @@ onBeforeUnmount(() => {
                             @click="openMobileMenu = false"
                           >
                             {{ subcategory.name }}
+                          </Link>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <div class="mobile-group">
+            <button
+              type="button"
+              class="mobile-accordion"
+              @click="openMobileCosmetics = !openMobileCosmetics"
+            >
+              <span>Cosmetics</span>
+              <svg
+                class="h-4 w-4 transition-transform duration-300"
+                :class="openMobileCosmetics ? 'rotate-180' : ''"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+
+            <Transition name="accordion">
+              <div v-if="openMobileCosmetics" class="overflow-hidden px-3 pb-3">
+                <div class="space-y-2 rounded-2xl border border-white/8 bg-black/20 p-2">
+                  <Link
+                    :href="route('frontend.cosmetic-products.index', { search: currentSearch || undefined })"
+                    class="mobile-sub-link"
+                    @click="openMobileMenu = false"
+                  >
+                    All Cosmetics
+                  </Link>
+
+                  <div
+                    v-for="brand in cosmeticBrands"
+                    :key="brand.id"
+                    class="rounded-xl border border-white/8 bg-white/[0.03]"
+                  >
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-white"
+                      @click="toggleMobileCosmeticBrand(brand.id)"
+                    >
+                      <span class="inline-flex items-center gap-2">
+                        <img
+                          v-if="brand.logo_url"
+                          :src="brand.logo_url"
+                          :alt="brand.name"
+                          class="h-6 w-6 rounded-full bg-white/10 p-1 object-contain"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        {{ brand.name }}
+                      </span>
+                      <svg
+                        class="h-4 w-4 transition-transform duration-300"
+                        :class="openMobileCosmeticBrandId === brand.id ? 'rotate-180' : ''"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+
+                    <Transition name="accordion">
+                      <div
+                        v-if="openMobileCosmeticBrandId === brand.id"
+                        class="overflow-hidden px-3 pb-3"
+                      >
+                        <div class="space-y-1 rounded-xl border border-white/8 bg-black/25 p-2">
+                          <Link
+                            :href="route('frontend.cosmetic-products.index', {
+                              cosmetic_brand: brand.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="mobile-sub-link"
+                            @click="openMobileMenu = false"
+                          >
+                            View All
+                          </Link>
+
+                          <Link
+                            v-for="category in brand.categories || []"
+                            :key="category.id"
+                            :href="route('frontend.cosmetic-products.index', {
+                              cosmetic_brand: brand.name,
+                              cosmetic_category: category.name,
+                              search: currentSearch || undefined,
+                            })"
+                            class="mobile-sub-link"
+                            @click="openMobileMenu = false"
+                          >
+                            {{ category.name }}
                           </Link>
                         </div>
                       </div>

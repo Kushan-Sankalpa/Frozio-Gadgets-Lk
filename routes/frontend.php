@@ -10,8 +10,8 @@ use App\Http\Controllers\Frontend\WebShoeProductController;
 use App\Http\Controllers\Frontend\WebTechProductController;
 use App\Http\Controllers\Frontend\TechProductViewController;
 use App\Http\Controllers\Frontend\ShoeProductViewController;
-// use App\Http\Controllers\Frontend\WebCosmeticProductController;
-// use App\Http\Controllers\Frontend\CosmeticProductViewController;
+use App\Http\Controllers\Frontend\WebCosmeticProductController;
+use App\Http\Controllers\Frontend\CosmeticProductViewController;
 
 Route::get('/', [HomeController::class, 'index'])->name('frontend.root');
 
@@ -39,8 +39,17 @@ Route::get('/home/shoe-categories', [HomeController::class, 'shoeCategories'])
 Route::get('/home/featured-shoes', [HomeController::class, 'featuredShoes'])
     ->name('frontend.home.featured-shoes');
 
+Route::get('/home/featured-cosmetics', [HomeController::class, 'featuredCosmetics'])
+    ->name('frontend.home.featured-cosmetics');
+
 Route::get('/home/products', [HomeController::class, 'products'])
     ->name('frontend.home.products');
+
+Route::get('/home/cosmetic-brands', [HomeController::class, 'cosmeticBrands'])
+    ->name('frontend.home.cosmetic-brands');
+
+Route::get('/home/cosmetic-products', [HomeController::class, 'cosmeticProducts'])
+    ->name('frontend.home.cosmetic-products');
 
 Route::get('/tech-products', [WebTechProductController::class, 'index'])
     ->name('frontend.tech-products.index');
@@ -80,6 +89,24 @@ Route::get('/shoe-products/{product}/reviews', [ShoeProductViewController::class
 
 Route::post('/shoe-products/{product}/reviews', [ShoeProductViewController::class, 'storeReview'])
     ->name('frontend.shoe-products.show.reviews.store');
+
+Route::get('/cosmetic-products', [WebCosmeticProductController::class, 'index'])
+    ->name('frontend.cosmetic-products.index');
+
+Route::get('/cosmetic-products/products', [WebCosmeticProductController::class, 'products'])
+    ->name('frontend.cosmetic-products.products');
+
+Route::get('/cosmetic-products/{product}', [CosmeticProductViewController::class, 'index'])
+    ->name('frontend.cosmetic-products.show');
+
+Route::get('/cosmetic-products/{product}/data', [CosmeticProductViewController::class, 'data'])
+    ->name('frontend.cosmetic-products.show.data');
+
+Route::get('/cosmetic-products/{product}/reviews', [CosmeticProductViewController::class, 'reviews'])
+    ->name('frontend.cosmetic-products.show.reviews');
+
+Route::post('/cosmetic-products/{product}/reviews', [CosmeticProductViewController::class, 'storeReview'])
+    ->name('frontend.cosmetic-products.show.reviews.store');
 
 Route::get('/search/product-suggestions', [ProductSuggestionController::class, 'suggestions'])
     ->name('frontend.products.suggestions');

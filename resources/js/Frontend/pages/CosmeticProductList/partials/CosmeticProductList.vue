@@ -8,6 +8,9 @@ type CosmeticProductCard = {
   name: string
   slug?: string | null
   brand_name?: string | null
+  country_name?: string | null
+  country_code?: string | null
+  country_flag_url?: string | null
   thumbnail_url: string | null
   hover_image_url: string | null
   currency?: string | null
@@ -19,6 +22,7 @@ type CosmeticProductCard = {
   is_sold_out: boolean
   reviews_count?: number | null
   reviews_avg_rating?: number | null
+  url?: string | null
 }
 
 type PaginationMeta = {
@@ -106,7 +110,7 @@ function ratingAriaLabel(value: number | null | undefined, count: number | null 
 }
 
 function productHref(product: CosmeticProductCard) {
-  return route('frontend.cosmetic-products.show', {
+  return product.url || route('frontend.cosmetic-products.show', {
     product: product.slug || product.id,
   })
 }
@@ -199,6 +203,15 @@ function productHref(product: CosmeticProductCard) {
                   :src="product.hover_image_url"
                   :alt="`${product.name} hover`"
                   class="product-hover-image max-h-full max-w-full object-contain"
+                />
+
+                <img
+                  v-if="product.country_flag_url"
+                  :src="product.country_flag_url"
+                  :alt="product.country_name ? `${product.country_name} flag` : 'Country flag'"
+                  class="absolute bottom-3 right-3 z-20 h-9 w-9 rounded-full border border-white/80 bg-white object-cover shadow sm:bottom-4 sm:right-4 sm:h-10 sm:w-10"
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>
@@ -362,12 +375,133 @@ function productHref(product: CosmeticProductCard) {
 </template>
 
 <style scoped>
-/* minimal reuse of product styles */
-.product-card { transition: transform 0.4s ease, box-shadow 0.4s ease; }
-.product-card:hover { transform: translateY(-6px); box-shadow: 0 18px 42px rgba(15,23,42,0.1); }
-.product-main-image, .product-hover-image { position: absolute; max-width: calc(100% - 1.5rem); max-height: calc(100% - 1.5rem); object-fit: contain; transition: opacity 0.4s ease, transform 0.4s ease; }
-.product-rating { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 18px; }
-.product-rating-star { position: relative; display: inline-flex; width: 15px; height: 15px; flex: 0 0 15px; }
-.product-rating-star-base { color: #d1d5db; fill: currentColor; }
-.product-rating-star-top { color: #f2a536; fill: currentColor; }
+.product-card {
+  transition:
+    transform 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
+}
+
+.product-main-image,
+.product-hover-image {
+  position: absolute;
+  max-width: calc(100% - 1.5rem);
+  max-height: calc(100% - 1.5rem);
+  object-fit: contain;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.product-main-image {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.product-hover-image {
+  opacity: 0;
+  transform: scale(1.02);
+}
+
+.product-card:hover .product-main-image {
+  opacity: 0;
+  transform: scale(1.01);
+}
+
+.product-card:hover .product-hover-image {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.product-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 18px;
+}
+
+.product-rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.product-rating-star {
+  position: relative;
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.product-rating-star-base,
+.product-rating-star-top {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.product-rating-star-base {
+  color: #d1d5db;
+  fill: currentColor;
+}
+
+.product-rating-star-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.product-rating-star-top {
+  color: #f2a536;
+  fill: currentColor;
+}
+
+.product-rating-value {
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 640px) {
+  .product-main-image,
+  .product-hover-image {
+    max-width: calc(100% - 2rem);
+    max-height: calc(100% - 2rem);
+  }
+
+  .product-rating-star {
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
+  }
+
+  .product-rating-stars {
+    gap: 3px;
+  }
+
+  .product-rating-value {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card,
+  .product-main-image,
+  .product-hover-image {
+    transition: none !important;
+    transform: none !important;
+  }
+}
 </style>

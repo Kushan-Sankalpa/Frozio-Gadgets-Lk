@@ -11,6 +11,8 @@ import FeaturedProducts from './FeaturedProducts.vue'
 import PhoneImageShowcase from './PhoneImageShowcase.vue'
 // import ThreeDShoe from '../../components/3dshoe.vue'
 import ShoeImageShowcase from './ShoeImageShowcase.vue'
+import CosmeticImageShowcase from './CosmeticImageShowcase.vue'
+import CosmeticsFeaturedProducts from './CosmeticsFeaturedProducts.vue'
 import CardSwiper from './cardsswiper.vue'
 
 defineOptions({
@@ -173,6 +175,10 @@ const shoeSlides = [
   />
 
   <ShoeFeaturedProducts :products="featuredShoes" />
+
+  <CosmeticImageShowcase />
+
+  <CosmeticsFeaturedProducts />
 
   <!-- <Cosmetics /> -->
 

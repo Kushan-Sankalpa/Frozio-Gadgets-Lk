@@ -14,6 +14,8 @@ type ProductItem = {
   name: string
   category_name?: string | null
   brand_name?: string | null
+  country_name?: string | null
+  country_flag_url?: string | null
   thumbnail_url: string | null
   hover_image_url: string | null
   regular_price: number | null
@@ -35,6 +37,9 @@ const props = withDefaults(
     activeCategory?: string | null
     activeBrand?: string | null
     search?: string | null
+    exploreHref?: string
+    labelMode?: 'category' | 'brand'
+    cardTagline?: string
   }>(),
   {
     title: 'Trending Now',
@@ -43,6 +48,9 @@ const props = withDefaults(
     activeCategory: null,
     activeBrand: null,
     search: null,
+    exploreHref: '/tech-products?featured=1',
+    labelMode: 'category',
+    cardTagline: 'featured pick',
   },
 )
 
@@ -84,7 +92,17 @@ const endpointUrl = computed(() => {
 })
 
 function goToFeaturedList() {
-  window.location.href = '/tech-products?featured=1'
+  if (typeof window === 'undefined') return
+
+  const href = String(props.exploreHref ?? '').trim()
+  if (!href) return
+
+  if (href.startsWith('#')) {
+    document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    return
+  }
+
+  window.location.href = href
 }
 
 function formatPrice(value: number | null | undefined) {
@@ -184,6 +202,14 @@ function colorSwatchStyle(color: ProductColor) {
 
 function productUrl(product: ProductItem) {
   return product.url || `/tech-products/${product.id}`
+}
+
+function topLabel(product: ProductItem) {
+  if (props.labelMode === 'brand') {
+    return product.brand_name || product.category_name || 'Brand'
+  }
+
+  return product.category_name || product.brand_name || 'Category'
 }
 
 function buildSixProducts(items: ProductItem[]) {
@@ -559,10 +585,10 @@ onBeforeUnmount(() => {
 
                   <div class="absolute right-3 top-3 z-20 text-right sm:right-4 sm:top-4">
                     <div class="text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-700 sm:text-xs sm:tracking-[0.16em]">
-                      {{ product.category_name || 'Category' }}
+                      {{ topLabel(product) }}
                     </div>
                     <div class="text-[9px] text-neutral-500 sm:text-[11px]">
-                      featured pick
+                      {{ cardTagline }}
                     </div>
                   </div>
 
@@ -579,6 +605,15 @@ onBeforeUnmount(() => {
                       :src="product.hover_image_url"
                       :alt="`${product.name} hover`"
                       class="product-hover-image max-h-full max-w-full object-contain"
+                    />
+
+                    <img
+                      v-if="product.country_flag_url"
+                      :src="product.country_flag_url"
+                      :alt="product.country_name ? `${product.country_name} flag` : 'Country flag'"
+                      class="absolute bottom-3 right-3 z-20 h-8 w-8 rounded-full border border-white/80 bg-white object-cover shadow sm:bottom-4 sm:right-4 sm:h-9 sm:w-9"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { Link, router, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 import AppLayout from '@/Frontend/layouts/AppLayout.vue'
+import CosmeticFeaturedProducts from './partials/CosmeticFeaturedProducts.vue'
 import CosmeticProductFilter from './partials/CosmeticProductFilter.vue'
 import CosmeticProductList from './partials/CosmeticProductList.vue'
 
@@ -15,6 +16,10 @@ type CosmeticProductCard = {
   name: string
   slug?: string | null
   brand_name?: string | null
+  category_name?: string | null
+  country_name?: string | null
+  country_code?: string | null
+  country_flag_url?: string | null
   thumbnail_url: string | null
   hover_image_url: string | null
   currency?: string | null
@@ -24,11 +29,14 @@ type CosmeticProductCard = {
   has_discount: boolean
   discount_label?: string | null
   is_sold_out: boolean
+  url?: string | null
 }
 
 type Filters = {
   search?: string | null
-  brand?: string | null
+  cosmetic_category?: string | null
+  cosmetic_brand?: string | null
+  cosmetic_country?: string | null
   stock?: string | null
   sale?: boolean
   sort?: string | null
@@ -46,8 +54,29 @@ type PaginationMeta = {
   to: number
 }
 
+type BrandItem = {
+  id: number | string
+  name: string
+  logo_url?: string | null
+}
+
+type CategoryItem = {
+  id: number | string
+  name: string
+  slug?: string | null
+  brands?: BrandItem[]
+}
+
+type CountryItem = {
+  id: number | string
+  name: string
+  code?: string | null
+  flag_image_url?: string | null
+}
+
 const props = defineProps<{
-  brands?: unknown[]
+  categories: CategoryItem[]
+  countries: CountryItem[]
   filters: Filters
 }>()
 
@@ -72,7 +101,9 @@ let activeController: AbortController | null = null
 
 const currentFilters = computed(() => ({
   search: props.filters?.search || '',
-  brand: props.filters?.brand || '',
+  cosmetic_category: props.filters?.cosmetic_category || '',
+  cosmetic_brand: props.filters?.cosmetic_brand || '',
+  cosmetic_country: props.filters?.cosmetic_country || '',
   stock: props.filters?.stock || '',
   sale: !!props.filters?.sale,
   sort: props.filters?.sort || 'latest',
@@ -82,8 +113,16 @@ const currentFilters = computed(() => ({
 }))
 
 const heading = computed(() => {
-  if (currentFilters.value.brand) {
-    return `${currentFilters.value.brand} Cosmetics`
+  if (currentFilters.value.cosmetic_brand && currentFilters.value.cosmetic_category) {
+    return `${currentFilters.value.cosmetic_brand} ${currentFilters.value.cosmetic_category}`
+  }
+
+  if (currentFilters.value.cosmetic_brand) {
+    return `${currentFilters.value.cosmetic_brand} Cosmetics`
+  }
+
+  if (currentFilters.value.cosmetic_category) {
+    return `${currentFilters.value.cosmetic_category} Cosmetics`
   }
 
   return 'All Cosmetic Products'
@@ -101,11 +140,21 @@ const breadcrumbItems = computed(() => {
     },
   ]
 
-  if (currentFilters.value.brand) {
+  if (currentFilters.value.cosmetic_category) {
     items.push({
-      label: currentFilters.value.brand,
+      label: currentFilters.value.cosmetic_category,
       href: route('frontend.cosmetic-products.index', {
-        brand: currentFilters.value.brand,
+        cosmetic_category: currentFilters.value.cosmetic_category,
+      }),
+    })
+  }
+
+  if (currentFilters.value.cosmetic_brand) {
+    items.push({
+      label: currentFilters.value.cosmetic_brand,
+      href: route('frontend.cosmetic-products.index', {
+        cosmetic_category: currentFilters.value.cosmetic_category || undefined,
+        cosmetic_brand: currentFilters.value.cosmetic_brand,
       }),
     })
   }
@@ -121,7 +170,7 @@ function cleanParams(params: Record<string, unknown>) {
       if (typeof value === 'boolean') return value
       return true
     })
-  )
+  ) as Record<string, any>
 }
 
 function buildApiUrl() {
@@ -131,8 +180,16 @@ function buildApiUrl() {
     params.set('search', currentFilters.value.search)
   }
 
-  if (currentFilters.value.brand) {
-    params.set('brand', currentFilters.value.brand)
+  if (currentFilters.value.cosmetic_category) {
+    params.set('cosmetic_category', currentFilters.value.cosmetic_category)
+  }
+
+  if (currentFilters.value.cosmetic_brand) {
+    params.set('cosmetic_brand', currentFilters.value.cosmetic_brand)
+  }
+
+  if (currentFilters.value.cosmetic_country) {
+    params.set('cosmetic_country', currentFilters.value.cosmetic_country)
   }
 
   if (currentFilters.value.stock) {
@@ -243,11 +300,24 @@ async function fetchProducts() {
 function visitWithFilters(nextFilters: Partial<Filters>, replace = true) {
   const merged = { ...currentFilters.value, ...nextFilters }
 
+  const validBrands =
+    props.categories.find((category) => category.name === merged.cosmetic_category)?.brands || []
+
+  if (
+    merged.cosmetic_brand &&
+    merged.cosmetic_category &&
+    !validBrands.some((brand) => brand.name === merged.cosmetic_brand)
+  ) {
+    merged.cosmetic_brand = ''
+  }
+
   router.get(
     route('frontend.cosmetic-products.index'),
     cleanParams({
       search: merged.search,
-      brand: merged.brand,
+      cosmetic_category: merged.cosmetic_category,
+      cosmetic_brand: merged.cosmetic_brand,
+      cosmetic_country: merged.cosmetic_country,
       stock: merged.stock,
       sale: merged.sale ? 1 : undefined,
       sort: merged.sort,
@@ -300,11 +370,14 @@ onBeforeUnmount(() => {
         <h1 class="text-3xl font-semibold tracking-[-0.03em] text-neutral-900 sm:text-4xl">{{ heading }}</h1>
       </div>
 
+      <CosmeticFeaturedProducts />
+
       <div id="cosmetic-product-list-section" class="grid items-start grid-cols-1 gap-6 lg:gap-8 xl:grid-cols-12">
         <aside class="xl:col-span-3 xl:self-start">
           <CosmeticProductFilter
             :filters="currentFilters"
-            :brands="(props.brands || props.brands === undefined) ? (props.brands as any) : []"
+            :categories="props.categories"
+            :countries="props.countries"
             :loading="loading"
             @apply="applyFilters"
             @reset="resetFilters"
@@ -326,4 +399,3 @@ onBeforeUnmount(() => {
     </div>
   </section>
 </template>
-

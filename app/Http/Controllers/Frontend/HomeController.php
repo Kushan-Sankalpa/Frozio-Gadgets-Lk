@@ -586,15 +586,26 @@ class HomeController extends Controller
         $normalizedSearch = filled($search) ? mb_strtolower($search) : null;
 
         $featured = CosmeticProduct::query()
-            ->with(['brand:id,name'])
+            ->with([
+                'brand:id,name',
+                'category:id,name',
+                'countryOfOrigin:id,name,code,flag_image_path',
+            ])
             ->withCount('reviews')
             ->withAvg('reviews', 'rating')
-            ->whereIn('status', ['published', 'active'])
+            ->where('status', 'active')
+            ->where('is_featured', true)
             ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
                 $query->where(function ($inner) use ($normalizedSearch) {
                     $inner->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"])
                         ->orWhereRaw('LOWER(slug) like ?', ["%{$normalizedSearch}%"])
-                        ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
+                        ->orWhereRaw('LOWER(batch_number) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereHas('brand', function ($brandQuery) use ($normalizedSearch) {
+                            $brandQuery->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"]);
+                        })
+                        ->orWhereHas('category', function ($categoryQuery) use ($normalizedSearch) {
+                            $categoryQuery->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"]);
+                        });
                 });
             })
             ->latest('id')
@@ -607,7 +618,7 @@ class HomeController extends Controller
 
                 if (!empty($product->discount_type) && $product->discount_value !== null) {
                     $val = (float) $product->discount_value;
-                    if ($product->discount_type === 'percentage' || $product->discount_type === 'percent') {
+                    if ($product->discount_type === 'percentage') {
                         $display = max(0, round($regularPrice - (($regularPrice * $val) / 100), 2));
                         $discountLabel = 'Sale ' . rtrim(rtrim(number_format($val, 2), '0'), '.') . '%';
                     } else {
@@ -618,13 +629,17 @@ class HomeController extends Controller
 
                 $hasDiscount = $display < $regularPrice;
 
-                $isSoldOut = $product->status === 'out_of_stock' || ($product->stock !== null && (int) $product->stock <= 0);
+                $isSoldOut = $product->stock !== null && (int) $product->stock <= 0;
 
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
                     'slug' => $product->slug,
+                    'category_name' => $product->category?->name,
                     'brand_name' => $product->brand?->name,
+                    'country_name' => $product->countryOfOrigin?->name,
+                    'country_code' => $product->countryOfOrigin?->code,
+                    'country_flag_url' => $product->countryOfOrigin?->flag_image_url,
                     'thumbnail_url' => $product->main_image_url,
                     'hover_image_url' => $product->main_image_url,
                     'currency' => 'LKR',
@@ -637,12 +652,139 @@ class HomeController extends Controller
                     'reviews_count' => (int) ($product->reviews_count ?? 0),
                     'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
                     'status' => $product->status,
+                    'url' => route('frontend.cosmetic-products.show', [
+                        'product' => filled($product->slug) ? $product->slug : $product->id,
+                    ]),
                 ];
             })
             ->values();
 
         return response()->json([
             'products' => $featured,
+            'search' => $search,
+        ]);
+    }
+
+    public function cosmeticBrands(): JsonResponse
+    {
+        $brands = CosmeticBrand::query()
+            ->where('status', 'active')
+            ->whereHas('products', function ($query) {
+                $query->where('status', 'active');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'logo_path', 'status'])
+            ->map(fn (CosmeticBrand $brand) => [
+                'id' => $brand->id,
+                'name' => $brand->name,
+                'slug' => $brand->slug,
+                'logo_url' => $brand->logo_url,
+                'status' => $brand->status,
+            ])
+            ->values();
+
+        return response()->json([
+            'brands' => $brands,
+        ]);
+    }
+
+    public function cosmeticProducts(): JsonResponse
+    {
+        $activeBrand = request('brand');
+        $search = trim((string) request('search', ''));
+
+        $normalizedBrand = filled($activeBrand)
+            ? mb_strtolower(trim((string) $activeBrand))
+            : null;
+
+        $normalizedSearch = filled($search)
+            ? mb_strtolower($search)
+            : null;
+
+        $products = CosmeticProduct::query()
+            ->with([
+                'brand:id,name',
+                'category:id,name',
+                'countryOfOrigin:id,name,code,flag_image_path',
+            ])
+            ->withCount('reviews')
+            ->withAvg('reviews', 'rating')
+            ->where('status', 'active')
+            ->when($normalizedBrand, function ($query) use ($normalizedBrand) {
+                $query->whereHas('brand', function ($brandQuery) use ($normalizedBrand) {
+                    $brandQuery->whereRaw('LOWER(name) = ?', [$normalizedBrand]);
+                });
+            })
+            ->when($normalizedSearch, function ($query) use ($normalizedSearch) {
+                $query->where(function ($inner) use ($normalizedSearch) {
+                    $inner->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(slug) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereRaw('LOWER(batch_number) like ?', ["%{$normalizedSearch}%"])
+                        ->orWhereHas('brand', function ($brandQuery) use ($normalizedSearch) {
+                            $brandQuery->whereRaw('LOWER(name) like ?', ["%{$normalizedSearch}%"]);
+                        });
+                });
+            })
+            ->latest('id')
+            ->take(8)
+            ->get()
+            ->map(function (CosmeticProduct $product) {
+                $regularPrice = $product->price !== null ? (float) $product->price : null;
+                $displayPrice = $regularPrice;
+                $discountLabel = null;
+
+                if (!empty($product->discount_type) && $product->discount_value !== null && $regularPrice !== null) {
+                    $val = (float) $product->discount_value;
+
+                    if ($val > 0 && $regularPrice > 0) {
+                        if ($product->discount_type === 'percentage') {
+                            $displayPrice = max(0, round($regularPrice - (($regularPrice * $val) / 100), 2));
+                            $discountLabel = 'Sale ' . rtrim(rtrim(number_format($val, 2), '0'), '.') . '%';
+                        } elseif ($product->discount_type === 'fixed') {
+                            $displayPrice = max(0, round($regularPrice - $val, 2));
+                            $discountLabel = 'Sale LKR ' . number_format($val, 0);
+                        }
+                    }
+                }
+
+                $hasDiscount = $regularPrice !== null && $displayPrice !== null && $displayPrice < $regularPrice;
+
+                if (!$hasDiscount) {
+                    $displayPrice = $regularPrice;
+                    $discountLabel = null;
+                }
+
+                $stockCount = $product->stock !== null ? (int) $product->stock : null;
+                $isSoldOut = $stockCount !== null && $stockCount <= 0;
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'slug' => $product->slug,
+                    'brand_name' => $product->brand?->name,
+                    'category_name' => $product->category?->name,
+                    'country_name' => $product->countryOfOrigin?->name,
+                    'country_code' => $product->countryOfOrigin?->code,
+                    'country_flag_url' => $product->countryOfOrigin?->flag_image_url,
+                    'thumbnail_url' => $product->main_image_url,
+                    'hover_image_url' => $product->main_image_url,
+                    'regular_price' => $regularPrice,
+                    'display_price' => $displayPrice,
+                    'has_discount' => $hasDiscount,
+                    'discount_label' => $discountLabel,
+                    'is_sold_out' => $isSoldOut,
+                    'reviews_count' => (int) ($product->reviews_count ?? 0),
+                    'reviews_avg_rating' => $product->reviews_avg_rating !== null ? (float) $product->reviews_avg_rating : null,
+                    'url' => route('frontend.cosmetic-products.show', [
+                        'product' => filled($product->slug) ? $product->slug : $product->id,
+                    ]),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'products' => $products,
+            'activeBrand' => $activeBrand,
             'search' => $search,
         ]);
     }

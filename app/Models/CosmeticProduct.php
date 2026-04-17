@@ -14,6 +14,7 @@ class CosmeticProduct extends Model
 
     protected $fillable = [
         'name',
+        'slug',
         'brand_id',
         'category_id',
         'product_type_id',

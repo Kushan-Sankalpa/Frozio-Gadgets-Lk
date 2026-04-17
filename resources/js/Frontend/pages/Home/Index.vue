@@ -100,27 +100,48 @@ const phoneSlides = [
     image: '/assets/images/s24.webp',
     alt: 'Samsung S26 Ultra',
   },
-];
+]
 
 const shoeSlides = [
- {
-  id: 1,
-  badge: 'New Arrival',
-  title: 'Introducing Adidas Adizero Evo SL EXO',
-  description:
+  {
+    id: 1,
+    badge: 'New Arrival',
+    title: 'Introducing Adidas Adizero Evo SL EXO',
+    description:
       'Lightweight, fast, and built for comfort with a sleek performance-driven design.',
-  image: '/assets/images/adizero.webp',
-  alt: 'Adidas Adizero Evo SL EXO',
-},
-  // {
-  //   id: 2,
-  //   badge: 'Trending Now',
-  //   title: 'Introducing Adidas Samba',
-  //   description:
-  //     'Discover a timeless streetwear essential with the Adidas Samba. Clean lines, classic proportions, and everyday versatility come together in a legendary profile that keeps its style sharp across every generation.',
-  //   image: '/assets/images/adizero1.webp',
-  //   alt: 'Adidas Samba',
-  // },
+    image: '/assets/images/adizero.webp',
+    alt: 'Adidas Adizero Evo SL EXO',
+  },
+]
+
+const cosmeticSlides = [
+  {
+    id: 1,
+    badge: 'Skin Essential',
+    title: 'The Ordinary Niacinamide',
+    description:
+      'A lightweight everyday serum designed to help visibly reduce excess oil, refine pores, and support a smoother-looking complexion.',
+    image: '/assets/images/ip171.webp',
+    alt: 'The Ordinary Niacinamide',
+  },
+  {
+    id: 2,
+    badge: 'Daily Hydration',
+    title: 'CeraVe Moisturizer',
+    description:
+      'A simple daily moisturizer made to support long-lasting hydration and help keep the skin barrier feeling soft, balanced, and comfortable.',
+    image: '/assets/images/s24.webp',
+    alt: 'CeraVe Moisturizer',
+  },
+  {
+    id: 3,
+    badge: 'Daily Protection',
+    title: 'CeraVe Suncream',
+    description:
+      'An everyday sun protection essential created to help shield skin while maintaining a lightweight, comfortable feel throughout the day.',
+    image: '/assets/images/ip171.webp',
+    alt: 'CeraVe Suncream',
+  },
 ]
 </script>
 
@@ -176,7 +197,11 @@ const shoeSlides = [
 
   <ShoeFeaturedProducts :products="featuredShoes" />
 
-  <CosmeticImageShowcase />
+  <CosmeticImageShowcase
+    :slides="cosmeticSlides"
+    height="700px"
+    :autoplay-ms="5000"
+  />
 
   <CosmeticsFeaturedProducts />
 

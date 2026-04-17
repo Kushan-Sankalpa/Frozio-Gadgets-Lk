@@ -8,6 +8,7 @@ use App\Models\CosmeticProductType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -232,6 +233,7 @@ class CosmeticProductController extends Controller
             $product = CosmeticProduct::create([
                 ...$validated,
                 'size_volume_ids' => $validated['size_volume_ids'] ?? [],
+                'slug' => $this->makeUniqueSlug((string) ($validated['name'] ?? '')),
                 'discount_type' => $validated['discount_type'] ?: null,
                 'discount_value' => $validated['discount_type'] ? ($validated['discount_value'] ?? null) : null,
                 'is_featured' => (bool) ($validated['is_featured'] ?? false),
@@ -292,6 +294,10 @@ class CosmeticProductController extends Controller
                 'hot_deals' => (bool) ($validated['hot_deals'] ?? false),
                 'best_selling' => (bool) ($validated['best_selling'] ?? false),
             ]);
+
+            if (!filled($product->slug)) {
+                $product->slug = $this->makeUniqueSlug((string) ($validated['name'] ?? ''), $product->id);
+            }
 
             $product->save();
 
@@ -366,6 +372,27 @@ class CosmeticProductController extends Controller
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'clear_gallery' => ['nullable', 'boolean'],
         ]);
+    }
+
+    private function makeUniqueSlug(string $value, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($value);
+        $base = $base !== '' ? substr($base, 0, 220) : 'cosmetic-product';
+
+        $candidate = $base;
+        $counter = 1;
+
+        while (
+            CosmeticProduct::query()
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->where('slug', $candidate)
+                ->exists()
+        ) {
+            $candidate = substr($base, 0, 210) . '-' . $counter;
+            $counter++;
+        }
+
+        return $candidate;
     }
 
     private function normalizeIdArray($value): array

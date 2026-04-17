@@ -130,7 +130,7 @@ const cosmeticSlides = [
     title: 'CeraVe Moisturizer',
     description:
       'A simple daily moisturizer made to support long-lasting hydration and help keep the skin barrier feeling soft, balanced, and comfortable.',
-    image: '/assets/images/s24.webp',
+    image: '/assets/images/ceravemois1.png',
     alt: 'CeraVe Moisturizer',
   },
   {

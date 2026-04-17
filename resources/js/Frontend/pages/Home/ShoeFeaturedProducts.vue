@@ -383,6 +383,16 @@ onBeforeUnmount(() => {
         </article>
       </Link>
     </div>
+
+    <div class="mt-8 flex justify-center">
+      <Link
+        :href="route('frontend.shoe-products.index')"
+        prefetch="mount"
+        class="inline-flex items-center justify-center rounded-full border border-neutral-900 bg-neutral-900 px-7 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2"
+      >
+        Explore All
+      </Link>
+    </div>
   </section>
 </template>
 

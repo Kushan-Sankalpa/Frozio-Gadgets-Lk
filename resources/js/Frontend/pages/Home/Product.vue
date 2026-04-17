@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
+import { route } from 'ziggy-js'
 
 type CategoryItem = {
   id: number | string
@@ -590,6 +591,18 @@ onBeforeUnmount(() => {
       <p class="mt-2 text-sm text-neutral-500">
         Try another category to see matching products.
       </p>
+    </div>
+
+    <div class="mt-8 flex justify-center">
+      <Link
+        :href="route('frontend.tech-products.index', {
+          category: selectedCategory || undefined,
+        })"
+        prefetch="mount"
+        class="inline-flex items-center justify-center rounded-full border border-neutral-900 bg-neutral-900 px-7 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2"
+      >
+        Explore All
+      </Link>
     </div>
   </section>
 </template>

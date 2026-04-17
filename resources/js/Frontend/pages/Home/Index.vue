@@ -121,7 +121,7 @@ const cosmeticSlides = [
     title: 'The Ordinary Niacinamide',
     description:
       'A lightweight everyday serum designed to help visibly reduce excess oil, refine pores, and support a smoother-looking complexion.',
-    image: '/assets/images/ip171.webp',
+    image: '/assets/images/serum5.png',
     alt: 'The Ordinary Niacinamide',
   },
   {

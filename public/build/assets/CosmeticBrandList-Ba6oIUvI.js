@@ -1,0 +1,1 @@
+import{_ as o}from"./CosmeticBrandList.vue_vue_type_script_setup_true_lang-CzesdIF_.js";import"./Datatable-BUA5hN8_.js";import"./app-CdNFdVid.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

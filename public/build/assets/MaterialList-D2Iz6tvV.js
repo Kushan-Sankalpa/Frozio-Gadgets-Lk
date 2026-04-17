@@ -1,1 +1,0 @@
-import{_ as o}from"./MaterialList.vue_vue_type_script_setup_true_lang-aYHsi-4u.js";import"./Datatable-C3PD7WIF.js";import"./app-D7a9p0fh.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

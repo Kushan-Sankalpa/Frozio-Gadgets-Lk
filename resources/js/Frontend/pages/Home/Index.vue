@@ -133,15 +133,15 @@ const cosmeticSlides = [
     image: '/assets/images/ceravemois1.png',
     alt: 'CeraVe Moisturizer',
   },
-  {
-    id: 3,
-    badge: 'Daily Protection',
-    title: 'CeraVe Suncream',
-    description:
-      'An everyday sun protection essential created to help shield skin while maintaining a lightweight, comfortable feel throughout the day.',
-    image: '/assets/images/ip171.webp',
-    alt: 'CeraVe Suncream',
-  },
+  // {
+  //   id: 3,
+  //   badge: 'Daily Protection',
+  //   title: 'CeraVe Suncream',
+  //   description:
+  //     'An everyday sun protection essential created to help shield skin while maintaining a lightweight, comfortable feel throughout the day.',
+  //   image: '/assets/images/ip171.webp',
+  //   alt: 'CeraVe Suncream',
+  // },
 ]
 </script>
 

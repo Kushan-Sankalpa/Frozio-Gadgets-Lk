@@ -1,0 +1,1 @@
+import{d as a,c as o,U as r,m as t}from"./app-CdNFdVid.js";const l=a({inheritAttrs:!1,__name:"AppLogoIcon",props:{className:{type:[Boolean,null,String,Object,Array]}},setup(e){return(s,n)=>(t(),o("img",r({class:e.className},s.$attrs,{src:"/assets/images/froziohub-logo.png",alt:""}),null,16))}});export{l as _};

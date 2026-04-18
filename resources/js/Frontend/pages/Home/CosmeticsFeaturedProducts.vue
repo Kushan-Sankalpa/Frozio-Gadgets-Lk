@@ -427,7 +427,7 @@ onBeforeUnmount(() => {
               v-if="product.country_flag_url"
               :src="product.country_flag_url"
               :alt="product.country_name ? `${product.country_name} flag` : 'Country flag'"
-              class="absolute bottom-3 right-3 z-20 h-9 w-9 rounded-full border border-white/80 bg-white object-cover shadow sm:bottom-4 sm:right-4 sm:h-10 sm:w-10"
+              class="absolute bottom-3 right-3 z-20 h-6 w-9 rounded-sm border border-white/80 bg-white object-contain shadow sm:bottom-4 sm:right-4 sm:h-7 sm:w-10"
               loading="lazy"
               decoding="async"
             />

@@ -121,7 +121,7 @@ const cosmeticSlides = [
     title: 'The Ordinary Niacinamide',
     description:
       'A lightweight everyday serum designed to help visibly reduce excess oil, refine pores, and support a smoother-looking complexion.',
-    image: '/assets/images/serum5.png',
+    image: '/assets/images/serum5.webp',
     alt: 'The Ordinary Niacinamide',
   },
   {
@@ -130,7 +130,7 @@ const cosmeticSlides = [
     title: 'CeraVe Moisturizer',
     description:
       'A simple daily moisturizer made to support long-lasting hydration and help keep the skin barrier feeling soft, balanced, and comfortable.',
-    image: '/assets/images/ceravemois1.png',
+    image: '/assets/images/ceravemois1.webp',
     alt: 'CeraVe Moisturizer',
   },
   // {

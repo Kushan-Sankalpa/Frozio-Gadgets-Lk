@@ -511,7 +511,7 @@ watch(currentVariant, () => {
                   v-if="product.country?.flag_image_url"
                   :src="product.country.flag_image_url"
                   :alt="product.country?.name ? `${product.country.name} flag` : 'Country flag'"
-                  class="h-5 w-5 rounded-full object-cover"
+                  class="h-4 w-6 rounded-sm object-contain"
                   loading="lazy"
                   decoding="async"
                 />
@@ -683,4 +683,3 @@ watch(currentVariant, () => {
   transform: translateY(-8px);
 }
 </style>
-

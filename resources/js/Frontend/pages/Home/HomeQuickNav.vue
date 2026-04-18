@@ -57,18 +57,22 @@ function scrollToTarget(targetId: string) {
 
 <template>
     <div
-        class="fixed right-3 bottom-24 z-[95] md:top-1/2 md:right-6 md:bottom-auto md:-translate-y-1/2"
+        class="fixed top-1/2 right-3 z-[95] md:right-6"
         aria-label="Quick section navigation"
     >
         <Transition
             enter-active-class="transition duration-300 ease-out"
-            enter-from-class="opacity-0 translate-x-3 scale-95"
-            enter-to-class="opacity-100 translate-x-0 scale-100"
+            enter-from-class="opacity-0 translate-x-4"
+            enter-to-class="opacity-100 translate-x-0"
             leave-active-class="transition duration-200 ease-in"
-            leave-from-class="opacity-100 translate-x-0 scale-100"
-            leave-to-class="opacity-0 translate-x-3 scale-95"
+            leave-from-class="opacity-100 translate-x-0"
+            leave-to-class="opacity-0 translate-x-4"
         >
-            <div v-if="isOpen" class="relative">
+            <div
+                v-if="isOpen"
+                key="open"
+                class="absolute top-0 right-0 z-10 -translate-y-1/2"
+            >
                 <div
                     class="rounded-2xl border border-white/70 bg-white/90 shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-md"
                 >
@@ -187,20 +191,12 @@ function scrollToTarget(targetId: string) {
                     </div>
                 </div>
             </div>
-        </Transition>
 
-        <Transition
-            enter-active-class="transition duration-250 ease-out"
-            enter-from-class="opacity-0 translate-x-3 scale-95"
-            enter-to-class="opacity-100 translate-x-0 scale-100"
-            leave-active-class="transition duration-200 ease-in"
-            leave-from-class="opacity-100 translate-x-0 scale-100"
-            leave-to-class="opacity-0 translate-x-3 scale-95"
-        >
             <button
-                v-if="!isOpen"
+                v-else
+                key="closed"
                 type="button"
-                class="group relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/90 text-neutral-800 shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(15,23,42,0.18)] focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 focus:outline-none"
+                class="group absolute top-0 right-0 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl border border-white/70 bg-white/90 text-neutral-800 shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-md transition hover:shadow-[0_24px_70px_rgba(15,23,42,0.18)] focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 focus:outline-none"
                 aria-label="Open quick navigation"
                 title="Quick navigation"
                 @click="isOpen = true"

@@ -62,6 +62,7 @@ class CosmeticProductController extends Controller
                 'long_description' => $product->long_description,
                 'main_image_url' => $product->main_image_url,
                 'gallery_urls' => $product->gallery_urls,
+                'gallery_paths' => array_values($product->gallery_image_paths ?: []),
                 'variants' => $product->variants
                     ->map(fn ($v) => [
                         'id' => $v->id,
@@ -268,21 +269,31 @@ class CosmeticProductController extends Controller
         }
 
         $clearGallery = (bool) $request->input('clear_gallery', false);
+        $removeGalleryPaths = array_values(array_filter((array) $request->input('gallery_remove_paths', [])));
+        $galleryPaths = array_values(array_filter($product->gallery_image_paths ?: []));
 
         if ($clearGallery) {
-            $this->deleteStoredFiles($product->gallery_image_paths ?: []);
-            $product->gallery_image_paths = null;
+            $this->deleteStoredFiles($galleryPaths);
+            $galleryPaths = [];
+        } elseif (count($removeGalleryPaths)) {
+            $toRemove = array_values(array_intersect($galleryPaths, $removeGalleryPaths));
+
+            $this->deleteStoredFiles($toRemove);
+            $galleryPaths = array_values(array_diff($galleryPaths, $toRemove));
         }
 
         if ($request->hasFile('gallery_images')) {
-            $this->deleteStoredFiles($product->gallery_image_paths ?: []);
-
-            $paths = [];
+            $newPaths = [];
             foreach ($request->file('gallery_images') as $img) {
-                $paths[] = $img->store('cosmetic-products/gallery', 'public');
+                $newPaths[] = $img->store('cosmetic-products/gallery', 'public');
             }
-            $product->gallery_image_paths = $paths ?: null;
+
+            $galleryPaths = $clearGallery
+                ? $newPaths
+                : array_values(array_merge($galleryPaths, $newPaths));
         }
+
+        $product->gallery_image_paths = count($galleryPaths) ? $galleryPaths : null;
 
         DB::transaction(function () use ($product, $validated) {
             $product->fill([
@@ -370,6 +381,8 @@ class CosmeticProductController extends Controller
             'main_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'gallery_images' => ['nullable', 'array'],
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'gallery_remove_paths' => ['nullable', 'array'],
+            'gallery_remove_paths.*' => ['string'],
             'clear_gallery' => ['nullable', 'boolean'],
         ]);
     }

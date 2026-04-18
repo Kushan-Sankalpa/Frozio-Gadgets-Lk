@@ -167,6 +167,7 @@ class ProductController extends Controller
                 'main_image_url' => $product->main_image_url,
                 'hover_image_url' => $product->hover_image_url,
                 'gallery_urls' => $product->gallery_urls,
+                'gallery_paths' => array_values($product->gallery_image_paths ?: []),
             ],
             'categories' => Category::select('id', 'name')->orderBy('name')->get(),
             'brands' => $brands,
@@ -263,29 +264,40 @@ class ProductController extends Controller
         }
 
         $clearGallery = (bool) $request->input('clear_gallery', false);
+        $removeGalleryPaths = array_values(array_filter((array) $request->input('gallery_remove_paths', [])));
+        $galleryPaths = array_values(array_filter($product->gallery_image_paths ?: []));
 
         if ($clearGallery) {
-            foreach (($product->gallery_image_paths ?: []) as $p) {
+            foreach ($galleryPaths as $p) {
                 if ($p && Storage::disk('public')->exists($p)) {
                     Storage::disk('public')->delete($p);
                 }
             }
-            $product->gallery_image_paths = null;
+            $galleryPaths = [];
+        } elseif (count($removeGalleryPaths)) {
+            $toRemove = array_values(array_intersect($galleryPaths, $removeGalleryPaths));
+
+            foreach ($toRemove as $p) {
+                if ($p && Storage::disk('public')->exists($p)) {
+                    Storage::disk('public')->delete($p);
+                }
+            }
+
+            $galleryPaths = array_values(array_diff($galleryPaths, $toRemove));
         }
 
         if ($request->hasFile('gallery_images')) {
-            foreach (($product->gallery_image_paths ?: []) as $p) {
-                if ($p && Storage::disk('public')->exists($p)) {
-                    Storage::disk('public')->delete($p);
-                }
+            $newPaths = [];
+            foreach ($request->file('gallery_images') as $img) {
+                $newPaths[] = $img->store('products/gallery', 'public');
             }
 
-            $paths = [];
-            foreach ($request->file('gallery_images') as $img) {
-                $paths[] = $img->store('products/gallery', 'public');
-            }
-            $product->gallery_image_paths = $paths;
+            $galleryPaths = $clearGallery
+                ? $newPaths
+                : array_values(array_merge($galleryPaths, $newPaths));
         }
+
+        $product->gallery_image_paths = count($galleryPaths) ? $galleryPaths : null;
 
         DB::transaction(function () use ($product, $validated) {
             $product->fill([
@@ -533,6 +545,8 @@ class ProductController extends Controller
             'hover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'gallery_images' => ['nullable', 'array'],
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'gallery_remove_paths' => ['nullable', 'array'],
+            'gallery_remove_paths.*' => ['string'],
             'clear_gallery' => ['nullable', 'boolean'],
         ]);
     }

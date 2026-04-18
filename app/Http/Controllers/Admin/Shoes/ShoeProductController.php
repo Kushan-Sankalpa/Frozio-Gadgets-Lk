@@ -74,13 +74,14 @@ class ShoeProductController extends Controller
                 'color_ids' => array_map('intval', $product->color_ids ?? []),
                 'material_ids' => array_map('intval', $product->material_ids ?? []),
                 'shoe_weight' => $product->shoe_weight,
-                'product_video_url' => $product->product_video_url,
-                'thumbnail_url' => $product->thumbnail_url,
-                'gallery_urls' => $product->gallery_urls,
-                'hover_image_url' => $product->hover_image_url,
-            ],
-        ]);
-    }
+                 'product_video_url' => $product->product_video_url,
+                 'thumbnail_url' => $product->thumbnail_url,
+                 'gallery_urls' => $product->gallery_urls,
+                 'gallery_paths' => array_values($product->gallery_images ?? []),
+                 'hover_image_url' => $product->hover_image_url,
+             ],
+         ]);
+     }
 
 
     public function generateSku(Request $request)
@@ -322,12 +323,15 @@ class ShoeProductController extends Controller
             'material_ids' => ['nullable', 'array'],
             'material_ids.*' => ['integer', 'exists:shoe_materials,id'],
             'shoe_weight' => ['nullable', 'string', 'max:100'],
-            'thumbnail_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'gallery_images' => ['nullable', 'array'],
-            'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'hover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
-            'product_video_url' => ['nullable', 'url', 'max:2048'],
-        ]);
+             'thumbnail_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+             'gallery_images' => ['nullable', 'array'],
+             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+             'gallery_remove_paths' => ['nullable', 'array'],
+             'gallery_remove_paths.*' => ['string'],
+             'clear_gallery' => ['nullable', 'boolean'],
+             'hover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+             'product_video_url' => ['nullable', 'url', 'max:2048'],
+         ]);
 
         $subcategory = ShoeSubcategory::query()->find($validated['subcategory_id']);
 
@@ -426,15 +430,35 @@ class ShoeProductController extends Controller
             $payload['hover_image_path'] = null;
         }
 
-        if ($request->hasFile('gallery_images')) {
-            if ($product && is_array($product->gallery_images)) {
-                $this->deleteStoredFiles($product->gallery_images);
-            }
+        $clearGallery = $request->boolean('clear_gallery');
+        $removeGalleryPaths = array_values(array_filter((array) $request->input('gallery_remove_paths', [])));
+        $galleryPaths = array_values(array_filter($product?->gallery_images ?? []));
 
-            $payload['gallery_images'] = collect($request->file('gallery_images'))
+        if ($product) {
+            if ($clearGallery) {
+                $this->deleteStoredFiles($galleryPaths);
+                $galleryPaths = [];
+            } elseif (count($removeGalleryPaths)) {
+                $toRemove = array_values(array_intersect($galleryPaths, $removeGalleryPaths));
+
+                $this->deleteStoredFiles($toRemove);
+                $galleryPaths = array_values(array_diff($galleryPaths, $toRemove));
+            }
+        }
+
+        if ($request->hasFile('gallery_images')) {
+            $newPaths = collect($request->file('gallery_images'))
                 ->map(fn ($file) => $file->store('shoe-products', 'public'))
                 ->values()
                 ->all();
+
+            $galleryPaths = ($product && !$clearGallery)
+                ? array_values(array_merge($galleryPaths, $newPaths))
+                : $newPaths;
+        }
+
+        if ($product || $request->hasFile('gallery_images')) {
+            $payload['gallery_images'] = $galleryPaths;
         } elseif (!$product) {
             $payload['gallery_images'] = [];
         }

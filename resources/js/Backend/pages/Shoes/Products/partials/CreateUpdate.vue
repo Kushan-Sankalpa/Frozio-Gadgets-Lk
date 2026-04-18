@@ -51,6 +51,7 @@ type ProductPayload = {
   product_video_url?: string | null
   thumbnail_url?: string | null
   gallery_urls?: string[]
+  gallery_paths?: string[]
   hover_image_url?: string | null
 }
 
@@ -117,7 +118,18 @@ const ageGroupOptions = [
 
 const thumbnailPreview = ref<string | null>(props.product?.thumbnail_url ?? null)
 const hoverPreview = ref<string | null>(props.product?.hover_image_url ?? null)
-const existingGalleryPreview = ref<string[]>(props.product?.gallery_urls ?? [])
+
+type ExistingGalleryItem = {
+  url: string
+  path: string | null
+}
+
+const existingGallery = ref<ExistingGalleryItem[]>(
+  (props.product?.gallery_urls ?? []).map((url, idx) => ({
+    url,
+    path: props.product?.gallery_paths?.[idx] ?? null,
+  }))
+)
 const newGalleryPreview = ref<string[]>([])
 const sizeInputMap = reactive<Record<string, string>>({})
 const attemptedSubmit = ref(false)
@@ -166,6 +178,8 @@ const form = useForm({
   product_video_url: props.product?.product_video_url ?? '',
   thumbnail_image: null as File | null,
   gallery_images: [] as File[],
+  gallery_remove_paths: [] as string[],
+  clear_gallery: false,
   hover_image: null as File | null,
 })
 
@@ -328,6 +342,28 @@ function onGalleryChange(event: Event) {
   form.gallery_images = files
   revokeGalleryObjectUrls()
   galleryObjectUrls = files.map((file) => URL.createObjectURL(file))
+  newGalleryPreview.value = [...galleryObjectUrls]
+}
+
+function removeExistingGalleryImage(index: number) {
+  const item = existingGallery.value[index]
+  if (!item) return
+
+  existingGallery.value = existingGallery.value.filter((_, i) => i !== index)
+
+  if (item.path && !form.gallery_remove_paths.includes(item.path)) {
+    form.gallery_remove_paths.push(item.path)
+  }
+}
+
+function removeNewGalleryImage(index: number) {
+  const url = newGalleryPreview.value[index]
+  if (url) {
+    URL.revokeObjectURL(url)
+  }
+
+  form.gallery_images = (form.gallery_images || []).filter((_, i) => i !== index)
+  galleryObjectUrls = newGalleryPreview.value.filter((_, i) => i !== index)
   newGalleryPreview.value = [...galleryObjectUrls]
 }
 
@@ -1087,27 +1123,57 @@ onBeforeUnmount(() => {
               <p v-if="form.errors.gallery_images" class="mt-1 text-sm text-red-600">{{ form.errors.gallery_images }}</p>
               <p v-if="fieldError('gallery_images.0')" class="mt-1 text-sm text-red-600">{{ fieldError('gallery_images.0') }}</p>
 
-              <div v-if="existingGalleryPreview.length" class="mt-3">
+              <div v-if="isEdit" class="mt-2 flex items-center gap-2">
+                <input id="clearGallery" type="checkbox" v-model="form.clear_gallery" class="h-4 w-4" />
+                <label for="clearGallery" class="text-sm text-neutral-700">Update all gallery images (replace existing)</label>
+              </div>
+
+              <div v-if="existingGallery.length" class="mt-3">
                 <div class="mb-2 text-sm font-medium text-neutral-700">Existing Gallery</div>
                 <div class="flex flex-wrap gap-2">
-                  <img
-                    v-for="(url, index) in existingGalleryPreview"
-                    :key="`existing-gallery-${index}`"
-                    :src="url"
-                    class="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
-                  />
+                  <div
+                    v-for="(item, index) in existingGallery"
+                    :key="item.path || item.url || `existing-gallery-${index}`"
+                    class="relative h-16 w-16 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
+                  >
+                    <img :src="item.url" class="h-full w-full object-cover" />
+                    <button
+                      v-if="item.path && !form.clear_gallery"
+                      type="button"
+                      class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow hover:bg-white hover:text-red-600"
+                      @click="removeExistingGalleryImage(index)"
+                      aria-label="Remove image"
+                      title="Remove"
+                    >
+                      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <div v-if="newGalleryPreview.length" class="mt-3">
                 <div class="mb-2 text-sm font-medium text-neutral-700">New Gallery</div>
                 <div class="flex flex-wrap gap-2">
-                  <img
+                  <div
                     v-for="(url, index) in newGalleryPreview"
                     :key="`new-gallery-${index}`"
-                    :src="url"
-                    class="h-16 w-16 rounded-lg border border-neutral-200 object-cover"
-                  />
+                    class="relative h-16 w-16 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
+                  >
+                    <img :src="url" class="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow hover:bg-white hover:text-red-600"
+                      @click="removeNewGalleryImage(index)"
+                      aria-label="Remove image"
+                      title="Remove"
+                    >
+                      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

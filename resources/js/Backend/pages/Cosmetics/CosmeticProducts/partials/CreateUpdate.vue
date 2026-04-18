@@ -35,6 +35,7 @@ type ProductPayload = {
   long_description?: string | null
   main_image_url?: string | null
   gallery_urls?: string[]
+  gallery_paths?: string[]
   variants?: VariantPayload[]
 }
 
@@ -61,7 +62,18 @@ const countryOptions = ref<Option[]>([])
 const sizeVolumeOptions = ref<Option[]>([])
 
 const mainPreview = ref<string | null>(props.product?.main_image_url ?? null)
-const existingGalleryPreview = ref<string[]>(props.product?.gallery_urls ?? [])
+
+type ExistingGalleryItem = {
+  url: string
+  path: string | null
+}
+
+const existingGallery = ref<ExistingGalleryItem[]>(
+  (props.product?.gallery_urls ?? []).map((url, idx) => ({
+    url,
+    path: props.product?.gallery_paths?.[idx] ?? null,
+  }))
+)
 const newGalleryPreview = ref<string[]>([])
 
 let mainObjectUrl: string | null = null
@@ -115,6 +127,7 @@ const form = useForm({
 
   main_image: null as File | null,
   gallery_images: [] as File[],
+  gallery_remove_paths: [] as string[],
   clear_gallery: false,
 })
 
@@ -224,6 +237,28 @@ function onGalleryChange(e: Event) {
 
   galleryObjectUrls = files.map(f => URL.createObjectURL(f))
   newGalleryPreview.value = galleryObjectUrls
+}
+
+function removeExistingGalleryImage(index: number) {
+  const item = existingGallery.value[index]
+  if (!item) return
+
+  existingGallery.value = existingGallery.value.filter((_, i) => i !== index)
+
+  if (item.path && !form.gallery_remove_paths.includes(item.path)) {
+    form.gallery_remove_paths.push(item.path)
+  }
+}
+
+function removeNewGalleryImage(index: number) {
+  const url = newGalleryPreview.value[index]
+  if (url) {
+    URL.revokeObjectURL(url)
+  }
+
+  form.gallery_images = (form.gallery_images || []).filter((_, i) => i !== index)
+  galleryObjectUrls = newGalleryPreview.value.filter((_, i) => i !== index)
+  newGalleryPreview.value = [...galleryObjectUrls]
 }
 
 function syncVariantRows() {
@@ -708,19 +743,31 @@ onMounted(async () => {
 
               <div v-if="isEdit" class="mt-2 flex items-center gap-2">
                 <input id="clearGallery" type="checkbox" v-model="form.clear_gallery" class="h-4 w-4" />
-                <label for="clearGallery" class="text-sm text-neutral-700">Clear existing gallery on update</label>
+                <label for="clearGallery" class="text-sm text-neutral-700">Update all gallery images (replace existing)</label>
               </div>
             </div>
 
             <div class="md:col-span-2 space-y-2">
-              <div v-if="existingGalleryPreview.length" class="text-sm font-medium text-neutral-700">Existing Gallery</div>
-              <div v-if="existingGalleryPreview.length" class="flex flex-wrap gap-2">
+              <div v-if="existingGallery.length" class="text-sm font-medium text-neutral-700">Existing Gallery</div>
+              <div v-if="existingGallery.length" class="flex flex-wrap gap-2">
                 <div
-                  v-for="(url, idx) in existingGalleryPreview"
-                  :key="'existing-' + idx"
-                  class="h-20 w-20 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50"
+                  v-for="(item, idx) in existingGallery"
+                  :key="item.path || item.url || `existing-${idx}`"
+                  class="relative h-20 w-20 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50"
                 >
-                  <img :src="url" class="h-full w-full object-cover" />
+                  <img :src="item.url" class="h-full w-full object-cover" />
+                  <button
+                    v-if="item.path && !form.clear_gallery"
+                    type="button"
+                    class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow hover:bg-white hover:text-red-600"
+                    @click="removeExistingGalleryImage(idx)"
+                    aria-label="Remove image"
+                    title="Remove"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -729,9 +776,20 @@ onMounted(async () => {
                 <div
                   v-for="(url, idx) in newGalleryPreview"
                   :key="'new-' + idx"
-                  class="h-20 w-20 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50"
+                  class="relative h-20 w-20 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50"
                 >
                   <img :src="url" class="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow hover:bg-white hover:text-red-600"
+                    @click="removeNewGalleryImage(idx)"
+                    aria-label="Remove image"
+                    title="Remove"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -758,4 +816,3 @@ onMounted(async () => {
     </div>
   </AppLayout>
 </template>
-

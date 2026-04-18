@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/Backend/layouts/AppLayout.vue'
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { route } from 'ziggy-js'
 
 import MultiSelect from '@/Backend/components/MultiSelect.vue'
@@ -65,6 +65,7 @@ type ProductPayload = {
   main_image_url?: string | null
   hover_image_url?: string | null
   gallery_urls?: string[]
+  gallery_paths?: string[]
   variants?: ProductVariantPayload[]
 }
 
@@ -76,6 +77,11 @@ type ProductVariantPayload = {
   stock_count?: number | string | null
   sku?: string | null
   status?: 'active' | 'inactive'
+}
+
+type ExistingGalleryItem = {
+  url: string
+  path: string | null
 }
 
 const page = usePage()
@@ -127,8 +133,26 @@ const isEdit = computed(() => props.mode === 'edit' && !!props.product?.id)
 
 const mainPreview = ref<string | null>(props.product?.main_image_url ?? null)
 const hoverPreview = ref<string | null>(props.product?.hover_image_url ?? null)
-const galleryPreview = ref<string[]>(props.product?.gallery_urls ?? [])
+const existingGallery = ref<ExistingGalleryItem[]>(
+  (props.product?.gallery_urls ?? []).map((url, idx) => ({
+    url,
+    path: props.product?.gallery_paths?.[idx] ?? null,
+  }))
+)
 const galleryNewPreview = ref<string[]>([])
+
+let galleryObjectUrls: string[] = []
+
+function revokeGalleryObjectUrls() {
+  for (const url of galleryObjectUrls) {
+    URL.revokeObjectURL(url)
+  }
+  galleryObjectUrls = []
+}
+
+onBeforeUnmount(() => {
+  revokeGalleryObjectUrls()
+})
 
 const initialStorageIds =
   props.product?.storage_option_ids?.length
@@ -199,6 +223,7 @@ const form = useForm({
   main_image: null as File | null,
   hover_image: null as File | null,
   gallery_images: [] as File[],
+  gallery_remove_paths: [] as string[],
   clear_gallery: false,
 })
 
@@ -330,7 +355,32 @@ function onGalleryChange(e: Event) {
   const input = e.target as HTMLInputElement
   const files = input.files ? Array.from(input.files) : []
   form.gallery_images = files
-  galleryNewPreview.value = files.map(f => URL.createObjectURL(f))
+
+  revokeGalleryObjectUrls()
+  galleryObjectUrls = files.map(f => URL.createObjectURL(f))
+  galleryNewPreview.value = [...galleryObjectUrls]
+}
+
+function removeExistingGalleryImage(index: number) {
+  const item = existingGallery.value[index]
+  if (!item) return
+
+  existingGallery.value = existingGallery.value.filter((_, i) => i !== index)
+
+  if (item.path && !form.gallery_remove_paths.includes(item.path)) {
+    form.gallery_remove_paths.push(item.path)
+  }
+}
+
+function removeNewGalleryImage(index: number) {
+  const url = galleryNewPreview.value[index]
+  if (url) {
+    URL.revokeObjectURL(url)
+  }
+
+  form.gallery_images = (form.gallery_images || []).filter((_, i) => i !== index)
+  galleryObjectUrls = galleryNewPreview.value.filter((_, i) => i !== index)
+  galleryNewPreview.value = [...galleryObjectUrls]
 }
 
 function submit() {
@@ -952,19 +1002,54 @@ const statusOptions = [
 
               <div v-if="isEdit" class="mt-2 flex items-center gap-2">
                 <input id="clearGallery" type="checkbox" v-model="form.clear_gallery" class="h-4 w-4" />
-                <label for="clearGallery" class="text-sm text-neutral-700">Clear existing gallery on update</label>
+                <label for="clearGallery" class="text-sm text-neutral-700">Update all gallery images (replace existing)</label>
               </div>
             </div>
 
             <div class="md:col-span-2 space-y-2">
-              <div v-if="galleryPreview.length" class="text-sm font-medium text-neutral-700">Existing Gallery</div>
+              <div v-if="existingGallery.length" class="text-sm font-medium text-neutral-700">Existing Gallery</div>
               <div class="flex flex-wrap gap-2">
-                <img v-for="(u, i) in galleryPreview" :key="'old-'+i" :src="u" class="h-16 w-16 rounded-lg object-cover border" />
+                <div
+                  v-for="(item, i) in existingGallery"
+                  :key="item.path || item.url || `old-${i}`"
+                  class="relative h-16 w-16 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
+                >
+                  <img :src="item.url" class="h-full w-full object-cover" />
+                  <button
+                    v-if="item.path && !form.clear_gallery"
+                    type="button"
+                    class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow hover:bg-white hover:text-red-600"
+                    @click="removeExistingGalleryImage(i)"
+                    aria-label="Remove image"
+                    title="Remove"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div v-if="galleryNewPreview.length" class="text-sm font-medium text-neutral-700 mt-2">New Gallery (to upload)</div>
               <div class="flex flex-wrap gap-2">
-                <img v-for="(u, i) in galleryNewPreview" :key="'new-'+i" :src="u" class="h-16 w-16 rounded-lg object-cover border" />
+                <div
+                  v-for="(u, i) in galleryNewPreview"
+                  :key="'new-' + i"
+                  class="relative h-16 w-16 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
+                >
+                  <img :src="u" class="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow hover:bg-white hover:text-red-600"
+                    @click="removeNewGalleryImage(i)"
+                    aria-label="Remove image"
+                    title="Remove"
+                  >
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

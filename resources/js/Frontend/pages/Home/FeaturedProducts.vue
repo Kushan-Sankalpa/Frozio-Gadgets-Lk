@@ -489,6 +489,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
+<!--kushan-->
 
 <template>
   <section

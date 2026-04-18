@@ -594,13 +594,13 @@ watch(currentVariant, () => {
             <p class="mt-1"><span class="font-semibold text-slate-800">SKU:</span> {{ currentVariant?.sku || product.sku || 'N/A' }}</p>
           </div>
 
-          <div class="mt-10 lg:hidden">
-            <div class="border-b border-slate-200">
-              <div class="flex items-end gap-8 overflow-x-auto">
-                <button
-                  type="button"
-                  class="relative shrink-0 pb-4 text-sm transition sm:text-base"
-                  :class="activeTab === 'description' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
+            <div class="mt-10 lg:hidden">
+              <div class="border-b border-slate-200">
+                <div class="flex items-end gap-8 overflow-x-auto no-scrollbar-mobile">
+                  <button
+                    type="button"
+                    class="relative shrink-0 pb-4 text-sm transition sm:text-base"
+                    :class="activeTab === 'description' ? 'font-semibold text-slate-950' : 'font-medium text-slate-500 hover:text-slate-900'"
                   @click="activeTab = 'description'"
                 >
                   Description

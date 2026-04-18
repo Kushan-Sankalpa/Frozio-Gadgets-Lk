@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <div class="overflow-x-auto pb-1">
+      <div class="overflow-x-auto pb-1 no-scrollbar-mobile">
         <div class="inline-flex min-w-full gap-2 sm:gap-3">
           <button
             type="button"

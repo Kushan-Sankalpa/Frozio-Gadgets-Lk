@@ -516,7 +516,7 @@ watch(currentVariant, () => {
                   />
                 </button>
 
-                <!-- <button
+                <button
                   type="button"
                   class="relative pb-4 text-sm transition sm:text-base"
                   :class="activeTab === 'delivery'
@@ -529,7 +529,7 @@ watch(currentVariant, () => {
                     v-if="activeTab === 'delivery'"
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                   />
-                </button> -->
+                </button>
 
                 <button
                   type="button"
@@ -789,7 +789,7 @@ watch(currentVariant, () => {
 
             <div class="mt-10 lg:hidden">
               <div class="border-b border-slate-200">
-                <div class="flex items-end gap-8 overflow-x-auto hide-scrollbar">
+                <div class="flex items-end gap-8 overflow-x-auto hide-scrollbar no-scrollbar-mobile">
                   <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
@@ -820,7 +820,7 @@ watch(currentVariant, () => {
                     />
                   </button>
 
-                  <!-- <button
+                  <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
                     :class="activeTab === 'delivery'
@@ -833,7 +833,7 @@ watch(currentVariant, () => {
                       v-if="activeTab === 'delivery'"
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
                     />
-                  </button> -->
+                  </button>
 
                   <button
                     type="button"

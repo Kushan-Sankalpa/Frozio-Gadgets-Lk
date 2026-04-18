@@ -51,8 +51,11 @@ const {
   items,
   subtotal,
   totalItems,
+  removeItem,
   clearCart,
 } = useCart()
+
+const canRemoveSummaryItems = computed(() => items.value.length > 1)
 
 const step = ref<CheckoutStep>('information')
 const shippingUnlocked = ref(false)
@@ -671,6 +674,25 @@ async function submitOrder() {
                   {{ formatPrice(item.price * item.quantity) }}
                 </p>
               </div>
+
+              <button
+                v-if="canRemoveSummaryItems"
+                type="button"
+                class="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-rose-300 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                aria-label="Remove item"
+                @click="removeItem(item.key)"
+              >
+                <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
+                  <path
+                    d="M6 6l12 12M18 6L6 18"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.2"
+                  />
+                </svg>
+              </button>
             </article>
           </div>
 

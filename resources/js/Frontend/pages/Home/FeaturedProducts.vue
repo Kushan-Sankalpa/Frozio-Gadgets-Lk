@@ -40,6 +40,8 @@ const props = withDefaults(
     exploreHref?: string
     labelMode?: 'category' | 'brand'
     cardTagline?: string
+    theme?: 'blue' | 'rose'
+    containerClass?: string
   }>(),
   {
     title: 'Trending Now',
@@ -51,6 +53,8 @@ const props = withDefaults(
     exploreHref: '/tech-products?featured=1',
     labelMode: 'category',
     cardTagline: 'featured pick',
+    theme: 'blue',
+    containerClass: 'mx-auto max-w-7xl px-3 sm:px-6 lg:px-8',
   },
 )
 
@@ -89,6 +93,26 @@ const endpointUrl = computed(() => {
   if (props.search) url.searchParams.set('search', props.search)
 
   return url.toString()
+})
+
+const themeVars = computed<Record<string, string>>(() => {
+  if (props.theme !== 'rose') return {}
+
+  return {
+    '--featured-accent': '#e11d48',
+    '--featured-accent-deep': '#9f1239',
+    '--featured-banner-start': 'rgba(159, 18, 57, 0.95)',
+    '--featured-banner-end': 'rgba(136, 19, 55, 0.96)',
+    '--featured-banner-highlight': 'rgba(251, 113, 133, 0.22)',
+    '--featured-banner-shadow': 'rgba(159, 18, 57, 0.2)',
+    '--featured-banner-overlay-weak': 'rgba(45, 5, 20, 0.1)',
+    '--featured-banner-overlay-strong': 'rgba(45, 5, 20, 0.36)',
+    '--featured-button-start': '#fda4af',
+    '--featured-button-end': '#fb7185',
+    '--featured-button-text': '#881337',
+    '--featured-button-shadow': 'rgba(251, 113, 133, 0.32)',
+    '--featured-glow-one': 'rgba(251, 113, 133, 0.18)',
+  }
 })
 
 function goToFeaturedList() {
@@ -470,8 +494,9 @@ onBeforeUnmount(() => {
   <section
     ref="sectionRef"
     class="featured-products-section"
+    :style="themeVars"
   >
-    <div class="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+    <div :class="props.containerClass">
       <div class="featured-shell">
         <div class="featured-banner">
           <div class="featured-banner__content">
@@ -611,7 +636,7 @@ onBeforeUnmount(() => {
                       v-if="product.country_flag_url"
                       :src="product.country_flag_url"
                       :alt="product.country_name ? `${product.country_name} flag` : 'Country flag'"
-                      class="absolute bottom-3 right-3 z-20 h-8 w-8 rounded-full border border-white/80 bg-white object-cover shadow sm:bottom-4 sm:right-4 sm:h-9 sm:w-9"
+                      class="absolute bottom-3 right-3 z-20 h-6 w-9 object-contain sm:bottom-4 sm:right-4 sm:h-7 sm:w-10"
                       loading="lazy"
                       decoding="async"
                     />
@@ -751,10 +776,10 @@ onBeforeUnmount(() => {
   min-height: 300px;
   padding: 24px 22px;
   background:
-    radial-gradient(circle at top right, rgba(255, 213, 79, 0.18), transparent 36%),
-    linear-gradient(180deg, rgba(8, 27, 104, 0.95) 0%, rgba(6, 20, 79, 0.96) 100%);
+    radial-gradient(circle at top right, var(--featured-banner-highlight, rgba(255, 213, 79, 0.18)), transparent 36%),
+    linear-gradient(180deg, var(--featured-banner-start, rgba(8, 27, 104, 0.95)) 0%, var(--featured-banner-end, rgba(6, 20, 79, 0.96)) 100%);
   color: #fff;
-  box-shadow: 0 18px 40px rgba(8, 27, 104, 0.18);
+  box-shadow: 0 18px 40px var(--featured-banner-shadow, rgba(8, 27, 104, 0.18));
 }
 
 .featured-banner::before {
@@ -773,7 +798,7 @@ onBeforeUnmount(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(5, 11, 45, 0.08) 0%, rgba(5, 11, 45, 0.34) 100%);
+  background: linear-gradient(180deg, var(--featured-banner-overlay-weak, rgba(5, 11, 45, 0.08)) 0%, var(--featured-banner-overlay-strong, rgba(5, 11, 45, 0.34)) 100%);
   pointer-events: none;
 }
 
@@ -818,8 +843,8 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: 999px;
   padding: 13px 20px;
-  background: linear-gradient(135deg, #ffd54f 0%, #f4c400 100%);
-  color: #081b68;
+  background: linear-gradient(135deg, var(--featured-button-start, #ffd54f) 0%, var(--featured-button-end, #f4c400) 100%);
+  color: var(--featured-button-text, #081b68);
   font-weight: 800;
   font-size: 13px;
   letter-spacing: 0.03em;
@@ -832,7 +857,7 @@ onBeforeUnmount(() => {
 
 .featured-banner__button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 26px rgba(244, 196, 0, 0.24);
+  box-shadow: 0 14px 26px var(--featured-button-shadow, rgba(244, 196, 0, 0.24));
 }
 
 .featured-banner__glow {
@@ -847,7 +872,7 @@ onBeforeUnmount(() => {
   height: 160px;
   right: -36px;
   top: -28px;
-  background: rgba(255, 212, 59, 0.14);
+  background: var(--featured-glow-one, rgba(255, 212, 59, 0.14));
 }
 
 .featured-banner__glow--two {
@@ -915,8 +940,8 @@ onBeforeUnmount(() => {
 
 .featured-nav-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: #081b68;
-  color: #081b68;
+  border-color: var(--featured-accent-deep, #081b68);
+  color: var(--featured-accent-deep, #081b68);
   box-shadow: 0 12px 22px rgba(15, 23, 42, 0.1);
 }
 
@@ -967,14 +992,14 @@ onBeforeUnmount(() => {
 }
 
 .featured-price-sale {
-  color: #2563eb;
+  color: var(--featured-accent, #2563eb);
   font-size: 15px;
 }
 
 .featured-price-normal {
   font-size: 16px;
   font-weight: 700;
-  color: #2563eb;
+  color: var(--featured-accent, #2563eb);
 }
 
 .product-card {

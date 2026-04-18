@@ -509,7 +509,8 @@ watch(currentVariant, () => {
                     : 'font-medium text-slate-500 hover:text-slate-900'"
                   @click="setTab('size-chart')"
                 >
-                  Size Chart
+                  <span class="md:hidden">Size</span>
+                  <span class="hidden md:inline">Size Chart</span>
                   <span
                     v-if="activeTab === 'size-chart'"
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
@@ -524,7 +525,8 @@ watch(currentVariant, () => {
                     : 'font-medium text-slate-500 hover:text-slate-900'"
                   @click="setTab('delivery')"
                 >
-                  Delivery Information
+                  <span class="md:hidden">Delivery</span>
+                  <span class="hidden md:inline">Delivery Information</span>
                   <span
                     v-if="activeTab === 'delivery'"
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
@@ -539,7 +541,8 @@ watch(currentVariant, () => {
                     : 'font-medium text-slate-500 hover:text-slate-900'"
                   @click="setTab('reviews')"
                 >
-                  Reviews ({{ product.reviews_count ?? 0 }})
+                  <span class="md:hidden">Reviews</span>
+                  <span class="hidden md:inline">Reviews ({{ product.reviews_count ?? 0 }})</span>
                   <span
                     v-if="activeTab === 'reviews'"
                     class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
@@ -789,7 +792,7 @@ watch(currentVariant, () => {
 
             <div class="mt-10 lg:hidden">
               <div class="border-b border-slate-200">
-                <div class="flex items-end gap-8 overflow-x-auto hide-scrollbar no-scrollbar-mobile">
+                <div class="flex items-end gap-5 overflow-x-auto hide-scrollbar no-scrollbar-mobile md:gap-8">
                   <button
                     type="button"
                     class="relative shrink-0 pb-4 text-sm transition sm:text-base"
@@ -813,7 +816,8 @@ watch(currentVariant, () => {
                       : 'font-medium text-slate-500 hover:text-slate-900'"
                     @click="setTab('size-chart')"
                   >
-                    Size Chart
+                    <span class="md:hidden">Size</span>
+                    <span class="hidden md:inline">Size Chart</span>
                     <span
                       v-if="activeTab === 'size-chart'"
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
@@ -828,7 +832,8 @@ watch(currentVariant, () => {
                       : 'font-medium text-slate-500 hover:text-slate-900'"
                     @click="setTab('delivery')"
                   >
-                    Delivery Information
+                    <span class="md:hidden">Delivery</span>
+                    <span class="hidden md:inline">Delivery Information</span>
                     <span
                       v-if="activeTab === 'delivery'"
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"
@@ -843,7 +848,8 @@ watch(currentVariant, () => {
                       : 'font-medium text-slate-500 hover:text-slate-900'"
                     @click="setTab('reviews')"
                   >
-                    Reviews ({{ product.reviews_count ?? 0 }})
+                    <span class="md:hidden">Reviews</span>
+                    <span class="hidden md:inline">Reviews ({{ product.reviews_count ?? 0 }})</span>
                     <span
                       v-if="activeTab === 'reviews'"
                       class="absolute inset-x-0 bottom-[-1px] h-[2px] bg-slate-950"

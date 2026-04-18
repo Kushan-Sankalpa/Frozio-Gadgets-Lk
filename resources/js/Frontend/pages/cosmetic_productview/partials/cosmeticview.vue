@@ -137,6 +137,15 @@ const hasDiscount = computed(() => {
   return !!currentOldPrice.value && Number(currentOldPrice.value) > Number(currentPrice.value)
 })
 
+const priceTransitionKey = computed(() => {
+  return [
+    currentVariant.value?.id ?? 'default',
+    currentPrice.value ?? '',
+    currentOldPrice.value ?? '',
+    currentDiscountLabel.value ?? '',
+  ].join('-')
+})
+
 const stockCount = computed(() => {
   return Number(currentVariant.value?.stock_count ?? props.product?.stock_count ?? 0)
 })
@@ -368,7 +377,15 @@ watch(currentVariant, () => {
               </button>
             </div>
 
-            <div class="order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2">
+            <div class="relative order-1 flex min-h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 sm:min-h-[460px] sm:p-8 md:order-2">
+              <img
+                v-if="product.country?.flag_image_url"
+                :src="product.country.flag_image_url"
+                :alt="product.country?.name ? `${product.country.name} flag` : 'Country flag'"
+                class="absolute right-4 top-4 z-20 h-6 w-9 object-contain sm:h-7 sm:w-10"
+                loading="lazy"
+                decoding="async"
+              />
               <img v-if="displayImage" :src="displayImage" :alt="product.name" class="max-h-[440px] w-full object-contain" />
             </div>
           </div>
@@ -415,35 +432,50 @@ watch(currentVariant, () => {
           </div>
 
           <div class="hidden pt-6 lg:block">
-            <div v-if="activeTab === 'description'" class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]" v-html="product.long_description || product.short_description || '<p>No description available.</p>'" />
+            <Transition name="tab-fade-up" mode="out-in">
+              <div
+                v-if="activeTab === 'description'"
+                key="description-desktop"
+                class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+              />
 
-            <div v-else-if="activeTab === 'details'" class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-              <div class="divide-y divide-slate-200">
-                <div
-                  v-for="row in detailRows"
-                  :key="row.label"
-                  class="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4"
-                >
-                  <div class="text-sm font-semibold text-slate-900">{{ row.label }}</div>
-                  <div class="text-sm text-slate-600">{{ row.value }}</div>
+              <div
+                v-else-if="activeTab === 'details'"
+                key="details-desktop"
+                class="overflow-hidden rounded-[24px] border border-slate-200 bg-white"
+              >
+                <div class="divide-y divide-slate-200">
+                  <div
+                    v-for="row in detailRows"
+                    :key="row.label"
+                    class="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4"
+                  >
+                    <div class="text-sm font-semibold text-slate-900">{{ row.label }}</div>
+                    <div class="text-sm text-slate-600">{{ row.value }}</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div v-else-if="activeTab === 'delivery'" class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]">
-              <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">{{ paragraph }}</p>
-            </div>
+              <div
+                v-else-if="activeTab === 'delivery'"
+                key="delivery-desktop"
+                class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+              >
+                <p v-for="(paragraph, index) in deliveryParagraphs" :key="index">{{ paragraph }}</p>
+              </div>
 
-            <div v-else>
-              <ProductReviewsPanel
-                :fetchUrl="reviewsFetchUrl"
-                :active="activeTab === 'reviews'"
-                :initialCount="product.reviews_count ?? 0"
-                :initialAvg="product.reviews_avg_rating ?? 0"
-                :productName="product.name"
-                :productImage="product.main_image || product.gallery?.[0]?.src || null"
-              />
-            </div>
+              <div v-else key="reviews-desktop">
+                <ProductReviewsPanel
+                  :fetchUrl="reviewsFetchUrl"
+                  :active="activeTab === 'reviews'"
+                  :initialCount="product.reviews_count ?? 0"
+                  :initialAvg="product.reviews_avg_rating ?? 0"
+                  :productName="product.name"
+                  :productImage="product.main_image || product.gallery?.[0]?.src || null"
+                />
+              </div>
+            </Transition>
           </div>
         </template>
       </section>
@@ -473,23 +505,27 @@ watch(currentVariant, () => {
           </p>
 
           <div class="mt-6">
-            <div class="flex flex-wrap items-center gap-3">
-              <span
-                v-if="hasDiscount && currentDiscountLabel"
-                class="inline-flex items-center text-xs font-semibold uppercase tracking-[0.12em] text-[#ef5a4f]"
-              >
-                {{ currentDiscountLabel }}
-              </span>
-            </div>
+            <Transition name="price-fade-up" mode="out-in">
+              <div :key="priceTransitionKey">
+                <div class="flex flex-wrap items-center gap-3">
+                  <span
+                    v-if="hasDiscount && currentDiscountLabel"
+                    class="inline-flex items-center text-xs font-semibold uppercase tracking-[0.12em] text-[#ef5a4f]"
+                  >
+                    {{ currentDiscountLabel }}
+                  </span>
+                </div>
 
-            <div class="mt-2 flex flex-wrap items-end gap-3">
-              <span v-if="hasDiscount && currentOldPrice" class="text-lg font-medium text-slate-400 line-through">
-                {{ formatPrice(currentOldPrice) }}
-              </span>
-              <span class="text-3xl font-bold text-slate-950 sm:text-4xl">
-                {{ formatPrice(currentPrice) }}
-              </span>
-            </div>
+                <div class="mt-2 flex flex-wrap items-end gap-3">
+                  <span v-if="hasDiscount && currentOldPrice" class="text-lg font-medium text-slate-400 line-through">
+                    {{ formatPrice(currentOldPrice) }}
+                  </span>
+                  <span class="text-3xl font-bold text-slate-950 sm:text-4xl">
+                    {{ formatPrice(currentPrice) }}
+                  </span>
+                </div>
+              </div>
+            </Transition>
 
             <div v-if="product.reviews_avg_rating" class="mt-3">
               <StarRating :rating="product.reviews_avg_rating" :count="product.reviews_count ?? 0" :show-count="true" />
@@ -637,32 +673,47 @@ watch(currentVariant, () => {
             </div>
 
             <div class="pt-6">
-              <div v-if="activeTab === 'description'" class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]" v-html="product.long_description || product.short_description || '<p>No description available.</p>'" />
-              <div v-else-if="activeTab === 'details'" class="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-                <div class="divide-y divide-slate-200">
-                  <div
-                    v-for="row in detailRows"
-                    :key="`mobile-${row.label}`"
-                    class="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4"
-                  >
-                    <div class="text-sm font-semibold text-slate-900">{{ row.label }}</div>
-                    <div class="text-sm text-slate-600">{{ row.value }}</div>
+              <Transition name="tab-fade-up" mode="out-in">
+                <div
+                  v-if="activeTab === 'description'"
+                  key="description-mobile"
+                  class="prose prose-slate max-w-none text-sm leading-8 sm:text-[15px]"
+                  v-html="product.long_description || product.short_description || '<p>No description available.</p>'"
+                />
+                <div
+                  v-else-if="activeTab === 'details'"
+                  key="details-mobile"
+                  class="overflow-hidden rounded-[24px] border border-slate-200 bg-white"
+                >
+                  <div class="divide-y divide-slate-200">
+                    <div
+                      v-for="row in detailRows"
+                      :key="`mobile-${row.label}`"
+                      class="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4"
+                    >
+                      <div class="text-sm font-semibold text-slate-900">{{ row.label }}</div>
+                      <div class="text-sm text-slate-600">{{ row.value }}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div v-else-if="activeTab === 'delivery'" class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]">
-                <p v-for="(paragraph, index) in deliveryParagraphs" :key="`mobile-delivery-${index}`">{{ paragraph }}</p>
-              </div>
-              <div v-else>
-                <ProductReviewsPanel
-                  :fetchUrl="reviewsFetchUrl"
-                  :active="activeTab === 'reviews'"
-                  :initialCount="product.reviews_count ?? 0"
-                  :initialAvg="product.reviews_avg_rating ?? 0"
-                  :productName="product.name"
-                  :productImage="product.main_image || product.gallery?.[0]?.src || null"
-                />
-              </div>
+                <div
+                  v-else-if="activeTab === 'delivery'"
+                  key="delivery-mobile"
+                  class="space-y-4 text-sm leading-7 text-slate-600 sm:text-[15px]"
+                >
+                  <p v-for="(paragraph, index) in deliveryParagraphs" :key="`mobile-delivery-${index}`">{{ paragraph }}</p>
+                </div>
+                <div v-else key="reviews-mobile">
+                  <ProductReviewsPanel
+                    :fetchUrl="reviewsFetchUrl"
+                    :active="activeTab === 'reviews'"
+                    :initialCount="product.reviews_count ?? 0"
+                    :initialAvg="product.reviews_avg_rating ?? 0"
+                    :productName="product.name"
+                    :productImage="product.main_image || product.gallery?.[0]?.src || null"
+                  />
+                </div>
+              </Transition>
             </div>
           </div>
         </template>
@@ -681,5 +732,33 @@ watch(currentVariant, () => {
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+.tab-fade-up-enter-active,
+.tab-fade-up-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+.tab-fade-up-enter-from,
+.tab-fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+.price-fade-up-enter-active,
+.price-fade-up-leave-active {
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s ease,
+    filter 0.26s ease;
+}
+
+.price-fade-up-enter-from,
+.price-fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(14px);
+  filter: blur(1px);
 }
 </style>

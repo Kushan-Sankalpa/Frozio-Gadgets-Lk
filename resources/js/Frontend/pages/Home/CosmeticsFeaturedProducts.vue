@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
           Cosmetics Collection
         </h2>
         <p class="mt-1 text-sm text-neutral-500 sm:text-base">
-          Explore skincare and beauty essentials — filter by brand and discover what fits your routine.
+          Explore skincare and beauty essentials 
         </p>
       </div>
 

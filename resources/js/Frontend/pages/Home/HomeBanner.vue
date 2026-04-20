@@ -14,11 +14,27 @@ const props = defineProps<{
   banners: Banner[]
 }>()
 
-const slides = computed(() =>
+const MOBILE_MEDIA_QUERY = '(max-width: 767px)'
+
+const isMobile = ref(false)
+let mobileQueryList: MediaQueryList | null = null
+
+const handleMobileQueryChange = (event: MediaQueryListEvent) => {
+  isMobile.value = event.matches
+}
+
+const allSlides = computed(() =>
   (props.banners ?? []).filter(
     (b) => !!b?.desktop_image_url || !!b?.mobile_image_url || !!b?.video_url
   )
 )
+
+const slides = computed(() => {
+  if (!isMobile.value) return allSlides.value
+
+  const mobileSlides = allSlides.value.filter((b) => !!b?.mobile_image_url)
+  return mobileSlides.length ? mobileSlides : allSlides.value
+})
 
 const hasSlides = computed(() => slides.value.length > 0)
 const active = ref(0)
@@ -49,6 +65,7 @@ function stopAutoplay() {
 function startAutoplay() {
   stopAutoplay()
 
+  if (isMobile.value) return
   if (slides.value.length <= 1) return
 
   autoplayTimer = window.setInterval(() => {
@@ -57,6 +74,7 @@ function startAutoplay() {
 }
 
 function markInteraction() {
+  if (isMobile.value) return
   stopAutoplay()
 
   if (resumeTimer !== null) {
@@ -70,11 +88,32 @@ function markInteraction() {
 }
 
 onMounted(() => {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    mobileQueryList = window.matchMedia(MOBILE_MEDIA_QUERY)
+    isMobile.value = mobileQueryList.matches
+
+    if (typeof mobileQueryList.addEventListener === 'function') {
+      mobileQueryList.addEventListener('change', handleMobileQueryChange)
+    } else if (typeof mobileQueryList.addListener === 'function') {
+      mobileQueryList.addListener(handleMobileQueryChange)
+    }
+  }
+
   startAutoplay()
 })
 
 onBeforeUnmount(() => {
   stopAutoplay()
+
+  if (mobileQueryList) {
+    if (typeof mobileQueryList.removeEventListener === 'function') {
+      mobileQueryList.removeEventListener('change', handleMobileQueryChange)
+    } else if (typeof mobileQueryList.removeListener === 'function') {
+      mobileQueryList.removeListener(handleMobileQueryChange)
+    }
+
+    mobileQueryList = null
+  }
 
   if (resumeTimer !== null) {
     window.clearTimeout(resumeTimer)
@@ -83,11 +122,11 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => slides.value.length,
+  () => [slides.value.length, isMobile.value],
   () => {
     active.value = 0
     startAutoplay()
-  }
+  },
 )
 </script>
 
@@ -108,7 +147,7 @@ watch(
           :key="b.id"
           class="min-w-full shrink-0"
         >
-          <div class="relative h-[430px] w-full overflow-hidden sm:h-[520px] md:h-[560px] lg:h-[620px]">
+          <div class="relative h-[clamp(360px,115vw,520px)] w-full overflow-hidden md:h-[clamp(560px,60vw,620px)]">
             <template v-if="b.desktop_image_url || b.mobile_image_url">
               <picture class="block h-full w-full">
                 <source
@@ -117,7 +156,12 @@ watch(
                   media="(max-width: 767px)"
                 />
                 <img
-                  :src="b.desktop_image_url || b.mobile_image_url || ''"
+                  :src="
+                    (isMobile ? b.mobile_image_url : b.desktop_image_url) ||
+                    b.mobile_image_url ||
+                    b.desktop_image_url ||
+                    ''
+                  "
                   :alt="b.name || 'Home banner'"
                   class="block h-full w-full object-cover object-center"
                   loading="eager"

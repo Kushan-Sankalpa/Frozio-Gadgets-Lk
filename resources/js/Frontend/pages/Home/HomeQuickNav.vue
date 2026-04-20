@@ -1,12 +1,22 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+const appleIcon = '/assets/images/apple.png';
+const shoeIcon = '/assets/images/running-shoes.png';
+const cosmeticsIcon = '/assets/images/skin-care.png';
+
+defineOptions({
+    name: 'HomeQuickNav',
+});
+
 type NavTarget = {
     id: string;
     label: string;
     accentClass: string;
-    iconClass: string;
     iconAnimClass: string;
+    iconSrc: string;
+    iconAlt: string;
+    iconWrapClass: string;
 };
 
 const isOpen = ref(true);
@@ -16,22 +26,28 @@ const targets: NavTarget[] = [
         id: 'mobile-essentials-section',
         label: 'Mobile Essentials',
         accentClass: 'from-sky-50 to-indigo-100 ring-1 ring-sky-200/60',
-        iconClass: 'text-sky-700',
         iconAnimClass: 'icon-ring',
+        iconSrc: appleIcon,
+        iconAlt: 'Mobile essentials icon',
+        iconWrapClass: 'bg-sky-100/70',
     },
     {
         id: 'shoe-featured-products-section',
         label: 'Featured Shoes',
         accentClass: 'from-emerald-50 to-lime-100 ring-1 ring-emerald-200/60',
-        iconClass: 'text-emerald-700',
         iconAnimClass: 'icon-hop',
+        iconSrc: shoeIcon,
+        iconAlt: 'Featured shoes icon',
+        iconWrapClass: 'bg-emerald-100/70',
     },
     {
         id: 'cosmetics-section',
         label: 'Cosmetics',
         accentClass: 'from-rose-50 to-pink-100 ring-1 ring-rose-200/60',
-        iconClass: 'text-rose-700',
         iconAnimClass: 'icon-float',
+        iconSrc: cosmeticsIcon,
+        iconAlt: 'Cosmetics icon',
+        iconWrapClass: 'bg-rose-100/70',
     },
 ];
 
@@ -81,7 +97,7 @@ function scrollToTarget(targetId: string) {
                             v-for="target in targets"
                             :key="target.id"
                             type="button"
-                            class="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 focus:outline-none sm:h-11 sm:w-11"
+                            class="group relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 sm:h-11 sm:w-11"
                             :class="target.accentClass"
                             :aria-label="`Go to ${target.label}`"
                             :title="target.label"
@@ -92,76 +108,22 @@ function scrollToTarget(targetId: string) {
                             />
 
                             <span
+                                class="pointer-events-none absolute inset-x-2 bottom-1 h-2 rounded-full bg-black/10 blur-md"
+                            />
+
+                            <span
                                 :class="[
-                                    'relative inline-flex',
+                                    'relative inline-flex items-center justify-center rounded-lg p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]',
                                     target.iconAnimClass,
-                                    target.iconClass,
+                                    target.iconWrapClass,
                                 ]"
                             >
-                                <svg
-                                    v-if="
-                                        target.id ===
-                                        'mobile-essentials-section'
-                                    "
-                                    viewBox="0 0 24 24"
-                                    class="h-5 w-5 sm:h-6 sm:w-6"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1.8"
-                                >
-                                    <rect
-                                        x="7"
-                                        y="2.5"
-                                        width="10"
-                                        height="19"
-                                        rx="2.2"
-                                    />
-                                    <path
-                                        stroke-linecap="round"
-                                        d="M11 18.2h2"
-                                    />
-                                </svg>
-
-                                <svg
-                                    v-else-if="
-                                        target.id ===
-                                        'shoe-featured-products-section'
-                                    "
-                                    viewBox="0 0 24 24"
-                                    class="h-5 w-5 sm:h-6 sm:w-6"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                >
-                                    <path
-                                        d="M3 16c2.2 0 4.3-.6 6.3-2l5.1 3.1c2.1 1.3 4.4 1.3 6.6 1.3V21H3v-5Z"
-                                    />
-                                    <path d="M9 14 8 8.5" />
-                                    <path d="M14 17h1" />
-                                    <path d="M17 17h1" />
-                                </svg>
-
-                                <svg
-                                    v-else
-                                    viewBox="0 0 24 24"
-                                    class="h-5 w-5 sm:h-6 sm:w-6"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                >
-                                    <path d="M10 2h4" />
-                                    <path
-                                        d="M9 2v4l-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V8l-2-2V2"
-                                    />
-                                    <path d="M9 10h6" />
-                                    <path
-                                        d="M12 13c1 1 2 2 2 3a2 2 0 0 1-4 0c0-1 1-2 2-3Z"
-                                    />
-                                </svg>
+                                <img
+                                    :src="target.iconSrc"
+                                    :alt="target.iconAlt"
+                                    class="h-5 w-5 object-contain select-none sm:h-6 sm:w-6"
+                                    draggable="false"
+                                />
                             </span>
                         </button>
 
@@ -169,7 +131,7 @@ function scrollToTarget(targetId: string) {
 
                         <button
                             type="button"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-neutral-50 hover:shadow-md focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 focus:outline-none sm:h-10 sm:w-10"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-neutral-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 sm:h-10 sm:w-10"
                             aria-label="Hide quick navigation"
                             title="Hide"
                             @click="isOpen = false"
@@ -196,7 +158,7 @@ function scrollToTarget(targetId: string) {
                 v-else
                 key="closed"
                 type="button"
-                class="group absolute top-0 right-0 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl border border-white/70 bg-white/90 text-neutral-800 shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-md transition hover:shadow-[0_24px_70px_rgba(15,23,42,0.18)] focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 focus:outline-none"
+                class="group absolute top-0 right-0 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl border border-white/70 bg-white/90 text-neutral-800 shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-md transition hover:shadow-[0_24px_70px_rgba(15,23,42,0.18)] focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2"
                 aria-label="Open quick navigation"
                 title="Quick navigation"
                 @click="isOpen = true"
@@ -232,39 +194,51 @@ function scrollToTarget(targetId: string) {
     0%,
     82%,
     100% {
-        transform: rotate(0deg);
+        transform: rotate(0deg) translateY(0);
     }
     86% {
-        transform: rotate(12deg);
+        transform: rotate(10deg) translateY(-1px);
     }
     90% {
-        transform: rotate(-12deg);
+        transform: rotate(-10deg) translateY(0);
     }
     94% {
-        transform: rotate(8deg);
+        transform: rotate(6deg) translateY(-1px);
     }
     98% {
-        transform: rotate(-8deg);
+        transform: rotate(-6deg) translateY(0);
     }
 }
 
 @keyframes hop {
     0%,
     100% {
-        transform: translateY(0);
+        transform: translateY(0) rotate(0deg) scale(1);
+    }
+    30% {
+        transform: translateY(-2px) rotate(-4deg) scale(1.02);
     }
     50% {
-        transform: translateY(-2px);
+        transform: translateY(-4px) rotate(4deg) scale(1.05);
+    }
+    70% {
+        transform: translateY(-1px) rotate(-2deg) scale(1.01);
     }
 }
 
 @keyframes floaty {
     0%,
     100% {
-        transform: translateY(0);
+        transform: translateY(0) rotate(0deg);
+    }
+    25% {
+        transform: translateY(-2px) rotate(-2deg);
     }
     50% {
-        transform: translateY(-2px);
+        transform: translateY(-4px) rotate(1deg);
+    }
+    75% {
+        transform: translateY(-2px) rotate(2deg);
     }
 }
 
@@ -282,18 +256,30 @@ function scrollToTarget(targetId: string) {
 
 .icon-ring {
     animation: ring 2.8s ease-in-out infinite;
-    transform-origin: 50% 90%;
+    transform-origin: 50% 85%;
+    will-change: transform;
 }
 
 .icon-hop {
-    animation: hop 2.4s ease-in-out infinite;
+    animation: hop 2.2s ease-in-out infinite;
+    will-change: transform;
 }
 
 .icon-float {
-    animation: floaty 2.7s ease-in-out infinite;
+    animation: floaty 2.9s ease-in-out infinite;
+    will-change: transform;
 }
 
 .cta-pulse {
     animation: ctaPulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icon-ring,
+    .icon-hop,
+    .icon-float,
+    .cta-pulse {
+        animation: none;
+    }
 }
 </style>

@@ -17,30 +17,23 @@ const props = defineProps<{
 const MOBILE_MEDIA_QUERY = '(max-width: 767px)'
 
 const isMobile = ref(false)
+const active = ref(0)
+
 let mobileQueryList: MediaQueryList | null = null
+let autoplayTimer: number | null = null
+let resumeTimer: number | null = null
 
 const handleMobileQueryChange = (event: MediaQueryListEvent) => {
   isMobile.value = event.matches
 }
 
-const allSlides = computed(() =>
+const slides = computed(() =>
   (props.banners ?? []).filter(
     (b) => !!b?.desktop_image_url || !!b?.mobile_image_url || !!b?.video_url
   )
 )
 
-const slides = computed(() => {
-  if (!isMobile.value) return allSlides.value
-
-  const mobileSlides = allSlides.value.filter((b) => !!b?.mobile_image_url)
-  return mobileSlides.length ? mobileSlides : allSlides.value
-})
-
 const hasSlides = computed(() => slides.value.length > 0)
-const active = ref(0)
-
-let autoplayTimer: number | null = null
-let resumeTimer: number | null = null
 
 function goTo(index: number) {
   if (!slides.value.length) return
@@ -62,6 +55,13 @@ function stopAutoplay() {
   }
 }
 
+function stopResumeTimer() {
+  if (resumeTimer !== null) {
+    window.clearTimeout(resumeTimer)
+    resumeTimer = null
+  }
+}
+
 function startAutoplay() {
   stopAutoplay()
 
@@ -75,12 +75,9 @@ function startAutoplay() {
 
 function markInteraction() {
   if (isMobile.value) return
-  stopAutoplay()
 
-  if (resumeTimer !== null) {
-    window.clearTimeout(resumeTimer)
-    resumeTimer = null
-  }
+  stopAutoplay()
+  stopResumeTimer()
 
   resumeTimer = window.setTimeout(() => {
     startAutoplay()
@@ -104,6 +101,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopAutoplay()
+  stopResumeTimer()
 
   if (mobileQueryList) {
     if (typeof mobileQueryList.removeEventListener === 'function') {
@@ -114,17 +112,15 @@ onBeforeUnmount(() => {
 
     mobileQueryList = null
   }
-
-  if (resumeTimer !== null) {
-    window.clearTimeout(resumeTimer)
-    resumeTimer = null
-  }
 })
 
 watch(
   () => [slides.value.length, isMobile.value],
   () => {
-    active.value = 0
+    if (active.value >= slides.value.length) {
+      active.value = 0
+    }
+
     startAutoplay()
   },
 )
@@ -156,15 +152,11 @@ watch(
                   media="(max-width: 767px)"
                 />
                 <img
-                  :src="
-                    (isMobile ? b.mobile_image_url : b.desktop_image_url) ||
-                    b.mobile_image_url ||
-                    b.desktop_image_url ||
-                    ''
-                  "
+                  :src="b.desktop_image_url || b.mobile_image_url || ''"
                   :alt="b.name || 'Home banner'"
                   class="block h-full w-full object-cover object-center"
                   loading="eager"
+                  decoding="async"
                 />
               </picture>
             </template>
@@ -179,7 +171,7 @@ watch(
               loop
             />
 
-            <div class="absolute inset-0 bg-gradient-to-t  via-black/10 to-black/5" />
+            <div class="absolute inset-0 bg-gradient-to-t via-black/10 to-black/5" />
 
             <div
               v-if="b.name || b.description"
@@ -239,7 +231,6 @@ watch(
           @click="goTo(i)"
         />
       </div>
-      <!--ajsj-->
     </div>
   </section>
 </template>

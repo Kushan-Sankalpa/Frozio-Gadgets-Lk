@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
       <Link
         v-for="(category, index) in visibleCategories"
         :key="category.id"
-        :href="route('frontend.root', { shoe_category: category.name })"
+        :href="route('frontend.shoe-products.index', { shoe_category: category.name })"
         class="shoe-card block"
         :class="{ 'shoe-card--no-image': !category.image_url }"
         :style="{

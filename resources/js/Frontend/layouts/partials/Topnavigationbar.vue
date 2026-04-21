@@ -123,6 +123,7 @@ const currentPath = computed(() => {
   return url.includes('?') ? url.split('?')[0] : url
 })
 
+const isTechListingPage = computed(() => currentPath.value.startsWith('/tech-products'))
 const isShoeListingPage = computed(() => currentPath.value.startsWith('/shoe-products'))
 const isCosmeticListingPage = computed(() => currentPath.value.startsWith('/cosmetics'))
 
@@ -144,7 +145,9 @@ const isHomeActive = computed(() => {
     && !currentCosmeticBrand.value
 })
 
-const isTechMenuActive = computed(() => !!currentCategory.value || !!currentBrand.value)
+const isTechMenuActive = computed(() => {
+  return isTechListingPage.value || !!currentCategory.value || !!currentBrand.value
+})
 const isShoeMenuActive = computed(() => {
   return isShoeListingPage.value || !!currentShoeCategory.value || !!currentShoeSubcategory.value
 })
@@ -782,15 +785,19 @@ onBeforeUnmount(() => {
             @mouseenter="handleDropdownEnter('tech')"
             @mouseleave="handleDropdownLeave"
           >
-            <button
-              type="button"
+            <div
               class="nav-link inline-flex items-center gap-1.5"
               :class="[
                 scrolled ? 'text-black hover:text-black/80' : 'text-white hover:text-white/85',
                 isTechMenuActive ? 'nav-link--active' : '',
               ]"
             >
-              <span>Mobile Essentials</span>
+              <Link
+                :href="route('frontend.tech-products.index')"
+                class="inline-flex items-center"
+              >
+                <span>Mobile Essentials</span>
+              </Link>
               <svg
                 class="h-3.5 w-3.5 transition-transform duration-300"
                 :class="activeDropdown === 'tech' ? 'rotate-180' : ''"
@@ -811,7 +818,7 @@ onBeforeUnmount(() => {
                   scrolled ? 'bg-black' : 'bg-white',
                 ]"
               />
-            </button>
+            </div>
 
             <Transition name="dropdown-fade">
               <div
@@ -1601,25 +1608,36 @@ onBeforeUnmount(() => {
           </Link>
 
           <div class="mobile-group">
-            <button
-              type="button"
-              class="mobile-accordion"
-              @click="openMobileTech = !openMobileTech"
-            >
-              <span>Mobile Essentials</span>
-              <svg
-                class="h-4 w-4 transition-transform duration-300"
-                :class="openMobileTech ? 'rotate-180' : ''"
-                viewBox="0 0 20 20"
-                fill="currentColor"
+            <div class="mobile-accordion">
+              <Link
+                :href="route('frontend.tech-products.index')"
+                class="flex-1 text-left"
+                @click="openMobileMenu = false"
               >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+                Mobile Essentials
+              </Link>
+
+              <button
+                type="button"
+                class="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/5"
+                :aria-expanded="openMobileTech"
+                aria-label="Toggle Mobile Essentials"
+                @click.stop="openMobileTech = !openMobileTech"
+              >
+                <svg
+                  class="h-4 w-4 transition-transform duration-300"
+                  :class="openMobileTech ? 'rotate-180' : ''"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
 
             <Transition name="accordion">
               <div v-if="openMobileTech" class="overflow-hidden px-3 pb-3">
@@ -1697,25 +1715,36 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="mobile-group">
-            <button
-              type="button"
-              class="mobile-accordion"
-              @click="openMobileShoe = !openMobileShoe"
-            >
-              <span>Featured Footwear</span>
-              <svg
-                class="h-4 w-4 transition-transform duration-300"
-                :class="openMobileShoe ? 'rotate-180' : ''"
-                viewBox="0 0 20 20"
-                fill="currentColor"
+            <div class="mobile-accordion">
+              <Link
+                :href="route('frontend.shoe-products.index')"
+                class="flex-1 text-left"
+                @click="openMobileMenu = false"
               >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+                Featured Footwear
+              </Link>
+
+              <button
+                type="button"
+                class="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/5"
+                :aria-expanded="openMobileShoe"
+                aria-label="Toggle Featured Footwear"
+                @click.stop="openMobileShoe = !openMobileShoe"
+              >
+                <svg
+                  class="h-4 w-4 transition-transform duration-300"
+                  :class="openMobileShoe ? 'rotate-180' : ''"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
 
             <Transition name="accordion">
               <div v-if="openMobileShoe" class="overflow-hidden px-3 pb-3">
@@ -1793,25 +1822,36 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="mobile-group">
-            <button
-              type="button"
-              class="mobile-accordion"
-              @click="openMobileCosmetics = !openMobileCosmetics"
-            >
-              <span>Cosmetics</span>
-              <svg
-                class="h-4 w-4 transition-transform duration-300"
-                :class="openMobileCosmetics ? 'rotate-180' : ''"
-                viewBox="0 0 20 20"
-                fill="currentColor"
+            <div class="mobile-accordion">
+              <Link
+                :href="route('frontend.cosmetic-products.index')"
+                class="flex-1 text-left"
+                @click="openMobileMenu = false"
               >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+                Cosmetics
+              </Link>
+
+              <button
+                type="button"
+                class="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/90 transition hover:bg-white/5"
+                :aria-expanded="openMobileCosmetics"
+                aria-label="Toggle Cosmetics"
+                @click.stop="openMobileCosmetics = !openMobileCosmetics"
+              >
+                <svg
+                  class="h-4 w-4 transition-transform duration-300"
+                  :class="openMobileCosmetics ? 'rotate-180' : ''"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
 
             <Transition name="accordion">
               <div v-if="openMobileCosmetics" class="overflow-hidden px-3 pb-3">

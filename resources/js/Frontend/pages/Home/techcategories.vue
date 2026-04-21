@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3'
 import { computed, onMounted, ref } from 'vue'
+import { route } from 'ziggy-js'
 
 type Category = {
   id: number | string
@@ -150,7 +151,7 @@ const buttonClass = (index: number) => {
       <Link
         v-for="(category, index) in visibleCategories"
         :key="category.id"
-        :href="route('frontend.root', { category: category.name })"
+        :href="route('frontend.tech-products.index', { category: category.name })"
         class="tech-card block"
         :class="[cardClass(index), { 'tech-card--no-image': !category.image_url }]"
         :style="{

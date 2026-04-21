@@ -1,1 +1,0 @@
-import{_ as o}from"./SizeVolumeList.vue_vue_type_script_setup_true_lang-lRsjEJ8A.js";import"./Datatable-Co8XGjJ2.js";import"./app-CZclicRu.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

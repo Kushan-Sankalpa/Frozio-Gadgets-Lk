@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 const appleIcon = '/assets/images/apple.png';
 const shoeIcon = '/assets/images/running-shoes.png';
@@ -20,15 +20,19 @@ type NavTarget = {
 };
 
 const isOpen = ref(true);
+const activeTargetId = ref<string>('products-section');
+
+const headerOffset = 96;
+let rafHandle: number | null = null;
 
 const targets: NavTarget[] = [
     {
-        id: 'mobile-essentials-section',
-        label: 'Mobile Essentials',
+        id: 'products-section',
+        label: 'Our Collection',
         accentClass: 'from-sky-50 to-indigo-100 ring-1 ring-sky-200/60',
         iconAnimClass: 'icon-ring',
         iconSrc: appleIcon,
-        iconAlt: 'Mobile essentials icon',
+        iconAlt: 'Our collection icon',
         iconWrapClass: 'bg-sky-100/70',
     },
     {
@@ -51,13 +55,64 @@ const targets: NavTarget[] = [
     },
 ];
 
+function setActiveTarget(targetId: string) {
+    activeTargetId.value = targetId;
+}
+
+function isActiveTarget(targetId: string) {
+    return activeTargetId.value === targetId;
+}
+
+function computeActiveTargetId() {
+    const focusLine = headerOffset + 24;
+
+    let bestMatch: { id: string; top: number } | null = null;
+    let upcoming: { id: string; top: number } | null = null;
+
+    targets.forEach((target) => {
+        const element = document.getElementById(target.id);
+        if (!element) return;
+
+        const top = element.getBoundingClientRect().top;
+
+        if (top <= focusLine) {
+            if (!bestMatch || top > bestMatch.top) {
+                bestMatch = { id: target.id, top };
+            }
+            return;
+        }
+
+        if (!upcoming || top < upcoming.top) {
+            upcoming = { id: target.id, top };
+        }
+    });
+
+    return bestMatch?.id ?? upcoming?.id ?? targets[0]?.id ?? null;
+}
+
+function scheduleActiveSync() {
+    if (typeof window === 'undefined') return;
+    if (rafHandle !== null) return;
+
+    rafHandle = window.requestAnimationFrame(() => {
+        rafHandle = null;
+
+        const nextActive = computeActiveTargetId();
+        if (!nextActive) return;
+        if (nextActive === activeTargetId.value) return;
+
+        activeTargetId.value = nextActive;
+    });
+}
+
 function scrollToTarget(targetId: string) {
     if (typeof window === 'undefined') return;
 
     const element = document.getElementById(targetId);
     if (!element) return;
 
-    const headerOffset = 96;
+    setActiveTarget(targetId);
+
     const y = Math.max(
         0,
         element.getBoundingClientRect().top + window.scrollY - headerOffset,
@@ -69,6 +124,31 @@ function scrollToTarget(targetId: string) {
     url.hash = targetId;
     window.history.replaceState({}, '', url.toString());
 }
+
+onMounted(() => {
+    if (typeof window === 'undefined') return;
+
+    const hashTarget = window.location.hash.replace('#', '').trim();
+    if (hashTarget && targets.some((target) => target.id === hashTarget)) {
+        activeTargetId.value = hashTarget;
+    }
+
+    scheduleActiveSync();
+    window.addEventListener('scroll', scheduleActiveSync, { passive: true });
+    window.addEventListener('resize', scheduleActiveSync, { passive: true });
+});
+
+onBeforeUnmount(() => {
+    if (typeof window === 'undefined') return;
+
+    window.removeEventListener('scroll', scheduleActiveSync);
+    window.removeEventListener('resize', scheduleActiveSync);
+
+    if (rafHandle !== null) {
+        window.cancelAnimationFrame(rafHandle);
+        rafHandle = null;
+    }
+});
 </script>
 
 <template>
@@ -97,14 +177,14 @@ function scrollToTarget(targetId: string) {
                             v-for="target in targets"
                             :key="target.id"
                             type="button"
-                            class="group relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 sm:h-11 sm:w-11"
-                            :class="target.accentClass"
+                            class="quicknav-button group relative inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br shadow-sm transition hover:-translate-y-0.5 hover:shadow-md active:-translate-y-0.5 active:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 sm:h-11 sm:w-11"
+                            :class="[target.accentClass, isActiveTarget(target.id) ? 'is-active' : '']"
                             :aria-label="`Go to ${target.label}`"
                             :title="target.label"
                             @click="scrollToTarget(target.id)"
                         >
                             <span
-                                class="pointer-events-none absolute inset-0 rounded-xl bg-white/40 opacity-0 transition group-hover:opacity-100"
+                                class="pointer-events-none absolute inset-0 rounded-xl bg-white/40 opacity-0 transition group-hover:opacity-100 group-active:opacity-100"
                             />
 
                             <span
@@ -190,6 +270,27 @@ function scrollToTarget(targetId: string) {
 </template>
 
 <style scoped>
+.quicknav-button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.quicknav-button.is-active {
+    z-index: 1;
+    transform: translateX(-2px) scale(1.08);
+    box-shadow:
+        0 22px 60px rgba(15, 23, 42, 0.18),
+        0 0 0 2px rgba(239, 68, 68, 0.28);
+}
+
+.quicknav-button.is-active::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.75rem;
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.22);
+    pointer-events: none;
+}
+
 @keyframes ring {
     0%,
     82%,

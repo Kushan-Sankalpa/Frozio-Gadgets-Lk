@@ -172,13 +172,11 @@ const cosmeticSlides = [
         :search="search"
     />
 
-    <section id="products-section">
-        <Product
-            :products="products"
-            :categories="categories"
-            :activeCategory="activeCategory"
-        />
-    </section>
+    <Product
+        :products="products"
+        :categories="categories"
+        :activeCategory="activeCategory"
+    />
 
     <ShoeCategories :categories="shoeCategories" />
 

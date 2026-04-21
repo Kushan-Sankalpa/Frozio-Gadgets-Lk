@@ -90,23 +90,30 @@ Route::get('/shoe-products/{product}/reviews', [ShoeProductViewController::class
 Route::post('/shoe-products/{product}/reviews', [ShoeProductViewController::class, 'storeReview'])
     ->name('frontend.shoe-products.show.reviews.store');
 
-Route::get('/cosmetic-products', [WebCosmeticProductController::class, 'index'])
+Route::get('/cosmetics', [WebCosmeticProductController::class, 'index'])
     ->name('frontend.cosmetic-products.index');
 
-Route::get('/cosmetic-products/products', [WebCosmeticProductController::class, 'products'])
+Route::get('/cosmetics/products', [WebCosmeticProductController::class, 'products'])
     ->name('frontend.cosmetic-products.products');
 
-Route::get('/cosmetic-products/{product}', [CosmeticProductViewController::class, 'index'])
+Route::get('/cosmetics/{product}', [CosmeticProductViewController::class, 'index'])
     ->name('frontend.cosmetic-products.show');
 
-Route::get('/cosmetic-products/{product}/data', [CosmeticProductViewController::class, 'data'])
+Route::get('/cosmetics/{product}/data', [CosmeticProductViewController::class, 'data'])
     ->name('frontend.cosmetic-products.show.data');
 
-Route::get('/cosmetic-products/{product}/reviews', [CosmeticProductViewController::class, 'reviews'])
+Route::get('/cosmetics/{product}/reviews', [CosmeticProductViewController::class, 'reviews'])
     ->name('frontend.cosmetic-products.show.reviews');
 
-Route::post('/cosmetic-products/{product}/reviews', [CosmeticProductViewController::class, 'storeReview'])
+Route::post('/cosmetics/{product}/reviews', [CosmeticProductViewController::class, 'storeReview'])
     ->name('frontend.cosmetic-products.show.reviews.store');
+
+Route::permanentRedirect('/cosmetic-products', '/cosmetics');
+Route::permanentRedirect('/cosmetic-products/products', '/cosmetics/products');
+Route::permanentRedirect('/cosmetic-products/{product}', '/cosmetics/{product}');
+Route::permanentRedirect('/cosmetic-products/{product}/data', '/cosmetics/{product}/data');
+Route::permanentRedirect('/cosmetic-products/{product}/reviews', '/cosmetics/{product}/reviews');
+Route::post('/cosmetic-products/{product}/reviews', [CosmeticProductViewController::class, 'storeReview']);
 
 Route::get('/search/product-suggestions', [ProductSuggestionController::class, 'suggestions'])
     ->name('frontend.products.suggestions');

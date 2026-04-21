@@ -73,13 +73,13 @@ const flashMessage = ref('')
 
 const reviewsFetchUrl = computed(() => {
   const key = props.product?.slug || props.product?.id
-  return key ? `/cosmetic-products/${key}/reviews` : ''
+  return key ? `/cosmetics/${key}/reviews` : ''
 })
 
 const breadcrumbItems = computed(() => {
   return props.product?.breadcrumb || props.shell?.breadcrumb || [
     { label: 'Home', href: '/' },
-    { label: 'Cosmetic Products', href: '/cosmetic-products' },
+    { label: 'Cosmetic Products', href: '/cosmetics' },
     { label: props.shell?.name || 'Product', href: null },
   ]
 })

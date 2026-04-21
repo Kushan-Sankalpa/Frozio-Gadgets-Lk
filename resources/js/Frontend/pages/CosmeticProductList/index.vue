@@ -112,22 +112,6 @@ const currentFilters = computed(() => ({
   page: Number(props.filters?.page || 1),
 }))
 
-const heading = computed(() => {
-  if (currentFilters.value.cosmetic_brand && currentFilters.value.cosmetic_category) {
-    return `${currentFilters.value.cosmetic_brand} ${currentFilters.value.cosmetic_category}`
-  }
-
-  if (currentFilters.value.cosmetic_brand) {
-    return `${currentFilters.value.cosmetic_brand} Cosmetics`
-  }
-
-  if (currentFilters.value.cosmetic_category) {
-    return `${currentFilters.value.cosmetic_category} Cosmetics`
-  }
-
-  return 'All Cosmetic Products'
-})
-
 const breadcrumbItems = computed(() => {
   const items = [
     {
@@ -366,34 +350,41 @@ onBeforeUnmount(() => {
         </template>
       </nav>
 
-      <div class="mb-6 sm:mb-8">
-        <h1 class="text-3xl font-semibold tracking-[-0.03em] text-neutral-900 sm:text-4xl">{{ heading }}</h1>
-      </div>
-
       <CosmeticFeaturedProducts />
 
-      <div id="cosmetic-product-list-section" class="grid items-start grid-cols-1 gap-6 lg:gap-8 xl:grid-cols-12">
-        <aside class="xl:col-span-3 xl:self-start">
-          <CosmeticProductFilter
-            :filters="currentFilters"
-            :categories="props.categories"
-            :countries="props.countries"
-            :loading="loading"
-            @apply="applyFilters"
-            @reset="resetFilters"
-          />
-        </aside>
+      <div id="cosmetic-product-list-section" class="mt-10 sm:mt-12">
+        <div class="mb-6 sm:mb-8">
+          <h1 class="text-3xl font-semibold tracking-[-0.03em] text-neutral-900 sm:text-4xl">
+            All Cosmetic Products
+          </h1>
+          <p class="mt-1 text-sm text-neutral-500 sm:text-base">
+            Everything in Beauty, All in One Place
+          </p>
+        </div>
 
-        <div class="xl:col-span-9">
-          <CosmeticProductList
-            :products="products"
-            :loading="loading"
-            :loading-more="loadingMore"
-            :load-error="loadError"
-            :pagination="pagination"
-            @retry="fetchProducts"
-            @page-change="changePage"
-          />
+        <div class="grid items-start grid-cols-1 gap-6 lg:gap-8 xl:grid-cols-12">
+          <aside class="xl:col-span-3 xl:self-start">
+            <CosmeticProductFilter
+              :filters="currentFilters"
+              :categories="props.categories"
+              :countries="props.countries"
+              :loading="loading"
+              @apply="applyFilters"
+              @reset="resetFilters"
+            />
+          </aside>
+
+          <div class="xl:col-span-9">
+            <CosmeticProductList
+              :products="products"
+              :loading="loading"
+              :loading-more="loadingMore"
+              :load-error="loadError"
+              :pagination="pagination"
+              @retry="fetchProducts"
+              @page-change="changePage"
+            />
+          </div>
         </div>
       </div>
     </div>

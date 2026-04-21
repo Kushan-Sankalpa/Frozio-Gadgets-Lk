@@ -102,7 +102,7 @@ async function fetchProduct() {
     abortController?.abort()
     abortController = new AbortController()
 
-    const response = await fetch(`/cosmetic-products/${props.productKey}/data`, {
+    const response = await fetch(`/cosmetics/${props.productKey}/data`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',

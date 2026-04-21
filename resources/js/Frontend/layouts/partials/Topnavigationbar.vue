@@ -124,7 +124,7 @@ const currentPath = computed(() => {
 })
 
 const isShoeListingPage = computed(() => currentPath.value.startsWith('/shoe-products'))
-const isCosmeticListingPage = computed(() => currentPath.value.startsWith('/cosmetic-products'))
+const isCosmeticListingPage = computed(() => currentPath.value.startsWith('/cosmetics'))
 
 const currentCategory = computed(() => currentParams.value.get('category') || '')
 const currentBrand = computed(() => currentParams.value.get('brand') || '')

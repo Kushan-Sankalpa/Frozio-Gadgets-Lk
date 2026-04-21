@@ -338,11 +338,26 @@ function onHoverChange(event: Event) {
 function onGalleryChange(event: Event) {
   const input = event.target as HTMLInputElement
   const files = input.files ? Array.from(input.files) : []
+  if (!files.length) return
 
-  form.gallery_images = files
-  revokeGalleryObjectUrls()
-  galleryObjectUrls = files.map((file) => URL.createObjectURL(file))
+  const existingFiles = form.gallery_images || []
+  const existingKeys = new Set(
+    existingFiles.map((file) => `${file.name}__${file.size}__${file.lastModified}`),
+  )
+
+  const uniqueFiles = files.filter(
+    (file) => !existingKeys.has(`${file.name}__${file.size}__${file.lastModified}`),
+  )
+  if (!uniqueFiles.length) {
+    input.value = ''
+    return
+  }
+
+  form.gallery_images = [...existingFiles, ...uniqueFiles]
+  const newUrls = uniqueFiles.map((file) => URL.createObjectURL(file))
+  galleryObjectUrls = [...galleryObjectUrls, ...newUrls]
   newGalleryPreview.value = [...galleryObjectUrls]
+  input.value = ''
 }
 
 function removeExistingGalleryImage(index: number) {

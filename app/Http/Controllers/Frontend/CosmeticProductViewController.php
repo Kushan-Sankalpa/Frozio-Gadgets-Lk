@@ -30,7 +30,7 @@ class CosmeticProductViewController extends Controller
                 'name' => $cosmetic->name,
                 'breadcrumb' => [
                     ['label' => 'Home', 'href' => '/'],
-                    ['label' => 'Cosmetic Products', 'href' => '/cosmetic-products'],
+                    ['label' => 'Cosmetic Products', 'href' => '/cosmetics'],
                     ['label' => $cosmetic->name, 'href' => null],
                 ],
             ],
@@ -182,7 +182,7 @@ class CosmeticProductViewController extends Controller
                 ],
                 'breadcrumb' => [
                     ['label' => 'Home', 'href' => '/'],
-                    ['label' => 'Cosmetic Products', 'href' => '/cosmetic-products'],
+                    ['label' => 'Cosmetic Products', 'href' => '/cosmetics'],
                     ['label' => $cosmetic->name, 'href' => null],
                 ],
                 'main_image' => $mainImage,

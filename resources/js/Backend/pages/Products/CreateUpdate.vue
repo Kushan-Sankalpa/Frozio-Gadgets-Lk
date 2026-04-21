@@ -351,14 +351,30 @@ function onHoverImageChange(e: Event) {
   if (file) hoverPreview.value = URL.createObjectURL(file)
 }
 
+function galleryFileKey(file: File) {
+  return `${file.name}__${file.size}__${file.lastModified}`
+}
+
 function onGalleryChange(e: Event) {
   const input = e.target as HTMLInputElement
   const files = input.files ? Array.from(input.files) : []
-  form.gallery_images = files
+  if (!files.length) return
 
-  revokeGalleryObjectUrls()
-  galleryObjectUrls = files.map(f => URL.createObjectURL(f))
+  const existingFiles = form.gallery_images || []
+  const existingKeys = new Set(existingFiles.map(galleryFileKey))
+
+  const uniqueFiles = files.filter((file) => !existingKeys.has(galleryFileKey(file)))
+  if (!uniqueFiles.length) {
+    input.value = ''
+    return
+  }
+
+  form.gallery_images = [...existingFiles, ...uniqueFiles]
+
+  const newUrls = uniqueFiles.map((file) => URL.createObjectURL(file))
+  galleryObjectUrls = [...galleryObjectUrls, ...newUrls]
   galleryNewPreview.value = [...galleryObjectUrls]
+  input.value = ''
 }
 
 function removeExistingGalleryImage(index: number) {

@@ -964,7 +964,6 @@ onBeforeUnmount(() => {
   scroll-padding-left: 0;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
   padding-top: 10px;
   padding-bottom: 10px;
 }

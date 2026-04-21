@@ -97,6 +97,8 @@ let stepTimer: number | null = null
 let successTimer: number | null = null
 const MAX_REVIEW_IMAGES = 8
 const MAX_REVIEW_THUMBNAILS = 1
+const MAX_REVIEW_IMAGE_MB = 8
+const MAX_REVIEW_IMAGE_BYTES = MAX_REVIEW_IMAGE_MB * 1024 * 1024
 
 const cacheKey = computed(() => {
   if (!props.fetchUrl) return ''
@@ -601,8 +603,30 @@ function onReviewImagesChange(event: Event) {
   const selected = Array.from(input.files ?? [])
   if (!selected.length) return
 
+  submitError.value = null
+  clearSuccessMessage()
+
   const remaining = Math.max(0, MAX_REVIEW_IMAGES - reviewImageFiles.value.length)
-  const nextFiles = selected.slice(0, remaining)
+
+  if (!remaining) {
+    submitError.value = `You can upload up to ${MAX_REVIEW_IMAGES} images.`
+    input.value = ''
+    return
+  }
+
+  const validFiles = selected.filter((file) => file.size <= MAX_REVIEW_IMAGE_BYTES)
+  const rejectedCount = selected.length - validFiles.length
+
+  const nextFiles = validFiles.slice(0, remaining)
+
+  if (rejectedCount) {
+    submitError.value = `Some images were too large. Max ${MAX_REVIEW_IMAGE_MB}MB per image.`
+  }
+
+  if (!nextFiles.length) {
+    input.value = ''
+    return
+  }
 
   reviewImageFiles.value = [...reviewImageFiles.value, ...nextFiles]
   reviewImagePreviewUrls.value = [
@@ -665,9 +689,16 @@ async function submitAddReview() {
       body: formData,
     })
 
-    const payload = await res.json().catch(() => null)
+    const contentType = res.headers.get('content-type') || ''
+    const payload = contentType.includes('application/json') ? await res.json().catch(() => null) : null
 
     if (!res.ok) {
+      if (res.status === 413) {
+        submitError.value =
+          'Your images are too large to upload. Please choose smaller images or upload fewer images.'
+        return
+      }
+
       const errors = payload?.errors && typeof payload.errors === 'object' ? payload.errors : null
       const firstError = errors
         ? Object.values(errors).flatMap((value: any) => (Array.isArray(value) ? value : [value]))[0]
@@ -694,6 +725,10 @@ async function submitAddReview() {
     clearCacheForFetchUrl(fetchUrl)
 
     await loadInitial()
+  } catch (error) {
+    console.error('Review submit error:', error)
+    submitError.value =
+      'Unable to submit your review right now. If you attached images, try fewer/smaller images and try again.'
   } finally {
     submitting.value = false
   }
@@ -1285,6 +1320,10 @@ watch(
                       class="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-800"
                       @change="onReviewImagesChange"
                     >
+
+                    <p class="mt-2 text-xs text-slate-500">
+                      Up to {{ MAX_REVIEW_IMAGES }} images, {{ MAX_REVIEW_IMAGE_MB }}MB each (JPG, PNG, WebP).
+                    </p>
 
                     <div v-if="reviewImagePreviewUrls.length" class="mt-3 flex flex-wrap gap-3">
                       <div

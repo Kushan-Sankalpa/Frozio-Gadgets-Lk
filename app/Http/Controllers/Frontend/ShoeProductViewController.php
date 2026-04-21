@@ -238,7 +238,7 @@ class ShoeProductViewController extends Controller
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
             'long_description' => ['nullable', 'string', 'max:5000'],
             'images' => ['nullable', 'array', 'max:8'],
-            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
         ]);
 
         $invoiceNo = $validated['invoice_no'];

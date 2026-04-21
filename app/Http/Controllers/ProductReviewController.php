@@ -347,7 +347,7 @@ class ProductReviewController extends Controller
             'short_description' => ['nullable', 'string'],
             'long_description' => ['nullable', 'string'],
             'images' => ['nullable', 'array'],
-            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'images.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
         ]);
     }
 
@@ -384,4 +384,3 @@ class ProductReviewController extends Controller
         }
     }
 }
-

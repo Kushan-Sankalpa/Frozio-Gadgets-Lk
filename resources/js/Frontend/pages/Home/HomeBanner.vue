@@ -14,23 +14,18 @@ const props = defineProps<{
   banners: Banner[]
 }>()
 
-const MOBILE_MEDIA_QUERY = '(max-width: 767px)'
-
-const isMobile = ref(false)
 const active = ref(0)
 
-let mobileQueryList: MediaQueryList | null = null
 let autoplayTimer: number | null = null
 let resumeTimer: number | null = null
 
-const handleMobileQueryChange = (event: MediaQueryListEvent) => {
-  isMobile.value = event.matches
-}
-
 const slides = computed(() =>
-  (props.banners ?? []).filter(
-    (b) => !!b?.desktop_image_url || !!b?.mobile_image_url || !!b?.video_url
-  )
+  (props.banners ?? [])
+    .map((banner) => ({
+      ...banner,
+      image_url: banner.desktop_image_url || banner.mobile_image_url || null,
+    }))
+    .filter((banner) => !!banner.image_url || !!banner.video_url)
 )
 
 const hasSlides = computed(() => slides.value.length > 0)
@@ -65,7 +60,6 @@ function stopResumeTimer() {
 function startAutoplay() {
   stopAutoplay()
 
-  if (isMobile.value) return
   if (slides.value.length <= 1) return
 
   autoplayTimer = window.setInterval(() => {
@@ -74,8 +68,6 @@ function startAutoplay() {
 }
 
 function markInteraction() {
-  if (isMobile.value) return
-
   stopAutoplay()
   stopResumeTimer()
 
@@ -85,37 +77,16 @@ function markInteraction() {
 }
 
 onMounted(() => {
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    mobileQueryList = window.matchMedia(MOBILE_MEDIA_QUERY)
-    isMobile.value = mobileQueryList.matches
-
-    if (typeof mobileQueryList.addEventListener === 'function') {
-      mobileQueryList.addEventListener('change', handleMobileQueryChange)
-    } else if (typeof mobileQueryList.addListener === 'function') {
-      mobileQueryList.addListener(handleMobileQueryChange)
-    }
-  }
-
   startAutoplay()
 })
 
 onBeforeUnmount(() => {
   stopAutoplay()
   stopResumeTimer()
-
-  if (mobileQueryList) {
-    if (typeof mobileQueryList.removeEventListener === 'function') {
-      mobileQueryList.removeEventListener('change', handleMobileQueryChange)
-    } else if (typeof mobileQueryList.removeListener === 'function') {
-      mobileQueryList.removeListener(handleMobileQueryChange)
-    }
-
-    mobileQueryList = null
-  }
 })
 
 watch(
-  () => [slides.value.length, isMobile.value],
+  () => slides.value.length,
   () => {
     if (active.value >= slides.value.length) {
       active.value = 0
@@ -143,23 +114,17 @@ watch(
           :key="b.id"
           class="min-w-full shrink-0"
         >
-          <div class="relative h-[clamp(360px,115vw,520px)] w-full overflow-hidden md:h-[clamp(560px,60vw,620px)]">
-            <template v-if="b.desktop_image_url || b.mobile_image_url">
-              <picture class="block h-full w-full">
-                <source
-                  v-if="b.mobile_image_url"
-                  :srcset="b.mobile_image_url"
-                  media="(max-width: 767px)"
-                />
-                <img
-                  :src="b.desktop_image_url || b.mobile_image_url || ''"
-                  :alt="b.name || 'Home banner'"
-                  class="block h-full w-full object-cover object-center"
-                  loading="eager"
-                  decoding="async"
-                />
-              </picture>
-            </template>
+          <div
+            class="relative h-[clamp(360px,115vw,520px)] w-full overflow-hidden md:h-[clamp(560px,60vw,620px)]"
+          >
+            <img
+              v-if="b.image_url"
+              :src="b.image_url"
+              :alt="b.name || 'Home banner'"
+              class="block h-full w-full object-cover object-center"
+              loading="eager"
+              decoding="async"
+            />
 
             <video
               v-else-if="b.video_url"
@@ -182,7 +147,7 @@ watch(
                   v-if="b.name"
                   class="text-xl font-semibold text-white sm:text-2xl md:text-3xl"
                 >
-                  <!-- {{ b.name }} -->
+                  {{ b.name }}
                 </h2>
 
                 <p

@@ -12,6 +12,8 @@ defineOptions({
 type NavTarget = {
     id: string;
     label: string;
+    activationOffset?: number;
+    scrollOffset?: number;
     accentClass: string;
     iconAnimClass: string;
     iconSrc: string;
@@ -20,37 +22,39 @@ type NavTarget = {
 };
 
 const isOpen = ref(true);
-const activeTargetId = ref<string>('products-section');
+const activeTargetId = ref<string>('mobile-essentials-section');
 
 const headerOffset = 96;
 let rafHandle: number | null = null;
 
 const targets: NavTarget[] = [
     {
-        id: 'products-section',
-        label: 'Our Collection',
+        id: 'mobile-essentials-section',
+        label: 'Mobile Essentials',
         accentClass: 'from-sky-50 to-indigo-100 ring-1 ring-sky-200/60',
         iconAnimClass: 'icon-ring',
         iconSrc: appleIcon,
-        iconAlt: 'Our collection icon',
+        iconAlt: 'Mobile essentials icon',
         iconWrapClass: 'bg-sky-100/70',
     },
     {
-        id: 'shoe-featured-products-section',
-        label: 'Featured Shoes',
+        id: 'shoe-categories-section',
+        label: 'Shoe Collection',
         accentClass: 'from-emerald-50 to-lime-100 ring-1 ring-emerald-200/60',
         iconAnimClass: 'icon-hop',
         iconSrc: shoeIcon,
-        iconAlt: 'Featured shoes icon',
+        iconAlt: 'Shoe collection icon',
         iconWrapClass: 'bg-emerald-100/70',
     },
     {
         id: 'cosmetics-section',
-        label: 'Cosmetics',
+        label: 'Skincare',
+        activationOffset: 72,
+        scrollOffset: 72,
         accentClass: 'from-rose-50 to-pink-100 ring-1 ring-rose-200/60',
         iconAnimClass: 'icon-float',
         iconSrc: cosmeticsIcon,
-        iconAlt: 'Cosmetics icon',
+        iconAlt: 'Skincare icon',
         iconWrapClass: 'bg-rose-100/70',
     },
 ];
@@ -64,30 +68,31 @@ function isActiveTarget(targetId: string) {
 }
 
 function computeActiveTargetId() {
-    const focusLine = headerOffset + 24;
+    const focusLine = headerOffset;
 
     let bestMatch: { id: string; top: number } | null = null;
-    let upcoming: { id: string; top: number } | null = null;
 
     targets.forEach((target) => {
         const element = document.getElementById(target.id);
         if (!element) return;
 
         const top = element.getBoundingClientRect().top;
+        const activationLine = focusLine - (target.activationOffset ?? 0);
 
-        if (top <= focusLine) {
+        if (top <= activationLine) {
             if (!bestMatch || top > bestMatch.top) {
                 bestMatch = { id: target.id, top };
             }
-            return;
-        }
-
-        if (!upcoming || top < upcoming.top) {
-            upcoming = { id: target.id, top };
         }
     });
 
-    return bestMatch?.id ?? upcoming?.id ?? targets[0]?.id ?? null;
+    if (bestMatch) return bestMatch.id;
+
+    const firstExisting = targets.find((target) => {
+        return !!document.getElementById(target.id);
+    });
+
+    return firstExisting?.id ?? targets[0]?.id ?? null;
 }
 
 function scheduleActiveSync() {
@@ -108,14 +113,16 @@ function scheduleActiveSync() {
 function scrollToTarget(targetId: string) {
     if (typeof window === 'undefined') return;
 
+    const target = targets.find((target) => target.id === targetId);
     const element = document.getElementById(targetId);
     if (!element) return;
 
     setActiveTarget(targetId);
 
+    const extraOffset = target?.scrollOffset ?? 0;
     const y = Math.max(
         0,
-        element.getBoundingClientRect().top + window.scrollY - headerOffset,
+        element.getBoundingClientRect().top + window.scrollY - headerOffset + extraOffset,
     );
 
     window.scrollTo({ top: y, behavior: 'smooth' });

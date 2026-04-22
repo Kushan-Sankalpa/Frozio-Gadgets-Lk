@@ -178,7 +178,7 @@ const cosmeticSlides = [
         :activeCategory="activeCategory"
     />
 
-    <ShoeCategories :categories="shoeCategories" />
+    <ShoeCategories id="shoe-categories-section" :categories="shoeCategories" />
 
     <!--
   <ThreeDShoe
@@ -199,6 +199,7 @@ const cosmeticSlides = [
     />
 
     <CosmeticImageShowcase
+        id="cosmetics-section"
         :slides="cosmeticSlides"
         height="700px"
         :autoplay-ms="5000"

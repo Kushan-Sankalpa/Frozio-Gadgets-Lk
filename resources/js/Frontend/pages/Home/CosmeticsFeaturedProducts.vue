@@ -121,7 +121,7 @@ function updateUrl(brand?: string | null) {
     url.searchParams.delete('cosmetic_brand')
   }
 
-  url.hash = 'cosmetics-section'
+  url.hash = 'cosmetics-products-section'
   window.history.replaceState({}, '', url.toString())
 }
 
@@ -267,7 +267,7 @@ onMounted(async () => {
     sectionObserver.observe(sectionRef.value)
   }
 
-  if (window.location.hash === '#cosmetics-section') {
+  if (window.location.hash === '#cosmetics-products-section') {
     setTimeout(() => {
       scrollToSection()
     }, 260)
@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    id="cosmetics-section"
+    id="cosmetics-products-section"
     ref="sectionRef"
     class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-12 lg:px-8"
   >

@@ -1,0 +1,1 @@
+import{_ as o}from"./CosmeticFeaturedProducts.vue_vue_type_script_setup_true_lang-hhyDeKzz.js";import"./FeaturedProducts-B5vNBCag.js";import"./app-BE7nq0c7.js";import"./_plugin-vue_export-helper-DlAUqK2U.js";export{o as default};

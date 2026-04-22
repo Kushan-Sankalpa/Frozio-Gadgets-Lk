@@ -28,7 +28,7 @@ class WebTechProductController extends Controller
                 'featured' => $request->boolean('featured'),
                 'best_seller' => $request->boolean('best_seller'),
                 'top_rated' => $request->boolean('top_rated'),
-                'sort' => $request->query('sort', 'latest'),
+                'sort' => $request->query('sort', 'oldest'),
                 'min_price' => $request->query('min_price'),
                 'max_price' => $request->query('max_price'),
                 'page' => max(1, (int) $request->query('page', 1)),
@@ -42,7 +42,7 @@ class WebTechProductController extends Controller
         $activeBrand = $request->query('brand');
         $search = trim((string) $request->query('search', ''));
         $stock = trim((string) $request->query('stock', ''));
-        $sort = trim((string) $request->query('sort', 'latest'));
+        $sort = trim((string) $request->query('sort', 'oldest'));
         $saleOnly = $request->boolean('sale');
         $hotDealsOnly = $request->boolean('hot_deals');
         $featuredOnly = $request->boolean('featured');
@@ -141,23 +141,28 @@ class WebTechProductController extends Controller
 
         switch ($sort) {
             case 'price_low_high':
-                $query->orderByRaw("{$effectivePriceSql} asc");
+                $query->orderByRaw("{$effectivePriceSql} asc")->orderBy('id');
                 break;
 
             case 'price_high_low':
-                $query->orderByRaw("{$effectivePriceSql} desc");
+                $query->orderByRaw("{$effectivePriceSql} desc")->orderBy('id');
                 break;
 
             case 'name_az':
-                $query->orderBy('model');
+                $query->orderBy('model')->orderBy('id');
                 break;
 
             case 'name_za':
-                $query->orderByDesc('model');
+                $query->orderByDesc('model')->orderBy('id');
                 break;
 
-            default:
+            case 'latest':
                 $query->latest('id');
+                break;
+
+            case 'oldest':
+            default:
+                $query->oldest('id');
                 break;
         }
 
@@ -238,7 +243,7 @@ class WebTechProductController extends Controller
             ->where('status', 'active')
             ->whereIn('category_id', $categoryIds)
             ->whereNotIn('id', $productIds)
-            ->latest('id')
+            ->oldest('id')
             ->take(8)
             ->get();
 
@@ -256,7 +261,7 @@ class WebTechProductController extends Controller
                 ->withAvg('reviews', 'rating')
                 ->where('status', 'active')
                 ->whereNotIn('id', $excludeIds)
-                ->latest('id')
+                ->oldest('id')
                 ->take(8)
                 ->get();
         }

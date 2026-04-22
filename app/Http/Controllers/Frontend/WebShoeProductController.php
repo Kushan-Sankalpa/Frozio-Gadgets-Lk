@@ -22,7 +22,7 @@ class WebShoeProductController extends Controller
                 'shoe_subcategory' => $request->query('shoe_subcategory'),
                 'stock' => $request->query('stock'),
                 'sale' => $request->boolean('sale'),
-                'sort' => $request->query('sort', 'latest'),
+                'sort' => $request->query('sort', 'oldest'),
                 'min_price' => $request->query('min_price'),
                 'max_price' => $request->query('max_price'),
                 'page' => max(1, (int) $request->query('page', 1)),
@@ -36,7 +36,7 @@ class WebShoeProductController extends Controller
         $activeShoeSubcategory = $request->query('shoe_subcategory');
         $search = trim((string) $request->query('search', ''));
         $stock = trim((string) $request->query('stock', ''));
-        $sort = trim((string) $request->query('sort', 'latest'));
+        $sort = trim((string) $request->query('sort', 'oldest'));
         $saleOnly = $request->boolean('sale');
         $minPrice = $request->query('min_price');
         $maxPrice = $request->query('max_price');
@@ -120,23 +120,28 @@ class WebShoeProductController extends Controller
 
         switch ($sort) {
             case 'price_low_high':
-                $query->orderByRaw('COALESCE(NULLIF(sale_price, 0), regular_price) asc');
+                $query->orderByRaw('COALESCE(NULLIF(sale_price, 0), regular_price) asc')->orderBy('id');
                 break;
 
             case 'price_high_low':
-                $query->orderByRaw('COALESCE(NULLIF(sale_price, 0), regular_price) desc');
+                $query->orderByRaw('COALESCE(NULLIF(sale_price, 0), regular_price) desc')->orderBy('id');
                 break;
 
             case 'name_az':
-                $query->orderBy('name');
+                $query->orderBy('name')->orderBy('id');
                 break;
 
             case 'name_za':
-                $query->orderByDesc('name');
+                $query->orderByDesc('name')->orderBy('id');
                 break;
 
-            default:
+            case 'latest':
                 $query->latest('id');
+                break;
+
+            case 'oldest':
+            default:
+                $query->oldest('id');
                 break;
         }
 

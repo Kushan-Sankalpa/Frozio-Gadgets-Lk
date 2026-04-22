@@ -384,7 +384,7 @@ class TechProductViewController extends Controller
             ->where('status', 'active')
             ->where('category_id', $product->category_id)
             ->whereKeyNot($product->id)
-            ->latest('id')
+            ->oldest('id')
             ->take(4)
             ->get()
             ->map(fn (Product $item) => $this->mapProductCard($item))

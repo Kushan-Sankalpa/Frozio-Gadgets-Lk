@@ -106,7 +106,7 @@ const currentFilters = computed(() => ({
   cosmetic_country: props.filters?.cosmetic_country || '',
   stock: props.filters?.stock || '',
   sale: !!props.filters?.sale,
-  sort: props.filters?.sort || 'latest',
+  sort: props.filters?.sort || 'oldest',
   min_price: props.filters?.min_price ?? '',
   max_price: props.filters?.max_price ?? '',
   page: Number(props.filters?.page || 1),

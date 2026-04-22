@@ -227,7 +227,7 @@ class HomeController extends Controller
                         ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
                 });
             })
-            ->latest('id')
+            ->oldest('id')
             ->take(8)
             ->get()
             ->map(function (ShoeProduct $product) use ($today) {
@@ -335,7 +335,7 @@ class HomeController extends Controller
                         ->orWhereRaw('LOWER(sku) like ?', ["%{$normalizedSearch}%"]);
                 });
             })
-            ->latest('id')
+            ->oldest('id')
             ->take(8)
             ->get();
 
@@ -485,7 +485,7 @@ class HomeController extends Controller
         });
 
     $baseProducts = $query
-        ->latest('id')
+        ->oldest('id')
         ->take(5)
         ->get();
 
@@ -608,7 +608,7 @@ class HomeController extends Controller
                         });
                 });
             })
-            ->latest('id')
+            ->oldest('id')
             ->take(8)
             ->get()
             ->map(function (CosmeticProduct $product) {
@@ -725,7 +725,7 @@ class HomeController extends Controller
                         });
                 });
             })
-            ->latest('id')
+            ->oldest('id')
             ->take(8)
             ->get()
             ->map(function (CosmeticProduct $product) {

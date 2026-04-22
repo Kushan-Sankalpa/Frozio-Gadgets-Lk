@@ -53,7 +53,7 @@ const localFilters = ref<Filters>({
   cosmetic_country: '',
   stock: '',
   sale: false,
-  sort: 'latest',
+  sort: 'oldest',
   min_price: '',
   max_price: '',
   page: 1,
@@ -89,7 +89,7 @@ function queueApply() {
       cosmetic_country: localFilters.value.cosmetic_country || '',
       stock: localFilters.value.stock || '',
       sale: !!localFilters.value.sale,
-      sort: localFilters.value.sort || 'latest',
+      sort: localFilters.value.sort || 'oldest',
       min_price: localFilters.value.min_price ?? '',
       max_price: localFilters.value.max_price ?? '',
       page: 1,
@@ -109,7 +109,7 @@ watch(
       cosmetic_country: value?.cosmetic_country || '',
       stock: value?.stock || '',
       sale: !!value?.sale,
-      sort: value?.sort || 'latest',
+      sort: value?.sort || 'oldest',
       min_price: value?.min_price ?? '',
       max_price: value?.max_price ?? '',
       page: Number(value?.page || 1),
@@ -185,7 +185,7 @@ function resetFilters() {
     cosmetic_country: '',
     stock: '',
     sale: false,
-    sort: 'latest',
+    sort: 'oldest',
     min_price: '',
     max_price: '',
     page: 1,
@@ -413,7 +413,8 @@ onBeforeUnmount(() => {
                     v-model="localFilters.sort"
                     class="w-full appearance-none rounded-2xl border border-neutral-200 bg-neutral-50/70 px-4 py-3 pr-11 text-sm font-medium text-neutral-900 outline-none transition focus:border-neutral-900 focus:bg-white"
                   >
-                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="latest">Newest</option>
                     <option value="price_low_high">Price: Low to High</option>
                     <option value="price_high_low">Price: High to Low</option>
                     <option value="name_az">Name: A to Z</option>
@@ -545,4 +546,3 @@ onBeforeUnmount(() => {
   transform: translateY(-6px);
 }
 </style>
-

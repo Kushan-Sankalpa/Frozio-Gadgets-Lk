@@ -418,7 +418,7 @@ class ShoeProductViewController extends Controller
             ->where('status', 'published')
             ->where('category_id', $shoe->category_id)
             ->whereKeyNot($shoe->id)
-            ->latest('id')
+            ->oldest('id')
             ->take(4)
             ->get()
             ->map(fn (ShoeProduct $item) => $this->mapRelatedProductCard($item))

@@ -26,7 +26,7 @@ class WebCosmeticProductController extends Controller
                 'cosmetic_country' => $request->query('cosmetic_country'),
                 'stock' => $request->query('stock'),
                 'sale' => $request->boolean('sale'),
-                'sort' => $request->query('sort', 'latest'),
+                'sort' => $request->query('sort', 'oldest'),
                 'min_price' => $request->query('min_price'),
                 'max_price' => $request->query('max_price'),
                 'page' => max(1, (int) $request->query('page', 1)),
@@ -41,7 +41,7 @@ class WebCosmeticProductController extends Controller
         $activeCountry = $request->query('cosmetic_country');
         $search = trim((string) $request->query('search', ''));
         $stock = trim((string) $request->query('stock', ''));
-        $sort = trim((string) $request->query('sort', 'latest'));
+        $sort = trim((string) $request->query('sort', 'oldest'));
         $saleOnly = $request->boolean('sale');
         $minPrice = $request->query('min_price');
         $maxPrice = $request->query('max_price');
@@ -131,15 +131,17 @@ class WebCosmeticProductController extends Controller
             });
 
         if ($sort === 'price_low_high') {
-            $query->orderByRaw("{$effectivePriceSql} asc")->orderByDesc('id');
+            $query->orderByRaw("{$effectivePriceSql} asc")->orderBy('id');
         } elseif ($sort === 'price_high_low') {
-            $query->orderByRaw("{$effectivePriceSql} desc")->orderByDesc('id');
+            $query->orderByRaw("{$effectivePriceSql} desc")->orderBy('id');
         } elseif ($sort === 'name_az') {
-            $query->orderBy('name')->orderByDesc('id');
+            $query->orderBy('name')->orderBy('id');
         } elseif ($sort === 'name_za') {
-            $query->orderByDesc('name')->orderByDesc('id');
-        } else {
+            $query->orderByDesc('name')->orderBy('id');
+        } elseif ($sort === 'latest') {
             $query->latest('id');
+        } else {
+            $query->oldest('id');
         }
 
         $paginator = $query->paginate(12)->withQueryString();
@@ -334,4 +336,3 @@ class WebCosmeticProductController extends Controller
         return mb_strtolower(trim((string) $value));
     }
 }
-

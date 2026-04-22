@@ -105,7 +105,7 @@ const currentFilters = computed(() => ({
   featured: !!props.filters?.featured,
   best_seller: !!props.filters?.best_seller,
   top_rated: !!props.filters?.top_rated,
-  sort: props.filters?.sort || 'latest',
+  sort: props.filters?.sort || 'oldest',
   min_price: props.filters?.min_price ?? '',
   max_price: props.filters?.max_price ?? '',
   page: Number(props.filters?.page || 1),
